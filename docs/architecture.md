@@ -158,6 +158,15 @@ make status NAME=monitoring       # check status
 make burn NAME=client-xyz         # asks for confirmation
 ```
 
+## Logging
+
+The stack uses two log collection strategies by design:
+
+- **Promtail** uses Docker service discovery to collect all container logs automatically. No per-service config needed.
+- **CrowdSec** reads Traefik access logs from a shared volume (`traefik_logs`). It needs structured file-based logs for its parser engine — Docker-SD is not an option here.
+
+Both strategies coexist. When adding new services, container logs are picked up by Promtail automatically. CrowdSec only watches Traefik.
+
 ## Monitoring profiles
 
 | Profile | Containers | RAM | Use case |
