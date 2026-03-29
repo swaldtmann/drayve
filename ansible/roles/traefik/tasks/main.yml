@@ -1,7 +1,9 @@
 ---
-- name: Resolve acme_email from stack.yaml
+- name: Resolve stack.yaml values for traefik
   ansible.builtin.set_fact:
     acme_email: "{{ stack.acme_email | default(acme_email) | default('') }}"
+    auth_provider: "{{ auth.provider | default(auth_provider) | default('basic') }}"
+    crowdsec_enabled: "{{ security.crowdsec | default(crowdsec_enabled) | default(true) | bool }}"
   tags: [traefik]
 
 - name: Create Traefik directories

@@ -2,6 +2,12 @@
 # Auth dispatcher — includes the right sub-role based on auth_provider.
 # Other roles check auth_provider to decide their middleware, not "is authelia running?".
 
+- name: Resolve auth_provider from stack.yaml
+  ansible.builtin.set_fact:
+    auth_provider: "{{ auth.provider | default(auth_provider) | default('basic') }}"
+    auth_lldap: "{{ auth.lldap | default(auth_lldap) | default(false) | bool }}"
+  tags: [auth]
+
 - name: Auth provider none — no auth containers
   ansible.builtin.debug:
     msg: "Auth provider: none — skipping auth setup"

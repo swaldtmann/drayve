@@ -1,10 +1,17 @@
 ---
 # Backup role — Restic-based backup for Drayve volumes.
 
+- name: Resolve backup settings from stack.yaml
+  ansible.builtin.set_fact:
+    backup_enabled: "{{ backup.enabled | default(backup_enabled) | default(false) | bool }}"
+    backup_target: "{{ backup.target | default(backup_target) | default('local') }}"
+    backup_schedule: "{{ backup.schedule | default(backup_schedule) | default('0 3 * * *') }}"
+  tags: [backup]
+
 - name: Skip backup (disabled)
   ansible.builtin.debug:
     msg: "Backup disabled — set backup.enabled: true in stack.yaml"
-  when: not (backup_enabled | default(false) | bool)
+  when: not (backup_enabled | bool)
   tags: [backup]
 
 - name: Install restic
@@ -12,7 +19,7 @@
     name: restic
     state: present
     cache_valid_time: 3600
-  when: backup_enabled | default(false) | bool
+  when: backup_enabled | bool
   tags: [backup]
 
 - name: Create local backup directory
@@ -23,7 +30,7 @@
     group: root
     mode: "0700"
   when:
-    - backup_enabled | default(false) | bool
+    - backup_enabled | bool
     - backup_target == "local"
   tags: [backup]
 
@@ -36,7 +43,7 @@
   changed_when: "'created restic repository' in restic_init.stdout"
   failed_when: restic_init.rc != 0 and 'already initialized' not in restic_init.stderr
   when:
-    - backup_enabled | default(false) | bool
+    - backup_enabled | bool
     - backup_target == "local"
   tags: [backup]
 
@@ -80,7 +87,7 @@
     group: root
     mode: "0700"
   no_log: true
-  when: backup_enabled | default(false) | bool
+  when: backup_enabled | bool
   tags: [backup]
 
 - name: Deploy backup cron job
@@ -93,5 +100,5 @@
     weekday: "{{ backup_schedule.split(' ')[4] }}"
     job: "{{ drayve_deploy_dir }}/backup.sh >> /var/log/drayve-backup.log 2>&1"
     user: root
-  when: backup_enabled | default(false) | bool
+  when: backup_enabled | bool
   tags: [backup]
