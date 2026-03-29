@@ -62,7 +62,8 @@ drayve/                          <-- git clone
 |   |-- webshop/
 |   |   |-- stack.yaml           Config for this host
 |   |   |-- secrets.yml          Secrets for this host
-|   |   +-- compose.override.yml Your services (optional)
+|   |   |-- compose.override.yml Your services (optional)
+|   |   +-- env.override         Secrets for your services (optional)
 |   +-- monitoring/
 |       |-- stack.yaml
 |       +-- secrets.yml
@@ -77,8 +78,7 @@ drayve/                          <-- git clone
 |   +-- validate-stack.py
 |-- examples/
 |   |-- stack-minimal.yaml
-|   |-- stack-full.yaml
-|   +-- apps/
+|   +-- stack-full.yaml
 |-- docs/
 |-- Makefile
 +-- README.md
@@ -90,7 +90,8 @@ drayve/                          <-- git clone
 /opt/drayve/
 |-- deploy/stack/               Docker Compose stack
 |   |-- docker-compose.yml
-|   |-- .env
+|   |-- docker-compose.override.yml  (if compose.override.yml exists)
+|   |-- .env                    (includes env.override contents)
 |   |-- traefik/
 |   |   |-- config/
 |   |   |   |-- traefik.yml

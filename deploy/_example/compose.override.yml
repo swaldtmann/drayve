@@ -6,6 +6,13 @@
 # Your services get automatic TLS via Traefik — just add the labels.
 # The Drayve network is called "drayve_default".
 #
+# Secrets: Put env vars (passwords, API keys) in deploy/<name>/env.override.
+# That file is appended to .env on the server during deploy. See env.override
+# in this directory for the format.
+#
+# Landing page: Add your apps to stack.yaml under `apps:` to show them
+# on the landing page. See examples/stack-full.yaml.
+#
 # After editing, deploy with: make deploy NAME=<name>
 #
 # This example adds Nextcloud with MariaDB and Redis.

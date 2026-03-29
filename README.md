@@ -74,8 +74,9 @@ make init NAME= DOMAIN= [HOST=]   Scaffold new host in deploy/
 make provision NAME=               Provision + deploy server
 make deploy NAME=                  Re-deploy after config changes
 make deploy-prod NAME= REF=       Deploy tagged release to prod
-make burn NAME= [CONFIRM=y]        Tear down server + clean local files
+make burn NAME= [CONFIRM=y]        Tear down server + clean local files (backs up first)
 make status NAME=                  Show server status
+make logs NAME= [SVC=]             Tail container logs (optionally filter by service)
 make list                          List all configured hosts
 make validate NAME=                Validate stack.yaml for a host
 make lint                          Lint playbooks + roles
@@ -98,16 +99,39 @@ Put a `compose.override.yml` in your host's deploy directory:
 ```bash
 cp deploy/_example/compose.override.yml deploy/myserver/compose.override.yml
 # Edit to add your services (Nextcloud example included)
+```
+
+For service secrets (passwords, API keys), create an `env.override`:
+
+```bash
+cp deploy/_example/env.override deploy/myserver/env.override
+# Add your secrets (NC_DB_PASSWORD=..., etc.)
+```
+
+To show your apps on the landing page, add them to `stack.yaml`:
+
+```yaml
+apps:
+  - name: Nextcloud
+    url: https://cloud.example.com
+    icon: "&#x2601;"
+    description: Files, calendar, contacts
+```
+
+Then deploy:
+
+```bash
 make deploy NAME=myserver
 ```
 
-Docker Compose merges it with the platform stack automatically. Your services get TLS via Traefik — just add the labels.
+Docker Compose merges the override with the platform stack automatically. Your services get TLS via Traefik — just add the labels.
 
 ## Examples
 
 - `examples/stack-minimal.yaml` — Basic auth, light monitoring, quickstart secrets
 - `examples/stack-full.yaml` — Authelia + LLDAP, full monitoring, SOPS secrets
 - `deploy/_example/compose.override.yml` — Nextcloud with MariaDB + Redis
+- `deploy/_example/env.override` — Secret template for user services
 
 ## Requirements
 

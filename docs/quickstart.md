@@ -121,6 +121,8 @@ Each host can have completely different configs — different auth providers, mo
 make list                      # show all configured hosts
 make deploy NAME=webshop       # re-deploy after config changes
 make status NAME=monitoring    # check server status
+make logs NAME=webshop         # tail container logs
+make logs NAME=webshop SVC=traefik  # tail one service
 make burn NAME=client-xyz      # asks for confirmation first
 ```
 
@@ -133,10 +135,47 @@ Put a `compose.override.yml` in your host directory:
 ```bash
 cp deploy/_example/compose.override.yml deploy/webshop/compose.override.yml
 vim deploy/webshop/compose.override.yml
-make deploy NAME=webshop
 ```
 
 Docker Compose merges it with the main stack automatically. Your services get TLS via Traefik — just add the labels. See the example for a complete Nextcloud setup.
+
+### Secrets for your services
+
+If your services need passwords or API keys, create an `env.override` file:
+
+```bash
+cp deploy/_example/env.override deploy/webshop/env.override
+vim deploy/webshop/env.override
+```
+
+```
+NC_DOMAIN=cloud.shop.example.com
+NC_ADMIN_USER=admin
+NC_ADMIN_PASSWORD=change-me-now
+NC_DB_PASSWORD=change-me-now
+NC_DB_ROOT_PASSWORD=change-me-now
+NC_REDIS_PASSWORD=change-me-now
+```
+
+This file is appended to `.env` on the server during deploy. Your `compose.override.yml` can reference these variables with `${NC_DB_PASSWORD}` etc.
+
+### Show apps on the landing page
+
+Add your services to `stack.yaml`:
+
+```yaml
+apps:
+  - name: Nextcloud
+    url: https://cloud.shop.example.com
+    icon: "&#x2601;"
+    description: Files, calendar, contacts
+```
+
+Then deploy:
+
+```bash
+make deploy NAME=webshop
+```
 
 ## Re-deploy after changes
 
@@ -152,7 +191,7 @@ make burn NAME=webshop              # asks: "BURN webshop — delete server + lo
 make burn NAME=webshop CONFIRM=y    # skip prompt (for scripts)
 ```
 
-For Hetzner: deletes the server + cleans local files. For manual provider: cleans local files only (server untouched).
+For Hetzner: backs up `acme.json` from the server to `/tmp/<name>-acme.json`, deletes the server + DNS records, then backs up local user files (`compose.override.yml`, `env.override`, `stack.yaml`) to `/tmp/drayve-burn-<name>/` before cleaning `deploy/<name>/`. For manual provider: cleans local files only (server untouched).
 
 ## What's included
 

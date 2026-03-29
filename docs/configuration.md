@@ -30,6 +30,8 @@ Everything else has sensible defaults. This gives you: basic auth, full monitori
 | `type` | string | `hetzner` | `hetzner` — auto-provision via hcloud CLI. `manual` — use an existing server |
 | `server_type` | string | `cx22` | Hetzner server type (hetzner only) |
 | `location` | string | `fsn1` | Hetzner datacenter (hetzner only) |
+| `hcloud_ssh_key` | string | — | Name of the SSH key in hcloud. **Required** for `type: hetzner` — provision fails without it |
+| `hcloud_dns_context` | string | — | hcloud CLI context for DNS API. Used by `make burn` for DNS cleanup. If empty, DNS records must be removed manually |
 
 ### `auth`
 
@@ -44,6 +46,7 @@ Everything else has sensible defaults. This gives you: basic auth, full monitori
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `profile` | string | `full` | `full` (~800MB) — Grafana, Prometheus, Loki, Promtail, cAdvisor, node_exporter. `light` (~50MB) — node_exporter + Promtail only. `none` — no monitoring |
+| `loki_url` | string | `http://loki:3100/...` | Loki push URL for Promtail. **Required** for `light` profile (no local Loki). Defaults to local Loki for `full` profile |
 | `grafana` | bool | — | Override Grafana on/off regardless of profile |
 | `prometheus` | bool | — | Override Prometheus on/off |
 | `loki` | bool | — | Override Loki on/off |
@@ -69,6 +72,25 @@ Everything else has sensible defaults. This gives you: basic auth, full monitori
 | `enabled` | bool | `true` | Enable backup |
 | `schedule` | string | `0 3 * * *` | Cron expression |
 | `target` | string | `local` | `local`, `storagebox`, `s3`, `ssh` |
+
+### `apps` (optional)
+
+A list of user apps shown on the landing page. Each entry:
+
+| Key | Type | Required | Description |
+|-----|------|----------|-------------|
+| `name` | string | yes | Display name |
+| `url` | string | yes | Full URL (e.g. `https://cloud.example.com`) |
+| `icon` | string | no | HTML entity for the icon (default: `&#x1F4E6;`) |
+| `description` | string | no | Short description shown below the name |
+
+```yaml
+apps:
+  - name: Nextcloud
+    url: https://cloud.example.com
+    icon: "&#x2601;"
+    description: Files, calendar, contacts
+```
 
 ## Ansible defaults
 
