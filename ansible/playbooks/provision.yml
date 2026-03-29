@@ -22,7 +22,7 @@
     _provider: "{{ provider_type | default('hetzner') }}"
     _server_type: "{{ server_type | default('cx23') }}"
     _server_location: "{{ server_location | default('nbg1') }}"
-    ssh_key_name: "{{ hcloud_ssh_key | default('') }}"
+    ssh_key_name: "{{ provider.hcloud_ssh_key | default(hcloud_ssh_key) | default('') }}"
 
   tasks:
     - name: Verify required variables
@@ -34,6 +34,13 @@
       ansible.builtin.debug:
         msg: "Provider: manual — expecting existing server at {{ ansible_host | default(drayve_name) }}"
       when: _provider == "manual"
+
+    - name: Guard — hcloud_ssh_key must be set for Hetzner
+      ansible.builtin.fail:
+        msg: >-
+          hcloud_ssh_key is empty — cannot create a Hetzner server without an SSH key.
+          Add 'hcloud_ssh_key: <key-name>' to your stack.yaml under provider.
+      when: _provider == "hetzner" and ssh_key_name == ""
 
     - name: Create Hetzner server
       when: _provider == "hetzner"

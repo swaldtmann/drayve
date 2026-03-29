@@ -17,6 +17,7 @@ ENUMS = {
 }
 
 NAME_PATTERN = re.compile(r"^[a-z][a-z0-9-]*$")
+PLACEHOLDER_EMAILS = {"you@example.com", "admin@example.com", ""}
 
 
 def get_nested(data, path):
@@ -31,6 +32,7 @@ def get_nested(data, path):
 
 def validate(config):
     errors = []
+    warnings = []
 
     # Required: drayve_version
     if "drayve_version" not in config:
@@ -64,6 +66,14 @@ def validate(config):
         if val is not None and str(val) not in allowed:
             errors.append(f"Invalid {path}: '{val}' (allowed: {allowed})")
 
+    # acme_email: warn if missing or placeholder
+    acme_email = get_nested(config, "stack.acme_email") or ""
+    if str(acme_email).strip() in PLACEHOLDER_EMAILS:
+        warnings.append(
+            "stack.acme_email is empty or a placeholder — "
+            "Let's Encrypt will reject certificate requests without a valid email"
+        )
+
     # lldap only with authelia
     auth = config.get("auth", {})
     if auth.get("lldap") and auth.get("provider", "basic") != "authelia":
@@ -71,7 +81,7 @@ def validate(config):
             "auth.lldap=true requires auth.provider=authelia"
         )
 
-    return errors
+    return errors, warnings
 
 
 def main():
@@ -94,12 +104,15 @@ def main():
         print(f"Error: {path} is empty", file=sys.stderr)
         sys.exit(1)
 
-    errors = validate(config)
+    errors, warnings = validate(config)
     if errors:
         print(f"Validation failed for {path}:")
         for err in errors:
             print(f"  - {err}")
         sys.exit(1)
+
+    for warn in warnings:
+        print(f"  WARNING: {warn}")
 
     print(f"OK: {path} is valid (drayve_version={config['drayve_version']})")
 

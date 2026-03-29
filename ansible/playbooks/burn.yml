@@ -14,6 +14,7 @@
 
   vars:
     _provider: "{{ provider_type | default('hetzner') }}"
+    _hcloud_dns_context: "{{ provider.hcloud_dns_context | default(hcloud_dns_context) | default('') }}"
 
   tasks:
     - name: Verify required variables
@@ -41,8 +42,16 @@
             msg: "Server {{ drayve_name }} not found in hcloud — skipping"
           when: server_check.rc != 0
 
+    - name: Skip DNS cleanup (no hcloud_dns_context configured)
+      ansible.builtin.debug:
+        msg: "No provider.hcloud_dns_context set — skipping DNS cleanup. Remove DNS records manually."
+      when: _provider == "hetzner" and _hcloud_dns_context | length == 0
+
     - name: Clean up Hetzner DNS records
-      when: _provider == "hetzner" and (drayve_domain | default('')) | length > 0
+      when:
+        - _provider == "hetzner"
+        - (drayve_domain | default('')) | length > 0
+        - _hcloud_dns_context | length > 0
       block:
         - name: Extract base domain for zone lookup
           ansible.builtin.set_fact:
@@ -56,7 +65,7 @@
           changed_when: false
           failed_when: false
           environment:
-            HCLOUD_CONTEXT: dns-migrated
+            HCLOUD_CONTEXT: "{{ _hcloud_dns_context }}"
 
         - name: Extract zone ID
           ansible.builtin.set_fact:
@@ -73,7 +82,7 @@
           changed_when: true
           failed_when: false
           environment:
-            HCLOUD_CONTEXT: dns-migrated
+            HCLOUD_CONTEXT: "{{ _hcloud_dns_context }}"
 
         - name: Remove wildcard A record
           ansible.builtin.command:
@@ -84,7 +93,7 @@
           changed_when: true
           failed_when: false
           environment:
-            HCLOUD_CONTEXT: dns-migrated
+            HCLOUD_CONTEXT: "{{ _hcloud_dns_context }}"
 
     - name: Skip server deletion (manual provider)
       ansible.builtin.debug:

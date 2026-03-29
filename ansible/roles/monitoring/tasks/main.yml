@@ -125,6 +125,24 @@
   tags: [monitoring]
 
 # === Promtail config ===
+- name: Resolve Promtail Loki URL
+  ansible.builtin.set_fact:
+    _promtail_loki_url: "{{ monitoring.loki_url | default(monitoring_loki_url) | default('http://loki:3100/loki/api/v1/push') }}"
+  when: _mon_promtail
+  tags: [monitoring]
+
+- name: Warn — Promtail without local Loki and no loki_url configured
+  ansible.builtin.debug:
+    msg: >-
+      WARNING: Promtail is enabled but no local Loki is running (profile={{ _monitoring_profile }})
+      and no monitoring.loki_url is set. Promtail will try http://loki:3100 which will fail.
+      Set monitoring.loki_url in stack.yaml to point to a remote Loki instance.
+  when:
+    - _mon_promtail
+    - not (_mon_loki | bool)
+    - _promtail_loki_url == "http://loki:3100/loki/api/v1/push"
+  tags: [monitoring]
+
 - name: Create Promtail directory
   ansible.builtin.file:
     path: "{{ drayve_deploy_dir }}/monitoring/promtail"
@@ -145,7 +163,7 @@
       positions:
         filename: /tmp/positions.yaml
       clients:
-        - url: http://loki:3100/loki/api/v1/push
+        - url: {{ _promtail_loki_url }}
       scrape_configs:
         - job_name: docker
           docker_sd_configs:

@@ -12,6 +12,8 @@ provider:
   type: hetzner
   server_type: cx32
   location: fsn1
+  hcloud_ssh_key: my-ssh-key
+  # hcloud_dns_context: my-dns-context  # hcloud CLI context for DNS API (burn cleanup)
 
 auth:
   provider: authelia
@@ -20,6 +22,7 @@ auth:
 
 monitoring:
   profile: full
+  # loki_url: https://loki.example.com/loki/api/v1/push  # required for light profile
 
 security:
   crowdsec: true

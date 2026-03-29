@@ -168,6 +168,26 @@
   no_log: true
   tags: [deploy]
 
+- name: Check for env.override
+  ansible.builtin.stat:
+    path: "{{ ops_repo_root }}/deploy/{{ inventory_hostname }}/env.override"
+  register: env_override
+  delegate_to: localhost
+  become: false
+  tags: [deploy]
+
+- name: Append env.override to .env
+  ansible.builtin.blockinfile:
+    path: "{{ drayve_deploy_dir }}/.env"
+    marker: "# {mark} USER APP SECRETS (from env.override)"
+    block: "{{ lookup('file', ops_repo_root + '/deploy/' + inventory_hostname + '/env.override') }}"
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0600"
+  no_log: true
+  when: env_override.stat.exists
+  tags: [deploy]
+
 - name: Deploy Traefik static config
   ansible.builtin.template:
     src: "{{ ops_repo_root }}/config/traefik/traefik.yml.j2"
