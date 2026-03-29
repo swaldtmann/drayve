@@ -33,7 +33,8 @@ ssh_root_login: "prohibit-password"
 drayve_domain: ""
 
 # === ACME / Let's Encrypt ===
-acme_email: "sw@authbox.de"
+# Set in stack.yaml: stack.acme_email
+acme_email: ""
 
 # === Auth ===
 auth_provider: basic

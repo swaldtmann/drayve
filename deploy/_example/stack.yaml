@@ -1,4 +1,4 @@
-# Example Drayve stack config.
+# Drayve stack config.
 # Copy this to deploy/<name>/stack.yaml and adjust.
 #
 # Full reference: docs/configuration.md
@@ -8,21 +8,26 @@ drayve_version: "0.1.0"
 stack:
   name: myserver
   domain: example.com
+  acme_email: you@example.com       # Let's Encrypt notifications
 
 provider:
-  type: manual            # manual (existing server) | hetzner (auto-provision)
+  type: manual                      # manual (existing server) | hetzner (auto-provision)
 
 auth:
-  provider: basic         # none | basic | authelia
+  provider: authelia                # none | basic | authelia
+  lldap: true                       # user directory (only with authelia)
+  # lldap_base_dn: "DC=myorg,DC=local"  # optional, default: DC=drayve,DC=local
 
 monitoring:
-  profile: full           # full (~800MB) | light (~50MB) | none
+  profile: full                     # full (~800MB) | light (~50MB) | none
 
 security:
-  crowdsec: true
+  crowdsec: true                    # intrusion detection + Traefik bouncer
 
 secrets:
-  mode: quickstart        # quickstart (auto-generate) | sops (versioned)
+  mode: quickstart                  # quickstart (auto-generate) | sops (versioned)
 
 backup:
-  enabled: false
+  enabled: true
+  schedule: "0 3 * * *"            # daily at 03:00
+  target: local                     # local | storagebox | s3 | ssh

@@ -22,7 +22,7 @@
     _provider: "{{ provider_type | default('hetzner') }}"
     _server_type: "{{ server_type | default('cx23') }}"
     _server_location: "{{ server_location | default('nbg1') }}"
-    ssh_key_name: "{{ hcloud_ssh_key | default('stephan@waldtmann.de') }}"
+    ssh_key_name: "{{ hcloud_ssh_key | default('') }}"
 
   tasks:
     - name: Verify required variables

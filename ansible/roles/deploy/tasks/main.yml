@@ -24,10 +24,21 @@
   when: monitoring_services is not defined
   tags: [deploy]
 
-# Resolve crowdsec_enabled from nested stack.yaml (security.crowdsec) or flat var
+# Resolve nested stack.yaml values to flat vars
 - name: Resolve crowdsec_enabled from stack.yaml
   ansible.builtin.set_fact:
     crowdsec_enabled: "{{ security.crowdsec | default(crowdsec_enabled) | default(true) | bool }}"
+  tags: [deploy]
+
+- name: Resolve acme_email from stack.yaml
+  ansible.builtin.set_fact:
+    acme_email: "{{ stack.acme_email | default(acme_email) | default('') }}"
+  tags: [deploy]
+
+- name: Resolve lldap_base_dn from stack.yaml
+  ansible.builtin.set_fact:
+    lldap_base_dn: "{{ auth.lldap_base_dn | default(lldap_base_dn) | default('DC=drayve,DC=local') }}"
+  when: auth_provider | default('basic') == 'authelia'
   tags: [deploy]
 
 - name: Verify htpasswd exists (basic auth)

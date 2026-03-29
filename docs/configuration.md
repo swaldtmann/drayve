@@ -21,6 +21,7 @@ Everything else has sensible defaults. This gives you: basic auth, full monitori
 |-----|------|-------------|
 | `name` | string | Server name. Used for inventory, hcloud, DNS. Pattern: `^[a-z][a-z0-9-]*$` |
 | `domain` | string | Primary domain. Services are exposed as subdomains (`grafana.<domain>`, `traefik.<domain>`, etc.) |
+| `acme_email` | string | Email for Let's Encrypt certificate notifications. Required for TLS. |
 
 ### `provider`
 
@@ -36,6 +37,7 @@ Everything else has sensible defaults. This gives you: basic auth, full monitori
 |-----|------|---------|-------------|
 | `provider` | string | `basic` | `none` — no auth. `basic` — HTTP basic auth. `authelia` — full SSO with web portal |
 | `lldap` | bool | `false` | Deploy LLDAP as user backend (authelia only) |
+| `lldap_base_dn` | string | `DC=drayve,DC=local` | LDAP base DN (authelia + lldap only) |
 
 ### `monitoring`
 
@@ -78,7 +80,7 @@ Beyond `stack.yaml`, Ansible role defaults can be overridden in `ansible/invento
 | `drayve_user` | `drayve` | System user for running services |
 | `drayve_uid` | `1000` | UID/GID for the drayve user |
 | `swap_size_mb` | `2048` | Swap file size |
-| `acme_email` | — | Email for Let's Encrypt certificates |
+| `acme_email` | — | Set via `stack.acme_email` (see above) |
 | `ssh_password_auth` | `no` | SSH password authentication |
 | `ssh_root_login` | `prohibit-password` | SSH root login policy |
 | `mem_*` | varies | Memory limits per container (e.g. `mem_grafana: 256m`) |

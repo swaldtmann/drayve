@@ -6,6 +6,7 @@ drayve_version: "0.1.0"
 stack:
   name: production
   domain: ops.example.com
+  acme_email: admin@example.com
 
 provider:
   type: hetzner
@@ -15,6 +16,7 @@ provider:
 auth:
   provider: authelia
   lldap: true
+  # lldap_base_dn: "DC=myorg,DC=local"
 
 monitoring:
   profile: full
