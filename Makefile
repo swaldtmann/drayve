@@ -87,7 +87,7 @@ provision: _require-name _require-stack _require-inventory validate  ## Provisio
 		echo "==> Generating quickstart secrets"; \
 		scripts/secrets-generate.sh $(NAME); \
 	fi
-	$(ANSIBLE) playbooks/provision.yml -e name=$(NAME) -e domain=$(_host_domain) -e @../$(STACK_CONFIG)
+	$(ANSIBLE) playbooks/provision.yml -e drayve_name=$(NAME) -e domain=$(_host_domain) -e @../$(STACK_CONFIG)
 
 deploy: _require-name _require-stack _require-inventory validate  ## Re-deploy a host (NAME=)
 	$(ANSIBLE) playbooks/deploy.yml -l $(NAME) -e @../$(STACK_CONFIG)
@@ -108,13 +108,13 @@ burn: _require-name  ## Tear down server (NAME= [CONFIRM=y])
 	fi
 
 _burn-with-stack:
-	$(ANSIBLE) playbooks/burn.yml -e name=$(NAME) -e @../$(STACK_CONFIG)
+	$(ANSIBLE) playbooks/burn.yml -e drayve_name=$(NAME) -e @../$(STACK_CONFIG)
 	@echo "==> Cleaning deploy/$(NAME)/"
 	@rm -rf $(HOST_DIR)
 	@echo "==> Remove $(NAME) from $(INVENTORY) manually if needed"
 
 _burn-without-stack:
-	$(ANSIBLE) playbooks/burn.yml -e name=$(NAME)
+	$(ANSIBLE) playbooks/burn.yml -e drayve_name=$(NAME)
 	@rm -rf $(HOST_DIR)
 
 status: _require-name  ## Show server status (NAME=)

@@ -120,7 +120,22 @@
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
     mode: "0644"
+  register: traefik_config
   tags: [deploy, traefik]
+
+- name: Check for Traefik dynamic config changes
+  ansible.builtin.find:
+    paths: "{{ traefik_dynamic_dir }}"
+    patterns: "*.yml"
+  register: traefik_dynamic_files
+  tags: [deploy, traefik]
+
+- name: Check Prometheus config
+  ansible.builtin.stat:
+    path: "{{ drayve_deploy_dir }}/monitoring/prometheus/prometheus.yml"
+    checksum_algorithm: sha256
+  register: prom_config_before
+  tags: [deploy]
 
 - name: Docker compose pull
   ansible.builtin.command:
@@ -140,6 +155,26 @@
   become_user: "{{ drayve_user }}"
   changed_when: "'Started' in compose_up.stderr or 'Recreated' in compose_up.stderr"
   register: compose_up
+  tags: [deploy]
+
+- name: Force-recreate Traefik on config change
+  ansible.builtin.command:
+    cmd: docker compose up -d --force-recreate traefik
+    chdir: "{{ drayve_deploy_dir }}"
+  become: true
+  become_user: "{{ drayve_user }}"
+  when: traefik_config.changed | default(false)
+  tags: [deploy, traefik]
+
+- name: Reload Prometheus config via API
+  ansible.builtin.uri:
+    url: "http://localhost:9090/-/reload"
+    method: POST
+    status_code: [200, 204]
+  when:
+    - monitoring_services.prometheus | default(false) | bool
+    - prom_config_before.stat.checksum | default('') != ''
+  failed_when: false
   tags: [deploy]
 
 - name: Wait for containers to stabilize

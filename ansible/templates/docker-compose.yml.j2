@@ -34,7 +34,8 @@ services:
 {% endif %}
 {% if crowdsec_enabled | default(true) %}
     depends_on:
-      - crowdsec
+      crowdsec:
+        condition: service_healthy
 {% endif %}
 
 {% if crowdsec_enabled | default(true) %}
@@ -51,6 +52,12 @@ services:
       - crowdsec_db:/var/lib/crowdsec/data
       - traefik_logs:/var/log/traefik:ro
       - ./crowdsec/acquis.yaml:/etc/crowdsec/acquis.yaml:ro
+    healthcheck:
+      test: ["CMD", "cscli", "version"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 {% endif %}
 
 {% if auth_provider == 'authelia' %}

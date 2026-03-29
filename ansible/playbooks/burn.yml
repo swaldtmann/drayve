@@ -1,8 +1,8 @@
 ---
-# Burn a Drayve host — delete server, clean up inventory and secrets.
+# Burn a Drayve host — delete server + DNS, clean up local files.
 #
 # Usage:
-#   cd ansible && ansible-playbook playbooks/burn.yml -e name=demo
+#   cd ansible && ansible-playbook playbooks/burn.yml -e drayve_name=demo
 #
 # Provider "manual" skips server deletion — only cleans local files.
 
@@ -18,28 +18,73 @@
   tasks:
     - name: Verify required variables
       ansible.builtin.fail:
-        msg: "Usage: -e name=<hostname>"
-      when: name is not defined
+        msg: "Usage: -e drayve_name=<hostname>"
+      when: drayve_name is not defined
 
     - name: Delete Hetzner server
       when: _provider == "hetzner"
       block:
         - name: Check if server exists
           ansible.builtin.command:
-            cmd: "hcloud server ip {{ name }}"
+            cmd: "hcloud server ip {{ drayve_name }}"
           register: server_check
           changed_when: false
           failed_when: false
 
         - name: Delete server
           ansible.builtin.command:
-            cmd: "hcloud server delete {{ name }}"
+            cmd: "hcloud server delete {{ drayve_name }}"
           when: server_check.rc == 0
 
         - name: Server does not exist
           ansible.builtin.debug:
-            msg: "Server {{ name }} not found in hcloud — skipping"
+            msg: "Server {{ drayve_name }} not found in hcloud — skipping"
           when: server_check.rc != 0
+
+    - name: Clean up Hetzner DNS records
+      when: _provider == "hetzner" and (drayve_domain | default('')) | length > 0
+      block:
+        - name: Extract base domain for zone lookup
+          ansible.builtin.set_fact:
+            _dns_base_domain: "{{ drayve_domain.split('.')[-2:] | join('.') }}"
+            _dns_host_part: "{{ drayve_domain.split('.')[:-2] | join('.') }}"
+
+        - name: Find DNS zone
+          ansible.builtin.command:
+            cmd: "hcloud zone list -o noheader -o columns=id,name"
+          register: zone_list
+          changed_when: false
+          failed_when: false
+          environment:
+            HCLOUD_CONTEXT: dns-migrated
+
+        - name: Extract zone ID
+          ansible.builtin.set_fact:
+            _dns_zone_id: "{{ (zone_list.stdout_lines | select('search', _dns_base_domain) | first | split() | first) | default('') }}"
+          when: zone_list.rc == 0
+          failed_when: false
+
+        - name: Remove A record
+          ansible.builtin.command:
+            cmd: "hcloud zone remove-records --record {{ server_check.stdout | trim }} {{ _dns_zone_id }} {{ _dns_host_part }} A"
+          when:
+            - _dns_zone_id | default('') | length > 0
+            - server_check.rc == 0
+          changed_when: true
+          failed_when: false
+          environment:
+            HCLOUD_CONTEXT: dns-migrated
+
+        - name: Remove wildcard A record
+          ansible.builtin.command:
+            cmd: "hcloud zone remove-records --record {{ server_check.stdout | trim }} {{ _dns_zone_id }} *.{{ _dns_host_part }} A"
+          when:
+            - _dns_zone_id | default('') | length > 0
+            - server_check.rc == 0
+          changed_when: true
+          failed_when: false
+          environment:
+            HCLOUD_CONTEXT: dns-migrated
 
     - name: Skip server deletion (manual provider)
       ansible.builtin.debug:
@@ -50,9 +95,9 @@
       ansible.builtin.known_hosts:
         name: "{{ server_check.stdout | trim }}"
         state: absent
-      when: _provider == "hetzner" and server_check.rc == 0
+      when: _provider == "hetzner" and server_check.rc | default(1) == 0
       failed_when: false
 
     - name: Show summary
       ansible.builtin.debug:
-        msg: "Burned {{ name }} — server deleted. Local cleanup handled by Makefile."
+        msg: "Burned {{ drayve_name }} — server + DNS deleted. Local cleanup handled by Makefile."

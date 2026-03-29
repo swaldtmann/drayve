@@ -49,7 +49,10 @@ node_exporter_image: prom/node-exporter:v1.10.2
 cadvisor_image: ghcr.io/google/cadvisor:0.56.2
 loki_image: grafana/loki:3.3.2
 promtail_image: grafana/promtail:3.5.0
-grafana_image: grafana/grafana:12.4.2
+# GUARD: Grafana 12.4.x breaks Authelia OIDC integration (blank login page).
+# Do NOT upgrade past 12.3.6 until https://github.com/grafana/grafana/issues/XXXXX is resolved.
+# See: drayve#7
+grafana_image: grafana/grafana:12.3.6
 prometheus_image: prom/prometheus:v3.4.0
 
 # === Memory limits ===
