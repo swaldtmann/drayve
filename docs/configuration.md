@@ -28,7 +28,7 @@ Everything else has sensible defaults. This gives you: basic auth, full monitori
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `type` | string | `hetzner` | `hetzner` — auto-provision via hcloud CLI. `manual` — use an existing server |
-| `server_type` | string | `cx22` | Hetzner server type (hetzner only) |
+| `server_type` | string | `cx23` | Hetzner server type (hetzner only) |
 | `location` | string | `fsn1` | Hetzner datacenter (hetzner only) |
 | `hcloud_ssh_key` | string | — | Name of the SSH key in hcloud. **Required** for `type: hetzner` — provision fails without it |
 | `hcloud_dns_context` | string | — | hcloud CLI context for DNS API. Used by `make burn` for DNS cleanup. If empty, DNS records must be removed manually |

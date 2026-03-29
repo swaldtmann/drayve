@@ -47,7 +47,7 @@ properties:
       server_type:
         type: string
         description: Hetzner server type (only for provider.type=hetzner).
-        default: cx22
+        default: cx23
       location:
         type: string
         description: Hetzner datacenter location.

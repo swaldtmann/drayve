@@ -6,7 +6,7 @@
 #     -e drayve_name=demo -e domain=demo.example.com
 #
 # Optional:
-#   -e server_type=cx32     (default: cx22)
+#   -e server_type=cx32     (default: cx23)
 #   -e server_location=fsn1 (default: nbg1)
 #
 # Provider "manual" skips server creation — expects existing SSH access.
