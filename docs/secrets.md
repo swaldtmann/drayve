@@ -12,7 +12,7 @@ secrets:
   mode: quickstart
 ```
 
-On first `make provision`, the script `secrets-generate.sh` creates `ansible/secrets/<name>.sops.yml` with random values for all services:
+On first `make provision`, the script `secrets-generate.sh` creates `deploy/<name>/secrets.yml` with random values for all services:
 
 - `auth_basic_password` — HTTP basic auth
 - `grafana_admin_pass` — Grafana admin
@@ -26,7 +26,7 @@ The file is **not encrypted** — it's gitignored and stays local. Good for deve
 To view your generated secrets:
 
 ```bash
-cat ansible/secrets/myserver.sops.yml
+cat deploy/myserver/secrets.yml
 ```
 
 ## SOPS mode
@@ -52,16 +52,16 @@ make secrets-template NAME=myserver
 This creates:
 - `~/.config/sops/age/keys.txt` — your private AGE key (never commit this)
 - `.sops.yaml` — SOPS config pointing to your public key
-- `ansible/secrets/myserver.sops.yml` — encrypted secrets file
+- `deploy/myserver/secrets.yml` — encrypted secrets file
 
 ### Editing secrets
 
 ```bash
 # Always use sops set or sops edit — never decrypt/edit/encrypt manually
-sops edit ansible/secrets/myserver.sops.yml
+sops edit deploy/myserver/secrets.yml
 
 # Or set a single value:
-sops set ansible/secrets/myserver.sops.yml '["grafana_admin_pass"]' '"newpassword"'
+sops set deploy/myserver/secrets.yml '["grafana_admin_pass"]' '"newpassword"'
 ```
 
 Why not `sops -d` → edit → `sops -e`? Because the re-encrypted file produces a massive git diff (every field changes). `sops edit` and `sops set` only change what you touched.

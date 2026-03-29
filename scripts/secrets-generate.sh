@@ -3,20 +3,23 @@
 #
 # Usage: scripts/secrets-generate.sh <name>
 #
-# Generates ansible/secrets/<name>.sops.yml with random values.
+# Generates deploy/<name>/secrets.yml with random values.
 # Does NOT encrypt — quickstart mode keeps secrets in plaintext.
 
 set -euo pipefail
 
 name="${1:?Usage: $0 <name>}"
-target="ansible/secrets/${name}.sops.yml"
+target="deploy/${name}/secrets.yml"
 
 if [ -f "$target" ]; then
     echo "!!! $target already exists — not overwriting" >&2
     exit 0
 fi
 
-mkdir -p "$(dirname "$target")"
+if [ ! -d "deploy/${name}" ]; then
+    echo "!!! deploy/${name}/ does not exist. Run: make init NAME=${name} DOMAIN=<domain>" >&2
+    exit 1
+fi
 
 _rand() { openssl rand -base64 32 | tr -d '/+=' | head -c "$1"; }
 

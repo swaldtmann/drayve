@@ -17,9 +17,11 @@ Works on any VPS, cloud instance, or bare metal server. Hetzner Cloud users get 
 ```bash
 git clone https://codeberg.org/StephanWaldtmann/drayve.git
 cd drayve
-cp examples/stack-minimal.yaml stack.yaml
-# Edit stack.yaml: set your domain and provider
-make provision NAME=myserver DOMAIN=example.com
+pip install pyyaml ansible
+
+make init NAME=myserver DOMAIN=example.com HOST=203.0.113.10
+# Edit deploy/myserver/stack.yaml to match your needs
+make provision NAME=myserver
 ```
 
 ## stack.yaml
@@ -68,16 +70,18 @@ backup:
 ## Make targets
 
 ```
-make provision NAME= DOMAIN=   Provision + deploy new server
-make deploy-dev                Deploy to dev
-make deploy-prod REF=          Deploy to prod (tagged release)
-make burn NAME=                Tear down server
-make status NAME=              Show server status
-make validate                  Validate stack.yaml
-make lint                      Lint playbooks + schema
-make secrets-init              Scaffold AGE key + SOPS config
-make secrets-template NAME=    Scaffold SOPS secrets for new host
-make backup                    Deploy backup config
+make init NAME= DOMAIN= [HOST=]   Scaffold new host in deploy/
+make provision NAME=               Provision + deploy server
+make deploy NAME=                  Re-deploy after config changes
+make deploy-prod NAME= REF=       Deploy tagged release to prod
+make burn NAME=                    Tear down server + clean local files
+make status NAME=                  Show server status
+make list                          List all configured hosts
+make validate NAME=                Validate stack.yaml for a host
+make lint                          Lint playbooks + roles
+make secrets-init                  Scaffold AGE key + SOPS config
+make secrets-template NAME=        Scaffold SOPS secrets for a host
+make backup NAME=                  Deploy/update backup config
 ```
 
 ## Documentation

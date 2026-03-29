@@ -85,5 +85,6 @@ Beyond `stack.yaml`, Ansible role defaults can be overridden in `ansible/invento
 
 ## Examples
 
+- `deploy/_example/stack.yaml` — default template (used by `make init`)
 - `examples/stack-minimal.yaml` — smallest useful config
 - `examples/stack-full.yaml` — enterprise setup with Authelia, LLDAP, SOPS, storagebox backup

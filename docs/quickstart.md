@@ -30,25 +30,31 @@ source .venv/bin/activate
 pip install pyyaml ansible ansible-lint
 ```
 
-## Configure
-
-Copy the minimal example and edit it:
+## Initialize a host
 
 ```bash
-cp examples/stack-minimal.yaml stack.yaml
+make init NAME=webshop DOMAIN=shop.example.com HOST=203.0.113.10
 ```
 
-For an existing server (any provider), set `provider.type: manual`:
+This creates:
+- `deploy/webshop/stack.yaml` — config for this host
+- `deploy/hosts.yaml` — inventory with connection details
+
+Edit the stack config to match your needs:
+
+```bash
+vim deploy/webshop/stack.yaml
+```
 
 ```yaml
 drayve_version: "0.1.0"
 
 stack:
-  name: myserver
-  domain: example.com
+  name: webshop
+  domain: shop.example.com
 
 provider:
-  type: manual        # skip server creation, use existing host
+  type: manual        # use existing server
 
 auth:
   provider: basic     # none | basic | authelia
@@ -65,57 +71,75 @@ backup:
 
 For Hetzner Cloud users, set `provider.type: hetzner` — this creates the server automatically via `hcloud` CLI.
 
-## Add your server to the inventory
-
-Edit `ansible/inventory/hosts.yml`:
-
-```yaml
-all:
-  children:
-    drayve:
-      hosts:
-        myserver:
-          ansible_host: 203.0.113.10
-          ansible_user: root
-          drayve_domain: example.com
-          drayve_hostname: myserver
-```
-
 ## Deploy
 
 ```bash
-make validate                                      # check stack.yaml
-make provision NAME=myserver DOMAIN=example.com    # provision + deploy
+make provision NAME=webshop
 ```
 
 This will:
-1. Install packages, configure firewall (UFW), harden SSH
-2. Install Docker
-3. Deploy Traefik (reverse proxy + automatic TLS via Let's Encrypt)
-4. Set up authentication (basic auth or Authelia)
-5. Deploy monitoring stack (Grafana, Prometheus, Loki — depending on profile)
-6. Deploy CrowdSec (intrusion detection)
-7. Generate and distribute secrets
+1. Generate secrets (quickstart mode)
+2. Install packages, configure firewall (UFW), harden SSH
+3. Install Docker
+4. Deploy Traefik (reverse proxy + automatic TLS via Let's Encrypt)
+5. Set up authentication (basic auth or Authelia)
+6. Deploy monitoring stack (Grafana, Prometheus, Loki — depending on profile)
+7. Deploy CrowdSec (intrusion detection)
 
 After provisioning, your services are available at:
-- `https://example.com` — Landing page
-- `https://grafana.example.com` — Grafana dashboards (if monitoring: full)
-- `https://traefik.example.com` — Traefik dashboard
+- `https://shop.example.com` — Landing page
+- `https://grafana.shop.example.com` — Grafana dashboards (if monitoring: full)
+- `https://traefik.shop.example.com` — Traefik dashboard
+
+## Managing multiple hosts
+
+Each host gets its own directory under `deploy/`:
+
+```bash
+make init NAME=webshop    DOMAIN=shop.example.com    HOST=203.0.113.10
+make init NAME=monitoring DOMAIN=mon.example.com     HOST=203.0.113.20
+make init NAME=client-xyz DOMAIN=ops.client-xyz.com  HOST=198.51.100.5
+```
+
+```
+deploy/
+├── hosts.yaml              # all hosts in one inventory
+├── webshop/
+│   ├── stack.yaml          # webshop config
+│   └── secrets.yml         # webshop secrets (auto-generated)
+├── monitoring/
+│   ├── stack.yaml
+│   └── secrets.yml
+└── client-xyz/
+    ├── stack.yaml
+    └── secrets.yml
+```
+
+Each host can have completely different configs — different auth providers, monitoring profiles, backup targets.
+
+```bash
+make list                      # show all configured hosts
+make deploy NAME=webshop       # re-deploy after config changes
+make status NAME=monitoring    # check server status
+make burn NAME=client-xyz      # tear down server + clean local files
+```
+
+The `deploy/` directory is gitignored — it contains your infrastructure details and secrets. Back it up separately.
 
 ## Re-deploy after changes
 
 ```bash
-# Edit stack.yaml, then:
-make deploy-dev
+vim deploy/webshop/stack.yaml   # change config
+make deploy NAME=webshop        # apply changes
 ```
 
 ## Tear down
 
 ```bash
-make burn NAME=myserver
+make burn NAME=webshop
 ```
 
-For Hetzner: deletes the server. For manual provider: cleans up local inventory and secrets only.
+For Hetzner: deletes the server + cleans local files. For manual provider: cleans local files only (server untouched).
 
 ## What's included
 
@@ -133,6 +157,7 @@ For Hetzner: deletes the server. For manual provider: cleans up local inventory 
 
 ## Next steps
 
-- See `examples/stack-full.yaml` for Authelia + LLDAP + SOPS secrets
-- See `config/stack.schema.yaml` for all configuration options
-- Add apps: `examples/apps/` (coming soon)
+- See `deploy/_example/stack.yaml` for the config template
+- See [Configuration](configuration.md) for all options
+- See [Architecture](architecture.md) for how the pieces fit together
+- See [Secrets](secrets.md) for quickstart vs SOPS

@@ -53,16 +53,6 @@
       when: _provider == "hetzner" and server_check.rc == 0
       failed_when: false
 
-    - name: Clean up inventory host_vars
-      ansible.builtin.file:
-        path: "{{ playbook_dir }}/../inventory/host_vars/{{ name }}"
-        state: absent
-
-    - name: Clean up secrets file
-      ansible.builtin.file:
-        path: "{{ playbook_dir }}/../secrets/{{ name }}.sops.yml"
-        state: absent
-
     - name: Show summary
       ansible.builtin.debug:
-        msg: "Burned {{ name }} — server deleted, local files cleaned"
+        msg: "Burned {{ name }} — server deleted. Local cleanup handled by Makefile."

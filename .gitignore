@@ -9,11 +9,7 @@ venv/
 # Ansible
 ansible/roles/geerlingguy.*/
 ansible/.ansible/
-ansible/secrets/
 *.retry
-
-# Stack config (host-specific)
-stack.yaml
 
 # SOPS
 .secrets.tmp.enc.yml

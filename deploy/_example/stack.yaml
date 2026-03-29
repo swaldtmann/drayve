@@ -1,0 +1,28 @@
+# Example Drayve stack config.
+# Copy this to deploy/<name>/stack.yaml and adjust.
+#
+# Full reference: docs/configuration.md
+
+drayve_version: "0.1.0"
+
+stack:
+  name: myserver
+  domain: example.com
+
+provider:
+  type: manual            # manual (existing server) | hetzner (auto-provision)
+
+auth:
+  provider: basic         # none | basic | authelia
+
+monitoring:
+  profile: full           # full (~800MB) | light (~50MB) | none
+
+security:
+  crowdsec: true
+
+secrets:
+  mode: quickstart        # quickstart (auto-generate) | sops (versioned)
+
+backup:
+  enabled: false

@@ -1,0 +1,6 @@
+# Everything in deploy/ is user-specific and gitignored.
+# Only the example and this file are tracked.
+*
+!.gitignore
+!_example/
+!_example/**
