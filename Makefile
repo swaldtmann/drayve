@@ -99,7 +99,8 @@ endif
 	@[ "$(CONFIRM)" = "y" ] || { printf "Deploy $(REF) to $(NAME) PRODUCTION? [y/N] "; read ans; [ "$$ans" = "y" ] || exit 1; }
 	$(ANSIBLE) playbooks/deploy.yml -l $(NAME) -e deploy_ref=$(REF) -e @../$(STACK_CONFIG)
 
-burn: _require-name  ## Tear down server (NAME=)
+burn: _require-name  ## Tear down server (NAME= [CONFIRM=y])
+	@[ "$(CONFIRM)" = "y" ] || { printf "BURN $(NAME) — delete server + local files? [y/N] "; read ans; [ "$$ans" = "y" ] || exit 1; }
 	@if [ -f "$(STACK_CONFIG)" ]; then \
 		$(MAKE) -s _burn-with-stack; \
 	else \
