@@ -143,7 +143,7 @@
           <p>Container logs via Loki</p>
         </a>
 {% endif %}
-{% if crowdsec_enabled | default(true) %}
+{% if crowdsec_enabled %}
         <a href="https://grafana.{{ drayve_domain }}/d/crowdsec-overview" target="_blank" class="card">
           <div class="card-header">
             <div class="card-title"><span class="icon">&#x1F6E1;</span><h3>CrowdSec</h3></div>
@@ -166,14 +166,24 @@
           </div>
           <p>TLS, routing, middleware</p>
         </a>
-{% if crowdsec_enabled | default(true) %}
-        <div class="card">
+{% if crowdsec_enabled %}
+{% if monitoring_services.grafana | default(false) | bool %}
+        <a href="https://grafana.{{ drayve_domain }}/d/crowdsec-overview" target="_blank" class="card">
           <div class="card-header">
             <div class="card-title"><span class="icon">&#x1F6E1;</span><h3>CrowdSec</h3></div>
             <span class="badge">active</span>
           </div>
           <p>Intrusion prevention</p>
+        </a>
+{% else %}
+        <div class="card" style="cursor: default;">
+          <div class="card-header">
+            <div class="card-title"><span class="icon">&#x1F6E1;</span><h3>CrowdSec</h3></div>
+            <span class="badge">active</span>
+          </div>
+          <p>Intrusion prevention (no dashboard)</p>
         </div>
+{% endif %}
 {% endif %}
         <div class="card">
           <div class="card-header">

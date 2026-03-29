@@ -24,6 +24,12 @@
   when: monitoring_services is not defined
   tags: [deploy]
 
+# Resolve crowdsec_enabled from nested stack.yaml (security.crowdsec) or flat var
+- name: Resolve crowdsec_enabled from stack.yaml
+  ansible.builtin.set_fact:
+    crowdsec_enabled: "{{ security.crowdsec | default(crowdsec_enabled) | default(true) | bool }}"
+  tags: [deploy]
+
 - name: Verify htpasswd exists (basic auth)
   ansible.builtin.stat:
     path: "{{ drayve_deploy_dir }}/.htpasswd"
@@ -46,14 +52,14 @@
   register: existing_bouncer_key
   changed_when: false
   failed_when: false
-  when: crowdsec_enabled | default(true)
+  when: crowdsec_enabled
   tags: [deploy]
 
 - name: Preserve existing bouncer key (unless secrets provided a real one)
   ansible.builtin.set_fact:
     crowdsec_bouncer_key: "{{ existing_bouncer_key.stdout | trim }}"
   when:
-    - crowdsec_enabled | default(true)
+    - crowdsec_enabled
     - existing_bouncer_key.stdout | default('') | trim | length > 0
     - crowdsec_bouncer_key | default('') | trim in ['', 'changeme']
   tags: [deploy]
@@ -64,14 +70,14 @@
   register: existing_lapi_key
   changed_when: false
   failed_when: false
-  when: crowdsec_enabled | default(true)
+  when: crowdsec_enabled
   tags: [deploy]
 
 - name: Preserve existing LAPI key (unless secrets provided a real one)
   ansible.builtin.set_fact:
     crowdsec_lapi_key: "{{ existing_lapi_key.stdout | trim }}"
   when:
-    - crowdsec_enabled | default(true)
+    - crowdsec_enabled
     - existing_lapi_key.stdout | default('') | trim | length > 0
     - crowdsec_lapi_key | default('') | trim in ['', 'changeme']
   tags: [deploy]
@@ -143,7 +149,9 @@
     chdir: "{{ drayve_deploy_dir }}"
   become: true
   become_user: "{{ drayve_user }}"
-  changed_when: "'Pull complete' in compose_pull.stdout or 'Downloaded' in compose_pull.stdout"
+  changed_when: >-
+    'Pull complete' in compose_pull.stdout + compose_pull.stderr or
+    'Downloaded' in compose_pull.stdout + compose_pull.stderr
   register: compose_pull
   tags: [deploy]
 
@@ -203,7 +211,7 @@
   register: bouncer_list
   changed_when: false
   failed_when: false
-  when: crowdsec_enabled | default(true)
+  when: crowdsec_enabled
   tags: [deploy, crowdsec]
 
 - name: Register CrowdSec bouncer with secrets key
@@ -212,7 +220,7 @@
       docker exec crowdsec cscli bouncers add traefik-bouncer
       --key "{{ crowdsec_bouncer_key }}"
   when:
-    - crowdsec_enabled | default(true)
+    - crowdsec_enabled
     - bouncer_list.rc == 0
     - "'traefik-bouncer' not in bouncer_list.stdout"
     - crowdsec_bouncer_key | default('') | length > 0
@@ -225,7 +233,7 @@
       docker exec crowdsec cscli bouncers add grafana-lapi
       --key "{{ crowdsec_lapi_key }}"
   when:
-    - crowdsec_enabled | default(true)
+    - crowdsec_enabled
     - bouncer_list.rc == 0
     - "'grafana-lapi' not in bouncer_list.stdout"
     - crowdsec_lapi_key | default('') | length > 0

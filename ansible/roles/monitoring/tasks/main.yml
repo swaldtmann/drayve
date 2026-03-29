@@ -226,14 +226,14 @@
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
     mode: "0644"
-  when: _mon_grafana and (crowdsec_enabled | default(true))
+  when: _mon_grafana and (crowdsec_enabled)
   tags: [monitoring, dashboards]
 
 - name: Remove CrowdSec LAPI datasource when CrowdSec disabled
   ansible.builtin.file:
     path: "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/datasources/crowdsec-lapi.yml"
     state: absent
-  when: _mon_grafana and not (crowdsec_enabled | default(true))
+  when: _mon_grafana and not (crowdsec_enabled)
   tags: [monitoring, dashboards]
 
 - name: Deploy Grafana dashboards

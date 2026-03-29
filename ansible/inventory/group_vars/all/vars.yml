@@ -47,8 +47,9 @@ crowdsec_enabled: true
 # === Monitoring images (pinned) ===
 node_exporter_image: prom/node-exporter:v1.10.2
 cadvisor_image: ghcr.io/google/cadvisor:0.56.2
+# Keep Loki + Promtail on the same minor version to avoid feature mismatch
 loki_image: grafana/loki:3.3.2
-promtail_image: grafana/promtail:3.5.0
+promtail_image: grafana/promtail:3.3.2
 # GUARD: Grafana 12.4.x breaks Authelia OIDC integration (blank login page).
 # Do NOT upgrade past 12.3.6 until https://github.com/grafana/grafana/issues/XXXXX is resolved.
 # See: drayve#7

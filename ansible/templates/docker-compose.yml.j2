@@ -32,13 +32,13 @@ services:
 {% if auth_provider != 'none' %}
       - "traefik.http.routers.dashboard.middlewares=auth@file"
 {% endif %}
-{% if crowdsec_enabled | default(true) %}
+{% if crowdsec_enabled %}
     depends_on:
       crowdsec:
         condition: service_healthy
 {% endif %}
 
-{% if crowdsec_enabled | default(true) %}
+{% if crowdsec_enabled %}
   crowdsec:
     image: {{ crowdsec_image | default('crowdsecurity/crowdsec:latest') }}
     container_name: crowdsec
@@ -113,6 +113,11 @@ services:
     restart: unless-stopped
     volumes:
       - ./landing:/usr/share/nginx/html:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/ || exit 1"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.landing.rule=Host(`{{ drayve_domain }}`)"
@@ -179,12 +184,13 @@ services:
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
       - GF_SERVER_ROOT_URL={{ grafana_root_url | default('https://grafana.' + drayve_domain) }}
-{% if crowdsec_enabled | default(true) %}
+{% if crowdsec_enabled %}
       - GF_INSTALL_PLUGINS=yesoreyeram-infinity-datasource
       - CROWDSEC_LAPI_KEY=${CROWDSEC_LAPI_KEY:-}
 {% endif %}
     volumes:
       - grafana_data:/var/lib/grafana
+      - grafana_plugins:/var/lib/grafana/plugins
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
     labels:
       - "traefik.enable=true"
@@ -222,7 +228,7 @@ services:
 
 volumes:
   traefik_logs: {}
-{% if crowdsec_enabled | default(true) %}
+{% if crowdsec_enabled %}
   crowdsec_config: {}
   crowdsec_db: {}
 {% endif %}
@@ -234,6 +240,7 @@ volumes:
 {% endif %}
 {% if monitoring_services.grafana | default(false) | bool %}
   grafana_data: {}
+  grafana_plugins: {}
 {% endif %}
 {% if monitoring_services.loki | default(false) | bool %}
   loki_data: {}

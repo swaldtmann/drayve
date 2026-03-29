@@ -116,14 +116,14 @@
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
     mode: "0600"
-  when: crowdsec_enabled | default(true)
+  when: crowdsec_enabled
   tags: [traefik, crowdsec]
 
 - name: Remove CrowdSec middleware when disabled
   ansible.builtin.file:
     path: "{{ traefik_dynamic_dir }}/crowdsec.yml"
     state: absent
-  when: not (crowdsec_enabled | default(true))
+  when: not (crowdsec_enabled)
   tags: [traefik, crowdsec]
 
 # === CrowdSec config ===
@@ -134,7 +134,7 @@
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
     mode: "0755"
-  when: crowdsec_enabled | default(true)
+  when: crowdsec_enabled
   tags: [traefik, crowdsec]
 
 - name: Deploy CrowdSec acquis.yaml
@@ -148,5 +148,5 @@
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
     mode: "0644"
-  when: crowdsec_enabled | default(true)
+  when: crowdsec_enabled
   tags: [traefik, crowdsec]
