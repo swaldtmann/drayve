@@ -22,6 +22,33 @@
         msg: "Usage: -e drayve_name=<hostname>"
       when: drayve_name is not defined
 
+    # === Backup acme.json from server before deletion ===
+    - name: Backup acme.json from server
+      when: _provider == "hetzner"
+      block:
+        - name: Get server IP for backup
+          ansible.builtin.command:
+            cmd: "hcloud server ip {{ drayve_name }}"
+          register: _burn_server_ip
+          changed_when: false
+          failed_when: false
+
+        - name: Fetch acme.json via scp
+          ansible.builtin.command:
+            cmd: >-
+              scp -o StrictHostKeyChecking=no -o ConnectTimeout=5
+              root@{{ _burn_server_ip.stdout | trim }}:/opt/drayve/deploy/stack/traefik/certs/acme.json
+              /tmp/{{ drayve_name }}-acme.json
+          when: _burn_server_ip.rc == 0
+          changed_when: true
+          failed_when: false
+          register: acme_backup
+
+        - name: Show acme.json backup result
+          ansible.builtin.debug:
+            msg: "{{ 'Saved acme.json to /tmp/' + drayve_name + '-acme.json' if acme_backup.rc | default(1) == 0 else 'Could not backup acme.json (server unreachable or file missing)' }}"
+          when: _burn_server_ip.rc == 0
+
     - name: Delete Hetzner server
       when: _provider == "hetzner"
       block:

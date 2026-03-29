@@ -109,13 +109,31 @@ burn: _require-name  ## Tear down server (NAME= [CONFIRM=y])
 
 _burn-with-stack:
 	$(ANSIBLE) playbooks/burn.yml -e drayve_name=$(NAME) -e @../$(STACK_CONFIG)
+	@$(MAKE) -s _burn-backup-local
 	@echo "==> Cleaning deploy/$(NAME)/"
 	@rm -rf $(HOST_DIR)
 	@echo "==> Remove $(NAME) from $(INVENTORY) manually if needed"
 
 _burn-without-stack:
 	$(ANSIBLE) playbooks/burn.yml -e drayve_name=$(NAME)
+	@$(MAKE) -s _burn-backup-local
 	@rm -rf $(HOST_DIR)
+
+_burn-backup-local:
+	@_has_files=0; \
+	for f in compose.override.yml env.override stack.yaml; do \
+		if [ -f "$(HOST_DIR)/$$f" ]; then _has_files=1; break; fi; \
+	done; \
+	if [ "$$_has_files" = "1" ]; then \
+		echo "==> Backing up local user files from deploy/$(NAME)/:"; \
+		mkdir -p /tmp/drayve-burn-$(NAME); \
+		for f in compose.override.yml env.override stack.yaml; do \
+			if [ -f "$(HOST_DIR)/$$f" ]; then \
+				cp "$(HOST_DIR)/$$f" "/tmp/drayve-burn-$(NAME)/$$f"; \
+				echo "    $$f -> /tmp/drayve-burn-$(NAME)/$$f"; \
+			fi; \
+		done; \
+	fi
 
 status: _require-name  ## Show server status (NAME=)
 	@echo "==> $(NAME)"
