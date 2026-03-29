@@ -50,9 +50,9 @@ make secrets-template NAME=myserver
 ```
 
 This creates:
-- `~/.config/sops/age/keys.txt` — your private AGE key (never commit this)
+- `deploy/.age-key.txt` — your private AGE key (gitignored, never commit this)
 - `.sops.yaml` — SOPS config pointing to your public key
-- `deploy/myserver/secrets.yml` — encrypted secrets file
+- `deploy/myserver/secrets.yml` — secrets file (encrypt after filling in values)
 
 ### Editing secrets
 
@@ -71,7 +71,7 @@ Why not `sops -d` → edit → `sops -e`? Because the re-encrypted file produces
 Your AGE private key is the only way to decrypt secrets. Back it up:
 
 ```bash
-cp ~/.config/sops/age/keys.txt <safe-location>
+cp deploy/.age-key.txt <safe-location>
 ```
 
 ## Generated secrets reference

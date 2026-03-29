@@ -6,14 +6,17 @@
 set -euo pipefail
 
 name="${1:?Usage: $0 <name>}"
-target="ansible/secrets/${name}.sops.yml"
+target="deploy/${name}/secrets.yml"
 
 if [ -f "$target" ]; then
     echo "!!! $target already exists — not overwriting" >&2
     exit 1
 fi
 
-mkdir -p "$(dirname "$target")"
+if [ ! -d "deploy/${name}" ]; then
+    echo "!!! deploy/${name}/ does not exist. Run: make init NAME=${name} DOMAIN=<domain>" >&2
+    exit 1
+fi
 
 cat > "$target" << EOF
 # Per-host secrets for ${name}
@@ -27,6 +30,7 @@ grafana_admin_pass: ""
 
 # --- CrowdSec ---
 crowdsec_bouncer_key: ""
+crowdsec_lapi_key: ""
 
 # --- LLDAP (only for auth.provider: authelia + lldap: true) ---
 lldap_jwt_secret: ""
