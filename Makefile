@@ -139,6 +139,9 @@ status: _require-name  ## Show server status (NAME=)
 	@echo "==> $(NAME)"
 	@ssh root@$(NAME) "docker ps --format 'table {{.Names}}\t{{.Status}}' | sort" 2>/dev/null || echo "    SSH failed"
 
+logs: _require-name  ## Tail container logs (NAME= [SVC=])
+	@ssh root@$(NAME) "cd /opt/drayve/deploy/stack && docker compose logs -f --tail 100 $(SVC)"
+
 list:  ## List all configured hosts
 	@if [ -f "$(INVENTORY)" ]; then \
 		echo "Hosts in $(INVENTORY):"; \
