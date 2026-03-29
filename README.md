@@ -83,6 +83,9 @@ make lint                          Lint playbooks + roles
 make secrets-init                  Scaffold AGE key + SOPS config
 make secrets-template NAME=        Scaffold SOPS secrets for a host
 make backup NAME=                  Deploy/update backup config
+make test                          Lint + validate all examples
+make test-role NAME=common         Test a single role (Molecule + Hetzner)
+make test-integration              Full stack test (Molecule + Hetzner)
 ```
 
 ## Documentation

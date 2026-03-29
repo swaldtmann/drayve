@@ -55,7 +55,7 @@ _host_domain = $(call _stack_val,c.get('stack',{}).get('domain',''))
 
 # --- Targets ---
 
-.PHONY: help init validate lint provision deploy deploy-prod burn status secrets-init secrets-template backup list
+.PHONY: help init validate lint provision deploy deploy-prod burn status secrets-init secrets-template backup list test test-role test-integration
 
 help:  ## Show available targets
 	@grep -E '^[a-z][a-z0-9_-]+:.*##' $(MAKEFILE_LIST) | sort | awk -F ':.*##' '{printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -160,3 +160,17 @@ secrets-template: _require-name  ## Scaffold SOPS secrets file for a host (NAME=
 
 backup: _require-name _require-stack _require-inventory  ## Deploy/update backup config (NAME=)
 	$(ANSIBLE) playbooks/backup.yml -l $(NAME) -e @../$(STACK_CONFIG)
+
+test-role: _require-name  ## Test a single role with Molecule (NAME=common|docker|...)
+	@echo "==> Testing role: $(NAME)"
+	@cd $(ANSIBLE_DIR)/roles/$(NAME) && molecule test
+
+test-integration:  ## Full stack integration test (needs HCLOUD_TOKEN)
+	@echo "==> Running integration test (creates Hetzner server)"
+	@molecule test -s integration
+
+test: lint  ## Run lint + validate all examples
+	@echo "==> Validating examples..."
+	@$(PYTHON) scripts/validate-stack.py examples/stack-minimal.yaml
+	@$(PYTHON) scripts/validate-stack.py examples/stack-full.yaml
+	@echo "==> All tests passed"

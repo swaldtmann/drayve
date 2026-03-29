@@ -1,0 +1,6 @@
+pyyaml
+ansible>=2.14
+ansible-lint
+molecule>=6.0
+molecule-hetznercloud>=2.7
+pytest-testinfra

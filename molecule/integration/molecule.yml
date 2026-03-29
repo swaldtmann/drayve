@@ -1,0 +1,65 @@
+---
+# Integration test — full Drayve stack on a real Hetzner server.
+#
+# Usage:
+#   export HCLOUD_TOKEN="your-token"
+#   molecule test -s integration
+#
+# Cost: ~0.006 EUR per run (cx23 for a few minutes).
+driver:
+  name: molecule_hetznercloud
+platforms:
+  - name: test-integration
+    image: ubuntu-24.04
+    server_type: cx23
+    location: nbg1
+provisioner:
+  name: ansible
+  playbooks:
+    converge: converge.yml
+  inventory:
+    group_vars:
+      all:
+        # --- Paths ---
+        drayve_root: /opt/drayve
+        drayve_deploy_dir: /opt/drayve/deploy/stack
+        drayve_config_dir: /opt/drayve/config
+        ops_repo_root: "{{ playbook_dir | regex_replace('/molecule/integration$', '') }}"
+        # --- User ---
+        drayve_user: drayve
+        drayve_uid: 1000
+        drayve_group: drayve
+        drayve_domain: test.drayve.local
+        drayve_hostname: test-integration
+        # --- Common ---
+        swap_size_mb: 1024
+        swap_file: /swapfile
+        common_packages:
+          - curl
+          - jq
+          - rsync
+          - git
+          - ufw
+          - python3-pip
+          - acl
+        ufw_allowed_ports:
+          - { port: "22", proto: "tcp" }
+          - { port: "80", proto: "tcp" }
+          - { port: "443", proto: "tcp" }
+        ssh_password_auth: "no"
+        ssh_root_login: "prohibit-password"
+        # --- Auth ---
+        auth_provider: basic
+        # --- Monitoring ---
+        monitoring_profile: full
+        # --- Security ---
+        crowdsec_enabled: true
+        # --- ACME ---
+        acme_email: test@example.com
+        # --- Secrets (test values) ---
+        hetzner_api_token: ""
+        grafana_admin_password: test-grafana-pw
+        crowdsec_bouncer_key: test-bouncer-key
+        crowdsec_lapi_key: test-lapi-key
+verifier:
+  name: testinfra

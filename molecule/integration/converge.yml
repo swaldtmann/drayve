@@ -1,0 +1,12 @@
+---
+- name: Integration — full Drayve stack
+  hosts: all
+  become: true
+  roles:
+    - role: common
+    - role: docker
+    - role: secrets
+    - role: traefik
+    - role: auth
+    - role: monitoring
+    - role: deploy
