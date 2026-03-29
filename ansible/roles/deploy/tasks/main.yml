@@ -21,6 +21,42 @@
     - not htpasswd_check.stat.exists
   tags: [deploy]
 
+- name: Read existing bouncer key from .env
+  ansible.builtin.command:
+    cmd: grep -oP '^CROWDSEC_BOUNCER_KEY=\K.+' {{ drayve_deploy_dir }}/.env
+  register: existing_bouncer_key
+  changed_when: false
+  failed_when: false
+  when: crowdsec_enabled | default(true)
+  tags: [deploy]
+
+- name: Preserve bouncer key if secrets role didn't run
+  ansible.builtin.set_fact:
+    crowdsec_bouncer_key: "{{ existing_bouncer_key.stdout | trim }}"
+  when:
+    - crowdsec_enabled | default(true)
+    - existing_bouncer_key.stdout | default('') | length > 0
+    - crowdsec_bouncer_key | default('') | length == 0
+  tags: [deploy]
+
+- name: Create landing page directory
+  ansible.builtin.file:
+    path: "{{ drayve_deploy_dir }}/landing"
+    state: directory
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0755"
+  tags: [deploy]
+
+- name: Deploy landing page
+  ansible.builtin.template:
+    src: "{{ ops_repo_root }}/ansible/templates/landing.html.j2"
+    dest: "{{ drayve_deploy_dir }}/landing/index.html"
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0644"
+  tags: [deploy]
+
 - name: Template docker-compose.yml
   ansible.builtin.template:
     src: "{{ ops_repo_root }}/ansible/templates/docker-compose.yml.j2"
@@ -98,30 +134,15 @@
   when: crowdsec_enabled | default(true)
   tags: [deploy, crowdsec]
 
-- name: Register CrowdSec bouncer
+- name: Register CrowdSec bouncer with secrets key
   ansible.builtin.command:
-    cmd: docker exec crowdsec cscli bouncers add traefik-bouncer -o raw
-  register: bouncer_key
+    cmd: >-
+      docker exec crowdsec cscli bouncers add traefik-bouncer
+      --key "{{ crowdsec_bouncer_key }}"
   when:
     - crowdsec_enabled | default(true)
     - bouncer_list.rc == 0
     - "'traefik-bouncer' not in bouncer_list.stdout"
+    - crowdsec_bouncer_key | default('') | length > 0
   no_log: true
-  tags: [deploy, crowdsec]
-
-- name: Update .env with bouncer key
-  ansible.builtin.lineinfile:
-    path: "{{ drayve_deploy_dir }}/.env"
-    regexp: "^CROWDSEC_BOUNCER_KEY="
-    line: "CROWDSEC_BOUNCER_KEY={{ bouncer_key.stdout | trim }}"
-    mode: "0600"
-  when: bouncer_key is changed
-  no_log: true
-  tags: [deploy, crowdsec]
-
-- name: Recreate bouncer with new API key
-  ansible.builtin.command:
-    cmd: docker compose up -d crowdsec-bouncer
-    chdir: "{{ drayve_deploy_dir }}"
-  when: bouncer_key is changed
   tags: [deploy, crowdsec]
