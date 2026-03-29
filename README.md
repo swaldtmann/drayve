@@ -2,19 +2,23 @@
 
 Generic Ops framework for Docker stacks. Provision, deploy, monitor, secure, backup — from a single `stack.yaml`.
 
-> Work in Progress — Phase 0a (Fundament)
+One config file. One command. Full stack.
 
-## Quick Start
+## What it does
+
+Drayve turns a fresh Ubuntu server into a production-ready Docker host with reverse proxy, TLS, monitoring, intrusion detection, and authentication — all configured from a single YAML file.
+
+Works on any VPS, cloud instance, or bare metal server. Hetzner Cloud users get automated provisioning; everyone else brings their own server.
+
+## Get started
+
+**[Quickstart Guide](docs/quickstart.md)** — from zero to running stack in under 10 minutes.
 
 ```bash
-# Python dependencies (for validate, lint)
-python3 -m venv .venv
-source .venv/bin/activate
-pip install pyyaml ansible ansible-lint
-
+git clone https://codeberg.org/StephanWaldtmann/drayve.git
+cd drayve
 cp examples/stack-minimal.yaml stack.yaml
-# Edit stack.yaml to match your server
-make validate
+# Edit stack.yaml: set your domain and provider
 make provision NAME=myserver DOMAIN=example.com
 ```
 
@@ -24,36 +28,75 @@ All configuration lives in one file. See `config/stack.schema.yaml` for the full
 
 ```yaml
 drayve_version: "0.1.0"
+
 stack:
   name: myserver
   domain: example.com
+
+provider:
+  type: manual          # manual (existing server) | hetzner (auto-provision)
+
 auth:
-  provider: basic          # none | basic | authelia
+  provider: basic       # none | basic | authelia
+
 monitoring:
-  profile: light           # full | light | none
+  profile: full         # full (~800MB) | light (~50MB) | none
+
+security:
+  crowdsec: true        # intrusion detection + Traefik bouncer
+
 secrets:
-  mode: quickstart         # quickstart | sops
+  mode: quickstart      # quickstart (auto-generate) | sops (versioned)
+
+backup:
+  enabled: true
+  target: local         # local | storagebox | s3 | ssh
 ```
 
-## Make Targets
+## What's included
+
+| Component | Description |
+|-----------|-------------|
+| **Traefik** | Reverse proxy, automatic TLS via Let's Encrypt |
+| **CrowdSec** | Intrusion detection + Traefik bouncer plugin |
+| **Grafana** | 7 dashboards: stack, host, containers, traefik, logs, crowdsec, backup |
+| **Prometheus** | Metrics collection |
+| **Loki + Promtail** | Log aggregation |
+| **Basic Auth / Authelia** | Authentication layer (with optional LLDAP backend) |
+| **Landing Page** | Service overview with live status badges |
+
+## Make targets
 
 ```
-make help                  Show all targets
-make validate              Validate stack.yaml
-make provision             Provision new server (NAME= DOMAIN=)
-make deploy-dev            Deploy to dev
-make deploy-prod           Deploy to prod (REF=)
-make burn                  Tear down server (NAME=)
-make status                Server status (NAME=)
-make secrets-init          Scaffold AGE key + SOPS config
-make secrets-template      Scaffold SOPS secrets (NAME=)
-make backup                Deploy backup config
+make provision NAME= DOMAIN=   Provision + deploy new server
+make deploy-dev                Deploy to dev
+make deploy-prod REF=          Deploy to prod (tagged release)
+make burn NAME=                Tear down server
+make status NAME=              Show server status
+make validate                  Validate stack.yaml
+make lint                      Lint playbooks + schema
+make secrets-init              Scaffold AGE key + SOPS config
+make secrets-template NAME=    Scaffold SOPS secrets for new host
+make backup                    Deploy backup config
 ```
+
+## Documentation
+
+- **[Quickstart](docs/quickstart.md)** — from zero to running stack in under 10 minutes
+- **[Configuration](docs/configuration.md)** — full `stack.yaml` reference, all options
+- **[Architecture](docs/architecture.md)** — how the pieces fit together, directory layout, provisioning flow
+- **[Secrets](docs/secrets.md)** — quickstart vs SOPS, setup, editing, secret reference
 
 ## Examples
 
 - `examples/stack-minimal.yaml` — Basic auth, light monitoring, quickstart secrets
 - `examples/stack-full.yaml` — Authelia + LLDAP, full monitoring, SOPS secrets
+
+## Requirements
+
+- Python 3.8+, Ansible 2.14+
+- Target: Ubuntu 22.04 / 24.04
+- For Hetzner auto-provision: `hcloud` CLI
 
 ## License
 
