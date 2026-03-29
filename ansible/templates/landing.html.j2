@@ -156,6 +156,25 @@
     </section>
 {% endif %}
 
+{% if apps | default([]) | length > 0 %}
+    <section>
+      <h2>Apps</h2>
+      <div class="grid">
+{% for app in apps %}
+        <a href="{{ app.url }}" target="_blank" class="card">
+          <div class="card-header">
+            <div class="card-title"><span class="icon">{{ app.icon | default('&#x1F4E6;') }}</span><h3>{{ app.name }}</h3></div>
+            <span class="badge">app</span>
+          </div>
+{% if app.description is defined %}
+          <p>{{ app.description }}</p>
+{% endif %}
+        </a>
+{% endfor %}
+      </div>
+    </section>
+{% endif %}
+
     <section>
       <h2>Infrastructure</h2>
       <div class="grid">

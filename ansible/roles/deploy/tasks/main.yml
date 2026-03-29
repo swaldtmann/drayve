@@ -47,6 +47,11 @@
     acme_email: "{{ stack.acme_email | default(acme_email) | default('') }}"
   tags: [deploy]
 
+- name: Resolve apps from stack.yaml
+  ansible.builtin.set_fact:
+    apps: "{{ apps | default([]) }}"
+  tags: [deploy]
+
 - name: Resolve auth_lldap from stack.yaml
   ansible.builtin.set_fact:
     auth_lldap: "{{ auth.lldap | default(auth_lldap) | default(false) | bool }}"

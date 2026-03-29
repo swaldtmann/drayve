@@ -34,3 +34,14 @@ backup:
   enabled: true
   schedule: "0 3 * * *"
   target: storagebox
+
+# Apps shown on the landing page (from compose.override.yml services)
+# apps:
+#   - name: Nextcloud
+#     url: https://cloud.ops.example.com
+#     icon: "&#x2601;"
+#     description: Files, calendar, contacts
+#   - name: Gitea
+#     url: https://git.ops.example.com
+#     icon: "&#x1F4BB;"
+#     description: Git hosting
