@@ -135,12 +135,14 @@ _burn-backup-local:
 		done; \
 	fi
 
-status: _require-name  ## Show server status (NAME=)
-	@echo "==> $(NAME)"
-	@ssh root@$(NAME) "docker ps --format 'table {{.Names}}\t{{.Status}}' | sort" 2>/dev/null || echo "    SSH failed"
+status: _require-name _require-inventory  ## Show server status (NAME=)
+	@_host=$$($(PYTHON) -c "import yaml; d=yaml.safe_load(open('$(INVENTORY)')); print(d.get('all',{}).get('children',{}).get('drayve',{}).get('hosts',{}).get('$(NAME)',{}).get('ansible_host','$(NAME)'))" 2>/dev/null || echo "$(NAME)"); \
+	echo "==> $(NAME) ($$_host)"; \
+	ssh root@$$_host "docker ps --format 'table {{.Names}}\t{{.Status}}' | sort" 2>/dev/null || echo "    SSH failed"
 
-logs: _require-name  ## Tail container logs (NAME= [SVC=])
-	@ssh root@$(NAME) "cd /opt/drayve/deploy/stack && docker compose logs -f --tail 100 $(SVC)"
+logs: _require-name _require-inventory  ## Tail container logs (NAME= [SVC=])
+	@_host=$$($(PYTHON) -c "import yaml; d=yaml.safe_load(open('$(INVENTORY)')); print(d.get('all',{}).get('children',{}).get('drayve',{}).get('hosts',{}).get('$(NAME)',{}).get('ansible_host','$(NAME)'))" 2>/dev/null || echo "$(NAME)"); \
+	ssh root@$$_host "cd /opt/drayve/deploy/stack && docker compose logs -f --tail 100 $(SVC)"
 
 list:  ## List all configured hosts
 	@if [ -f "$(INVENTORY)" ]; then \
