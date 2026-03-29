@@ -85,17 +85,7 @@ endif
 	$(ANSIBLE) playbooks/deploy.yml -e target=group-prod -e deploy_ref=$(REF) -e @../$(STACK_CONFIG)
 
 burn: _require-name  ## Tear down server (NAME=)
-	@echo "==> Deleting $(NAME)"
-	@provider=$(call _stack_val,c.get('provider',{}).get('type','hetzner')); \
-	if [ "$$provider" = "manual" ]; then \
-		echo "    Provider: manual — skipping server deletion, cleaning up inventory only"; \
-	else \
-		echo "    Deleting server via $$provider"; \
-	fi
-	@echo "==> Cleaning up inventory"
-	@rm -rf "$(ANSIBLE_DIR)/inventory/host_vars/$(NAME)"
-	@rm -f "$(ANSIBLE_DIR)/secrets/$(NAME).sops.yml"
-	@echo "==> Done"
+	$(ANSIBLE) playbooks/burn.yml -e name=$(NAME) $(if $(STACK_CONFIG),-e @../$(STACK_CONFIG),)
 
 status:  ## Show server status (optional: NAME=)
 ifdef NAME

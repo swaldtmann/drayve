@@ -1,0 +1,68 @@
+---
+# Burn a Drayve host — delete server, clean up inventory and secrets.
+#
+# Usage:
+#   cd ansible && ansible-playbook playbooks/burn.yml -e name=demo
+#
+# Provider "manual" skips server deletion — only cleans local files.
+
+- name: Burn host
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  become: false
+
+  vars:
+    _provider: "{{ provider_type | default('hetzner') }}"
+
+  tasks:
+    - name: Verify required variables
+      ansible.builtin.fail:
+        msg: "Usage: -e name=<hostname>"
+      when: name is not defined
+
+    - name: Delete Hetzner server
+      when: _provider == "hetzner"
+      block:
+        - name: Check if server exists
+          ansible.builtin.command:
+            cmd: "hcloud server ip {{ name }}"
+          register: server_check
+          changed_when: false
+          failed_when: false
+
+        - name: Delete server
+          ansible.builtin.command:
+            cmd: "hcloud server delete {{ name }}"
+          when: server_check.rc == 0
+
+        - name: Server does not exist
+          ansible.builtin.debug:
+            msg: "Server {{ name }} not found in hcloud — skipping"
+          when: server_check.rc != 0
+
+    - name: Skip server deletion (manual provider)
+      ansible.builtin.debug:
+        msg: "Provider: manual — skipping server deletion"
+      when: _provider == "manual"
+
+    - name: Remove host from known_hosts
+      ansible.builtin.known_hosts:
+        name: "{{ server_check.stdout | trim }}"
+        state: absent
+      when: _provider == "hetzner" and server_check.rc == 0
+      failed_when: false
+
+    - name: Clean up inventory host_vars
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/../inventory/host_vars/{{ name }}"
+        state: absent
+
+    - name: Clean up secrets file
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/../secrets/{{ name }}.sops.yml"
+        state: absent
+
+    - name: Show summary
+      ansible.builtin.debug:
+        msg: "Burned {{ name }} — server deleted, local files cleaned"

@@ -61,3 +61,41 @@
   ansible.builtin.debug:
     msg: "{{ compose_ps.stdout }}"
   tags: [deploy]
+
+# === CrowdSec bouncer registration ===
+- name: Check if CrowdSec bouncer is registered
+  ansible.builtin.command:
+    cmd: docker exec crowdsec cscli bouncers list -o raw
+  register: bouncer_list
+  changed_when: false
+  failed_when: false
+  when: crowdsec_enabled | default(true)
+  tags: [deploy, crowdsec]
+
+- name: Register CrowdSec bouncer
+  ansible.builtin.command:
+    cmd: docker exec crowdsec cscli bouncers add traefik-bouncer -o raw
+  register: bouncer_key
+  when:
+    - crowdsec_enabled | default(true)
+    - bouncer_list.rc == 0
+    - "'traefik-bouncer' not in bouncer_list.stdout"
+  no_log: true
+  tags: [deploy, crowdsec]
+
+- name: Update .env with bouncer key
+  ansible.builtin.lineinfile:
+    path: "{{ drayve_deploy_dir }}/.env"
+    regexp: "^CROWDSEC_BOUNCER_KEY="
+    line: "CROWDSEC_BOUNCER_KEY={{ bouncer_key.stdout | trim }}"
+    mode: "0600"
+  when: bouncer_key is changed
+  no_log: true
+  tags: [deploy, crowdsec]
+
+- name: Recreate bouncer with new API key
+  ansible.builtin.command:
+    cmd: docker compose up -d crowdsec-bouncer
+    chdir: "{{ drayve_deploy_dir }}"
+  when: bouncer_key is changed
+  tags: [deploy, crowdsec]
