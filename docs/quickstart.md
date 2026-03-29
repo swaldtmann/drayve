@@ -121,7 +121,7 @@ Each host can have completely different configs — different auth providers, mo
 make list                      # show all configured hosts
 make deploy NAME=webshop       # re-deploy after config changes
 make status NAME=monitoring    # check server status
-make burn NAME=client-xyz      # tear down server + clean local files
+make burn NAME=client-xyz      # asks for confirmation first
 ```
 
 The `deploy/` directory is gitignored — it contains your infrastructure details and secrets. Back it up separately.
@@ -136,7 +136,8 @@ make deploy NAME=webshop        # apply changes
 ## Tear down
 
 ```bash
-make burn NAME=webshop
+make burn NAME=webshop              # asks: "BURN webshop — delete server + local files? [y/N]"
+make burn NAME=webshop CONFIRM=y    # skip prompt (for scripts)
 ```
 
 For Hetzner: deletes the server + cleans local files. For manual provider: cleans local files only (server untouched).

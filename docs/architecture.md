@@ -155,7 +155,7 @@ make provision NAME=client-xyz
 make list                         # show all hosts
 make deploy NAME=webshop          # re-deploy one host
 make status NAME=monitoring       # check status
-make burn NAME=client-xyz         # tear down
+make burn NAME=client-xyz         # asks for confirmation
 ```
 
 ## Monitoring profiles

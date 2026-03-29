@@ -74,7 +74,7 @@ make init NAME= DOMAIN= [HOST=]   Scaffold new host in deploy/
 make provision NAME=               Provision + deploy server
 make deploy NAME=                  Re-deploy after config changes
 make deploy-prod NAME= REF=       Deploy tagged release to prod
-make burn NAME=                    Tear down server + clean local files
+make burn NAME= [CONFIRM=y]        Tear down server + clean local files
 make status NAME=                  Show server status
 make list                          List all configured hosts
 make validate NAME=                Validate stack.yaml for a host
