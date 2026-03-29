@@ -49,16 +49,9 @@ help:  ## Show available targets
 validate: _require-stack  ## Validate stack.yaml against schema
 	@$(PYTHON) scripts/validate-stack.py $(STACK_CONFIG)
 
-lint:  ## Syntax-check all playbooks + validate stack.yaml
-	@echo "==> Checking Ansible playbook syntax..."
-	@cd $(ANSIBLE_DIR) && for pb in playbooks/*.yml; do \
-		echo "    $$pb"; \
-		output=$$(ansible-playbook --syntax-check "$$pb" -e name=_lint -e domain=_lint 2>&1); \
-		echo "$$output" | grep -v "^\[WARNING\]" | sed 's/^/    /' ; \
-		if echo "$$output" | grep -q "^ERROR" && ! echo "$$output" | grep -q "is undefined"; then \
-			exit 1; \
-		fi; \
-	done
+lint:  ## Lint playbooks + roles + validate stack.yaml
+	@echo "==> Running ansible-lint..."
+	@cd $(ANSIBLE_DIR) && ansible-lint playbooks/ roles/ 2>&1 | grep -v "^WARNING" | sed 's/^/    /'
 	@echo "==> Checking stack.yaml schema..."
 	@if [ -f "$(STACK_CONFIG)" ]; then \
 		$(PYTHON) scripts/validate-stack.py $(STACK_CONFIG); \
