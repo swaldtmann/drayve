@@ -94,7 +94,31 @@
     mode: "0644"
   tags: [traefik]
 
-# === CrowdSec ===
+# === CrowdSec middleware ===
+- name: Deploy CrowdSec bouncer middleware
+  ansible.builtin.copy:
+    dest: "{{ traefik_dynamic_dir }}/crowdsec.yml"
+    content: |
+      http:
+        middlewares:
+          crowdsec:
+            forwardAuth:
+              address: http://crowdsec-bouncer:8080/api/v1/forwardAuth
+              trustForwardHeader: true
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0644"
+  when: crowdsec_enabled | default(true)
+  tags: [traefik, crowdsec]
+
+- name: Remove CrowdSec middleware when disabled
+  ansible.builtin.file:
+    path: "{{ traefik_dynamic_dir }}/crowdsec.yml"
+    state: absent
+  when: not (crowdsec_enabled | default(true))
+  tags: [traefik, crowdsec]
+
+# === CrowdSec config ===
 - name: Create CrowdSec config directory
   ansible.builtin.file:
     path: "{{ drayve_deploy_dir }}/crowdsec"
@@ -109,9 +133,8 @@
   ansible.builtin.copy:
     dest: "{{ drayve_deploy_dir }}/crowdsec/acquis.yaml"
     content: |
-      source: journalctl
-      journalctl_filter:
-        - "_SYSTEMD_UNIT=docker.service"
+      filenames:
+        - /var/log/traefik/access.log
       labels:
         type: traefik
     owner: "{{ drayve_user }}"

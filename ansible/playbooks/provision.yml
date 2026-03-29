@@ -16,12 +16,13 @@
   hosts: localhost
   connection: local
   gather_facts: false
+  become: false
 
   vars:
     _provider: "{{ provider_type | default('hetzner') }}"
-    _server_type: "{{ server_type | default('cx22') }}"
+    _server_type: "{{ server_type | default('cx23') }}"
     _server_location: "{{ server_location | default('nbg1') }}"
-    ssh_key_name: "{{ hcloud_ssh_key | default('') }}"
+    ssh_key_name: "{{ hcloud_ssh_key | default('stephan@waldtmann.de') }}"
 
   tasks:
     - name: Verify required variables

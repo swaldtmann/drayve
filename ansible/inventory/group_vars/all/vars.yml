@@ -30,7 +30,7 @@ ssh_password_auth: "no"
 ssh_root_login: "prohibit-password"
 
 # === ACME / Let's Encrypt ===
-acme_email: ""
+acme_email: "sw@authbox.de"
 
 # === Auth ===
 auth_provider: basic
