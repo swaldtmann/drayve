@@ -1,14 +1,14 @@
-# Nextcloud on Drayve — copy to server, adjust, run.
+# Example: Add your own services to the Drayve stack.
 #
-# Prerequisites:
-#   - Drayve platform running (make provision)
-#   - DNS A-Record for cloud.<domain> pointing to server
+# Copy this file to deploy/<name>/compose.override.yml and adjust.
+# Docker Compose merges it automatically with the main docker-compose.yml.
 #
-# Usage:
-#   scp -r nextcloud/ root@<server>:/opt/drayve/apps/nextcloud/
-#   ssh root@<server> "cd /opt/drayve/apps/nextcloud && docker compose up -d"
+# Your services get automatic TLS via Traefik — just add the labels.
+# The Drayve network is called "drayve_default".
 #
-# Nextcloud will be available at https://cloud.<domain>
+# After editing, deploy with: make deploy NAME=<name>
+#
+# This example adds Nextcloud with MariaDB and Redis.
 
 services:
   nextcloud:
@@ -33,9 +33,6 @@ services:
         condition: service_healthy
       nextcloud-redis:
         condition: service_healthy
-    networks:
-      - default
-      - drayve_default
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.nextcloud.rule=Host(`${NC_DOMAIN}`)"
@@ -43,7 +40,7 @@ services:
       - "traefik.http.routers.nextcloud.tls=true"
       - "traefik.http.routers.nextcloud.tls.certresolver=letsencrypt"
       - "traefik.http.services.nextcloud.loadbalancer.server.port=80"
-      # Nextcloud CalDAV/CardDAV redirects
+      # CalDAV/CardDAV redirects
       - "traefik.http.middlewares.nc-redirects.redirectregex.permanent=true"
       - "traefik.http.middlewares.nc-redirects.redirectregex.regex=https://(.*)/.well-known/(?:card|cal)dav"
       - "traefik.http.middlewares.nc-redirects.redirectregex.replacement=https://$${1}/remote.php/dav"
@@ -84,7 +81,3 @@ volumes:
   nextcloud_data:
   nextcloud_db:
   nextcloud_redis:
-
-networks:
-  drayve_default:
-    external: true

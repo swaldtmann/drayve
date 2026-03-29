@@ -61,7 +61,8 @@ drayve/                          <-- git clone
 |   |-- _example/                Template (tracked)
 |   |-- webshop/
 |   |   |-- stack.yaml           Config for this host
-|   |   +-- secrets.yml          Secrets for this host
+|   |   |-- secrets.yml          Secrets for this host
+|   |   +-- compose.override.yml Your services (optional)
 |   +-- monitoring/
 |       |-- stack.yaml
 |       +-- secrets.yml

@@ -126,6 +126,18 @@ make burn NAME=client-xyz      # asks for confirmation first
 
 The `deploy/` directory is gitignored — it contains your infrastructure details and secrets. **Back it up.** In SOPS mode, `deploy/.age-key.txt` is the master key for all your encrypted secrets. Lose it and you lose access to every secret across every host. See [Secrets](secrets.md) for details.
 
+## Adding your own services
+
+Put a `compose.override.yml` in your host directory:
+
+```bash
+cp deploy/_example/compose.override.yml deploy/webshop/compose.override.yml
+vim deploy/webshop/compose.override.yml
+make deploy NAME=webshop
+```
+
+Docker Compose merges it with the main stack automatically. Your services get TLS via Traefik — just add the labels. See the example for a complete Nextcloud setup.
+
 ## Re-deploy after changes
 
 ```bash
@@ -159,6 +171,7 @@ For Hetzner: deletes the server + cleans local files. For manual provider: clean
 ## Next steps
 
 - See `deploy/_example/stack.yaml` for the config template
+- See `deploy/_example/compose.override.yml` for adding your own services (Nextcloud example)
 - See [Configuration](configuration.md) for all options
 - See [Architecture](architecture.md) for how the pieces fit together
 - See [Secrets](secrets.md) for quickstart vs SOPS

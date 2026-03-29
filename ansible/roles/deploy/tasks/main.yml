@@ -109,6 +109,31 @@
     mode: "0644"
   tags: [deploy]
 
+- name: Check for compose override
+  ansible.builtin.stat:
+    path: "{{ ops_repo_root }}/deploy/{{ inventory_hostname }}/compose.override.yml"
+  register: compose_override
+  delegate_to: localhost
+  become: false
+  tags: [deploy]
+
+- name: Deploy compose override
+  ansible.builtin.copy:
+    src: "{{ ops_repo_root }}/deploy/{{ inventory_hostname }}/compose.override.yml"
+    dest: "{{ drayve_deploy_dir }}/docker-compose.override.yml"
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0644"
+  when: compose_override.stat.exists
+  tags: [deploy]
+
+- name: Remove compose override if not present locally
+  ansible.builtin.file:
+    path: "{{ drayve_deploy_dir }}/docker-compose.override.yml"
+    state: absent
+  when: not compose_override.stat.exists
+  tags: [deploy]
+
 - name: Template .env
   ansible.builtin.template:
     src: "{{ ops_repo_root }}/ansible/templates/env.j2"

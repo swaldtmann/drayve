@@ -91,10 +91,23 @@ make backup NAME=                  Deploy/update backup config
 - **[Architecture](docs/architecture.md)** — how the pieces fit together, directory layout, provisioning flow
 - **[Secrets](docs/secrets.md)** — quickstart vs SOPS, setup, editing, secret reference
 
+## Adding your own services
+
+Put a `compose.override.yml` in your host's deploy directory:
+
+```bash
+cp deploy/_example/compose.override.yml deploy/myserver/compose.override.yml
+# Edit to add your services (Nextcloud example included)
+make deploy NAME=myserver
+```
+
+Docker Compose merges it with the platform stack automatically. Your services get TLS via Traefik — just add the labels.
+
 ## Examples
 
 - `examples/stack-minimal.yaml` — Basic auth, light monitoring, quickstart secrets
 - `examples/stack-full.yaml` — Authelia + LLDAP, full monitoring, SOPS secrets
+- `deploy/_example/compose.override.yml` — Nextcloud with MariaDB + Redis
 
 ## Requirements
 
