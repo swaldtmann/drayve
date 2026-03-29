@@ -55,7 +55,7 @@ _host_domain = $(call _stack_val,c.get('stack',{}).get('domain',''))
 
 # --- Targets ---
 
-.PHONY: help init validate lint provision deploy deploy-prod burn status smoke secrets-init secrets-template backup list
+.PHONY: help init validate lint provision deploy deploy-prod burn status secrets-init secrets-template backup list
 
 help:  ## Show available targets
 	@grep -E '^[a-z][a-z0-9_-]+:.*##' $(MAKEFILE_LIST) | sort | awk -F ':.*##' '{printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'

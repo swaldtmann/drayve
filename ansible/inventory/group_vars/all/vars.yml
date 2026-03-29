@@ -12,10 +12,6 @@ drayve_user: drayve
 drayve_uid: 1000
 drayve_group: drayve
 
-# === Git (Codeberg) ===
-forge_ssh: git@codeberg.org
-forge_owner: your-codeberg-user
-
 # === Swap ===
 swap_size_mb: 2048
 

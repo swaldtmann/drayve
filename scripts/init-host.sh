@@ -26,9 +26,10 @@ fi
 mkdir -p "$deploy_dir"
 
 # --- Copy and customize stack.yaml ---
+# Use minimal example as default (safe). Full example in deploy/_example/.
 sed -e "s/name: myserver/name: ${name}/" \
     -e "s/domain: example.com/domain: ${domain}/" \
-    deploy/_example/stack.yaml > "${deploy_dir}/stack.yaml"
+    examples/stack-minimal.yaml > "${deploy_dir}/stack.yaml"
 
 echo "==> Created ${deploy_dir}/stack.yaml"
 
