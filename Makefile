@@ -17,6 +17,10 @@ INVENTORY := $(DEPLOY_DIR)/hosts.yaml
 PYTHON := $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 ANSIBLE_LINT := $(if $(wildcard .venv/bin/ansible-lint),.venv/bin/ansible-lint,ansible-lint)
 
+# Load test env (HCLOUD_TOKEN etc.) if present
+-include .env.test
+export
+
 # Per-host paths (set when NAME is defined)
 ifdef NAME
 HOST_DIR := $(DEPLOY_DIR)/$(NAME)
@@ -162,11 +166,21 @@ secrets-template: _require-name  ## Scaffold SOPS secrets file for a host (NAME=
 backup: _require-name _require-stack _require-inventory  ## Deploy/update backup config (NAME=)
 	$(ANSIBLE) playbooks/backup.yml -l $(NAME) -e @../$(STACK_CONFIG)
 
-test-role: _require-name  ## Test a single role with Molecule (NAME=common|docker|...)
+_require-hcloud-token:
+ifndef HCLOUD_TOKEN
+	$(error HCLOUD_TOKEN is required. Copy .env.test.example to .env.test and add your token)
+endif
+
+test-role: _require-name _require-hcloud-token  ## Test a single role with Molecule (NAME=common|docker|...)
+	@if [ ! -d "$(ANSIBLE_DIR)/roles/$(NAME)/molecule" ]; then \
+		echo "Error: No Molecule scenario for role '$(NAME)'. Roles with tests:"; \
+		ls -d $(ANSIBLE_DIR)/roles/*/molecule 2>/dev/null | sed 's|.*/roles/\(.*\)/molecule|  \1|'; \
+		exit 1; \
+	fi
 	@echo "==> Testing role: $(NAME)"
 	@cd $(ANSIBLE_DIR)/roles/$(NAME) && molecule test
 
-test-integration:  ## Full stack integration test (needs HCLOUD_TOKEN)
+test-integration: _require-hcloud-token  ## Full stack integration test (needs HCLOUD_TOKEN)
 	@echo "==> Running integration test (creates Hetzner server)"
 	@molecule test -s integration
 

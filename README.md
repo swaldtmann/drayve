@@ -136,11 +136,34 @@ Docker Compose merges the override with the platform stack automatically. Your s
 - `deploy/_example/compose.override.yml` — Nextcloud with MariaDB + Redis
 - `deploy/_example/env.override` — Secret template for user services
 
+## Testing
+
+Role and integration tests use [Molecule](https://molecule.readthedocs.io/) with the Hetzner Cloud driver — they create real servers, run the roles, verify with Testinfra, and tear down.
+
+```bash
+# One-time: copy the example and add your Hetzner Cloud API token
+cp .env.test.example .env.test
+# Edit .env.test — add your HCLOUD_TOKEN
+
+# Test a single role
+make test-role NAME=common
+make test-role NAME=docker
+
+# Full stack integration test
+make test-integration
+
+# Lint + validate only (no server needed)
+make test
+```
+
+The Makefile loads `.env.test` automatically. Alternatively, `export HCLOUD_TOKEN=...` in your shell.
+
 ## Requirements
 
 - Python 3.8+, Ansible 2.14+
 - Target: Ubuntu 22.04 / 24.04
 - For Hetzner auto-provision: `hcloud` CLI
+- For Molecule tests: Hetzner Cloud API token (see [Testing](#testing))
 
 ## Built with
 
