@@ -1,0 +1,10 @@
+---
+backup_enabled: false
+backup_target: local  # local | sftp
+backup_schedule: "0 3 * * *"  # 03:00 daily
+backup_retain_daily: 7
+backup_retain_weekly: 4
+backup_retain_monthly: 6
+backup_local_repo: /opt/drayve/backups
+backup_sftp_host: ""
+backup_sftp_path: ""
