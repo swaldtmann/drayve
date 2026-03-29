@@ -63,6 +63,10 @@
         - job_name: 'traefik'
           static_configs:
             - targets: ['traefik:8080']
+
+        - job_name: 'crowdsec'
+          static_configs:
+            - targets: ['crowdsec:6060']
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
     mode: "0644"
@@ -145,6 +149,9 @@
             - source_labels: ['__meta_docker_container_name']
               regex: '/(.*)'
               target_label: 'container'
+            - source_labels: ['__meta_docker_container_name']
+              regex: '/(.*)'
+              target_label: 'service'
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
     mode: "0644"
@@ -183,6 +190,44 @@
     group: "{{ drayve_group }}"
     mode: "0644"
   when: _mon_grafana
+  tags: [monitoring, dashboards]
+
+- name: Deploy CrowdSec LAPI datasource
+  ansible.builtin.copy:
+    dest: "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/datasources/crowdsec-lapi.yml"
+    content: |
+      apiVersion: 1
+
+      deleteDatasources:
+        - name: CrowdSec LAPI
+          orgId: 1
+
+      datasources:
+        - name: CrowdSec LAPI
+          uid: crowdsec-lapi
+          type: yesoreyeram-infinity-datasource
+          access: proxy
+          editable: false
+          url: http://crowdsec:8080
+          jsonData:
+            auth_method: apiKey
+            apiKeyKey: X-Api-Key
+            apiKeyType: header
+            allowedHosts:
+              - "http://crowdsec:8080"
+          secureJsonData:
+            apiKeyValue: $__env{CROWDSEC_LAPI_KEY}
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0644"
+  when: _mon_grafana and (crowdsec_enabled | default(true))
+  tags: [monitoring, dashboards]
+
+- name: Remove CrowdSec LAPI datasource when CrowdSec disabled
+  ansible.builtin.file:
+    path: "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/datasources/crowdsec-lapi.yml"
+    state: absent
+  when: _mon_grafana and not (crowdsec_enabled | default(true))
   tags: [monitoring, dashboards]
 
 - name: Deploy Grafana dashboards

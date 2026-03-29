@@ -95,19 +95,27 @@
   tags: [traefik]
 
 # === CrowdSec middleware ===
-- name: Deploy CrowdSec bouncer middleware
+- name: Deploy CrowdSec bouncer middleware (plugin)
   ansible.builtin.copy:
     dest: "{{ traefik_dynamic_dir }}/crowdsec.yml"
     content: |
       http:
         middlewares:
           crowdsec:
-            forwardAuth:
-              address: http://crowdsec-bouncer:8080/api/v1/forwardAuth
-              trustForwardHeader: true
+            plugin:
+              bouncer:
+                enabled: true
+                crowdsecMode: stream
+                crowdsecLapiKey: "{{ crowdsec_bouncer_key }}"
+                crowdsecLapiHost: crowdsec:8080
+                crowdsecLapiScheme: http
+                updateIntervalSeconds: 15
+                defaultDecisionSeconds: 60
+                forwardedHeadersTrustedIPs:
+                  - 172.16.0.0/12
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
-    mode: "0644"
+    mode: "0600"
   when: crowdsec_enabled | default(true)
   tags: [traefik, crowdsec]
 

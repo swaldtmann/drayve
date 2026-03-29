@@ -39,6 +39,24 @@
     - crowdsec_bouncer_key | default('') | length == 0
   tags: [deploy]
 
+- name: Read existing LAPI key from .env
+  ansible.builtin.command:
+    cmd: grep -oP '^CROWDSEC_LAPI_KEY=\K.+' {{ drayve_deploy_dir }}/.env
+  register: existing_lapi_key
+  changed_when: false
+  failed_when: false
+  when: crowdsec_enabled | default(true)
+  tags: [deploy]
+
+- name: Preserve LAPI key if secrets role didn't run
+  ansible.builtin.set_fact:
+    crowdsec_lapi_key: "{{ existing_lapi_key.stdout | trim }}"
+  when:
+    - crowdsec_enabled | default(true)
+    - existing_lapi_key.stdout | default('') | length > 0
+    - crowdsec_lapi_key | default('') | length == 0
+  tags: [deploy]
+
 - name: Create landing page directory
   ansible.builtin.file:
     path: "{{ drayve_deploy_dir }}/landing"
@@ -144,5 +162,18 @@
     - bouncer_list.rc == 0
     - "'traefik-bouncer' not in bouncer_list.stdout"
     - crowdsec_bouncer_key | default('') | length > 0
+  no_log: true
+  tags: [deploy, crowdsec]
+
+- name: Register CrowdSec LAPI bouncer for Grafana
+  ansible.builtin.command:
+    cmd: >-
+      docker exec crowdsec cscli bouncers add grafana-lapi
+      --key "{{ crowdsec_lapi_key }}"
+  when:
+    - crowdsec_enabled | default(true)
+    - bouncer_list.rc == 0
+    - "'grafana-lapi' not in bouncer_list.stdout"
+    - crowdsec_lapi_key | default('') | length > 0
   no_log: true
   tags: [deploy, crowdsec]

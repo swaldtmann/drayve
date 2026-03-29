@@ -159,13 +159,13 @@
     <section>
       <h2>Infrastructure</h2>
       <div class="grid">
-        <div class="card">
+        <a href="https://traefik.{{ drayve_domain }}" target="_blank" class="card">
           <div class="card-header">
             <div class="card-title"><span class="icon">&#x1F6E3;</span><h3>Traefik</h3></div>
             <span class="badge">reverse proxy</span>
           </div>
           <p>TLS, routing, middleware</p>
-        </div>
+        </a>
 {% if crowdsec_enabled | default(true) %}
         <div class="card">
           <div class="card-header">

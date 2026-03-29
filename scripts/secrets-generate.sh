@@ -32,6 +32,7 @@ grafana_admin_pass: "$(_rand 20)"
 
 # --- CrowdSec ---
 crowdsec_bouncer_key: "$(_rand 32)"
+crowdsec_lapi_key: "$(_rand 32)"
 
 # --- LLDAP ---
 lldap_jwt_secret: "$(_rand 48)"
