@@ -23,11 +23,8 @@ Get a fully configured Docker stack running on a fresh Ubuntu server in under 10
 ```bash
 git clone https://codeberg.org/StephanWaldtmann/drayve.git
 cd drayve
-
-# Python dependencies
-python3 -m venv .venv
+make setup              # venv, dependencies, git hooks
 source .venv/bin/activate
-pip install pyyaml ansible ansible-lint
 ```
 
 ## Initialize a host

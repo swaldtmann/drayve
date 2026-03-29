@@ -55,7 +55,7 @@ _host_domain = $(call _stack_val,c.get('stack',{}).get('domain',''))
 
 # --- Targets ---
 
-.PHONY: help init validate lint provision deploy deploy-prod burn status secrets-init secrets-template backup list test test-role test-integration
+.PHONY: help init validate lint provision deploy deploy-prod burn status secrets-init secrets-template backup list test test-role test-integration setup
 
 help:  ## Show available targets
 	@grep -E '^[a-z][a-z0-9_-]+:.*##' $(MAKEFILE_LIST) | sort | awk -F ':.*##' '{printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -168,6 +168,15 @@ test-role: _require-name  ## Test a single role with Molecule (NAME=common|docke
 test-integration:  ## Full stack integration test (needs HCLOUD_TOKEN)
 	@echo "==> Running integration test (creates Hetzner server)"
 	@molecule test -s integration
+
+setup:  ## One-time setup: venv + git hooks
+	@echo "==> Setting up venv..."
+	@python3 -m venv .venv
+	@.venv/bin/pip install -q -r requirements.txt
+	@echo "==> Installing git hooks..."
+	@cp scripts/hooks/pre-push .git/hooks/pre-push
+	@chmod +x .git/hooks/pre-push
+	@echo "==> Done. Activate with: source .venv/bin/activate"
 
 test: lint  ## Run lint + validate all examples
 	@echo "==> Validating examples..."

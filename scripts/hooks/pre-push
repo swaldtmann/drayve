@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Pre-push hook: lint + validate before pushing.
+# Runs: make test (ansible-lint + validate-stack.py on examples)
+set -euo pipefail
+
+echo "==> Pre-push: running make test..."
+make test
+echo "==> Pre-push: passed"
