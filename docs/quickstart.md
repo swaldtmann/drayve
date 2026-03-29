@@ -124,7 +124,7 @@ make status NAME=monitoring    # check server status
 make burn NAME=client-xyz      # asks for confirmation first
 ```
 
-The `deploy/` directory is gitignored — it contains your infrastructure details and secrets. Back it up separately.
+The `deploy/` directory is gitignored — it contains your infrastructure details and secrets. **Back it up.** In SOPS mode, `deploy/.age-key.txt` is the master key for all your encrypted secrets. Lose it and you lose access to every secret across every host. See [Secrets](secrets.md) for details.
 
 ## Re-deploy after changes
 

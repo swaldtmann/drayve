@@ -66,13 +66,24 @@ sops set deploy/myserver/secrets.yml '["grafana_admin_pass"]' '"newpassword"'
 
 Why not `sops -d` → edit → `sops -e`? Because the re-encrypted file produces a massive git diff (every field changes). `sops edit` and `sops set` only change what you touched.
 
-### Backup your AGE key
+### Back up your AGE key
 
-Your AGE private key is the only way to decrypt secrets. Back it up:
+> **WARNING: If you lose `deploy/.age-key.txt`, your encrypted secrets are gone. Permanently. There is no recovery, no reset, no backdoor. You would have to re-generate every secret for every host and re-deploy everything.**
+
+Back it up immediately after creation. Store it somewhere safe and separate from your repo:
 
 ```bash
-cp deploy/.age-key.txt <safe-location>
+# Password manager (recommended)
+# Copy the contents of deploy/.age-key.txt into your password manager
+
+# Or a separate location
+cp deploy/.age-key.txt /path/to/secure/backup/
+
+# Or an encrypted USB drive
+cp deploy/.age-key.txt /Volumes/SecureUSB/drayve-age-key.txt
 ```
+
+Do not store the backup next to your repo. Do not put it in the same cloud storage. The whole point of SOPS is that the encrypted secrets can live in git safely — but only as long as the key exists somewhere else.
 
 ## Generated secrets reference
 
