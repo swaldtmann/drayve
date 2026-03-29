@@ -1,0 +1,4 @@
+---
+authelia_config_dir: "{{ drayve_deploy_dir }}/authelia"
+authelia_data_dir: "{{ drayve_deploy_dir }}/authelia/data"
+authelia_image: authelia/authelia:4.39

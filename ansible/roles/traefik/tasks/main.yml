@@ -1,0 +1,121 @@
+---
+- name: Create Traefik directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0755"
+  loop:
+    - "{{ traefik_config_dir }}"
+    - "{{ traefik_dynamic_dir }}"
+    - "{{ traefik_certs_dir }}"
+  tags: [traefik]
+
+# === Auth middleware (provider-aware) ===
+- name: Deploy basic auth middleware
+  ansible.builtin.copy:
+    dest: "{{ traefik_dynamic_dir }}/auth-basic.yml"
+    content: |
+      http:
+        middlewares:
+          auth:
+            basicAuth:
+              usersFile: /etc/traefik/.htpasswd
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0644"
+  when: auth_provider == "basic"
+  tags: [traefik, auth]
+
+- name: Deploy forwardAuth middleware (authelia)
+  ansible.builtin.copy:
+    dest: "{{ traefik_dynamic_dir }}/auth-authelia.yml"
+    content: |
+      http:
+        middlewares:
+          auth:
+            forwardAuth:
+              address: http://authelia:9091/api/authz/forward-auth
+              trustForwardHeader: true
+              authResponseHeaders:
+                - Remote-User
+                - Remote-Groups
+                - Remote-Email
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0644"
+  when: auth_provider == "authelia"
+  tags: [traefik, auth]
+
+- name: Deploy no-auth middleware (passthrough)
+  ansible.builtin.copy:
+    dest: "{{ traefik_dynamic_dir }}/auth-none.yml"
+    content: |
+      # No auth middleware — passthrough
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0644"
+  when: auth_provider == "none"
+  tags: [traefik, auth]
+
+- name: Remove stale auth middleware files
+  ansible.builtin.file:
+    path: "{{ traefik_dynamic_dir }}/{{ item }}"
+    state: absent
+  loop:
+    - auth-basic.yml
+    - auth-authelia.yml
+    - auth-none.yml
+  when: >-
+    (item == 'auth-basic.yml' and auth_provider != 'basic') or
+    (item == 'auth-authelia.yml' and auth_provider != 'authelia') or
+    (item == 'auth-none.yml' and auth_provider != 'none')
+  tags: [traefik, auth]
+
+# === Security headers ===
+- name: Deploy security headers middleware
+  ansible.builtin.copy:
+    dest: "{{ traefik_dynamic_dir }}/security-headers.yml"
+    content: |
+      http:
+        middlewares:
+          sec-headers:
+            headers:
+              browserXssFilter: true
+              contentTypeNosniff: true
+              frameDeny: true
+              stsIncludeSubdomains: true
+              stsPreload: true
+              stsSeconds: 31536000
+              customFrameOptionsValue: SAMEORIGIN
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0644"
+  tags: [traefik]
+
+# === CrowdSec ===
+- name: Create CrowdSec config directory
+  ansible.builtin.file:
+    path: "{{ drayve_deploy_dir }}/crowdsec"
+    state: directory
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0755"
+  when: crowdsec_enabled | default(true)
+  tags: [traefik, crowdsec]
+
+- name: Deploy CrowdSec acquis.yaml
+  ansible.builtin.copy:
+    dest: "{{ drayve_deploy_dir }}/crowdsec/acquis.yaml"
+    content: |
+      source: journalctl
+      journalctl_filter:
+        - "_SYSTEMD_UNIT=docker.service"
+      labels:
+        type: traefik
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0644"
+  when: crowdsec_enabled | default(true)
+  tags: [traefik, crowdsec]

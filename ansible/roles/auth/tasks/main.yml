@@ -1,0 +1,46 @@
+---
+# Auth dispatcher — includes the right sub-role based on auth_provider.
+# Other roles check auth_provider to decide their middleware, not "is authelia running?".
+
+- name: Auth provider none — no auth containers
+  ansible.builtin.debug:
+    msg: "Auth provider: none — skipping auth setup"
+  when: auth_provider == "none"
+  tags: [auth]
+
+- name: Auth provider basic — generate htpasswd
+  when: auth_provider == "basic"
+  tags: [auth]
+  block:
+    - name: Install apache2-utils for htpasswd
+      ansible.builtin.apt:
+        name: apache2-utils
+        state: present
+        cache_valid_time: 3600
+
+    - name: Generate htpasswd file
+      ansible.builtin.shell:
+        cmd: >-
+          htpasswd -cb {{ drayve_deploy_dir }}/.htpasswd
+          "{{ auth_basic_user }}" "{{ auth_basic_password }}"
+      no_log: true
+
+    - name: Set htpasswd permissions
+      ansible.builtin.file:
+        path: "{{ drayve_deploy_dir }}/.htpasswd"
+        owner: "{{ drayve_user }}"
+        group: "{{ drayve_group }}"
+        mode: "0600"
+
+- name: Auth provider authelia — full SSO setup
+  when: auth_provider == "authelia"
+  tags: [auth]
+  block:
+    - name: Include lldap role
+      ansible.builtin.include_role:
+        name: lldap
+      when: auth_lldap | bool
+
+    - name: Include authelia role
+      ansible.builtin.include_role:
+        name: authelia

@@ -1,0 +1,228 @@
+# Managed by Ansible — do not edit manually on the server.
+# Template: ansible/templates/docker-compose.yml.j2
+name: drayve
+
+services:
+  traefik:
+    image: {{ traefik_image | default('traefik:v3.6') }}
+    container_name: traefik
+    restart: unless-stopped
+    mem_limit: {{ mem_traefik }}
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - HETZNER_API_TOKEN=${HETZNER_API_TOKEN:-}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/config/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/config/dynamic:/config/dynamic:ro
+      - ./traefik/certs:/certs
+      - traefik_logs:/var/log/traefik
+{% if auth_provider == 'basic' %}
+      - ./.htpasswd:/etc/traefik/.htpasswd:ro
+{% endif %}
+{% if crowdsec_enabled | default(true) %}
+    depends_on:
+      - crowdsec-bouncer
+{% endif %}
+
+{% if crowdsec_enabled | default(true) %}
+  crowdsec:
+    image: {{ crowdsec_image | default('crowdsecurity/crowdsec:latest') }}
+    container_name: crowdsec
+    restart: unless-stopped
+    mem_limit: {{ mem_crowdsec }}
+    environment:
+      - GID=1000
+      - COLLECTIONS=crowdsecurity/traefik crowdsecurity/http-cve crowdsecurity/whitelist-good-actors
+    volumes:
+      - crowdsec_config:/etc/crowdsec
+      - crowdsec_db:/var/lib/crowdsec/data
+      - traefik_logs:/var/log/traefik:ro
+      - ./crowdsec/acquis.yaml:/etc/crowdsec/acquis.yaml:ro
+
+  crowdsec-bouncer:
+    image: {{ crowdsec_bouncer_image | default('fbonalair/traefik-crowdsec-bouncer:latest') }}
+    container_name: crowdsec-bouncer
+    restart: unless-stopped
+    mem_limit: {{ mem_crowdsec_bouncer }}
+    environment:
+      - CROWDSEC_BOUNCER_API_KEY=${CROWDSEC_BOUNCER_KEY}
+      - CROWDSEC_AGENT_HOST=crowdsec:8080
+      - GIN_MODE=release
+    depends_on:
+      - crowdsec
+{% endif %}
+
+{% if auth_provider == 'authelia' %}
+{% if auth_lldap | default(false) | bool %}
+  lldap:
+    image: {{ lldap_image | default('lldap/lldap:stable') }}
+    container_name: lldap
+    restart: unless-stopped
+    mem_limit: {{ mem_lldap }}
+    environment:
+      - LLDAP_JWT_SECRET=${LLDAP_JWT_SECRET}
+      - LLDAP_LDAP_USER_PASS=${LLDAP_ADMIN_PASSWORD}
+      - LLDAP_LDAP_BASE_DN={{ lldap_base_dn }}
+      - LLDAP_DATABASE_URL=sqlite:///data/lldap.db?mode=rwc
+      - LLDAP_LDAP_USER_DN=admin
+    volumes:
+      - lldap_data:/data
+    healthcheck:
+      test: ["CMD", "/app/lldap", "healthcheck", "--url", "http://localhost:17170"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+{% endif %}
+  authelia:
+    image: {{ authelia_image | default('authelia/authelia:4.39') }}
+    container_name: authelia
+    restart: unless-stopped
+    mem_limit: {{ mem_authelia }}
+    volumes:
+      - ./authelia/configuration.yml:/config/configuration.yml:ro
+      - ./authelia/data:/data
+      - ./authelia/jwks.pem:/config/jwks.pem:ro
+{% if auth_lldap | default(false) | bool %}
+    depends_on:
+      lldap:
+        condition: service_healthy
+{% endif %}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.authelia.rule=Host(`auth.{{ drayve_domain }}`)"
+      - "traefik.http.routers.authelia.entrypoints=websecure"
+      - "traefik.http.routers.authelia.tls=true"
+      - "traefik.http.routers.authelia.tls.certresolver=letsencrypt"
+      - "traefik.http.services.authelia.loadbalancer.server.port=9091"
+{% endif %}
+
+  # === whoami — proof-of-life service ===
+  whoami:
+    image: traefik/whoami:latest
+    container_name: whoami
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.whoami.rule=Host(`{{ drayve_domain }}`)"
+      - "traefik.http.routers.whoami.entrypoints=websecure"
+      - "traefik.http.routers.whoami.tls=true"
+      - "traefik.http.routers.whoami.tls.certresolver=letsencrypt"
+{% if auth_provider != 'none' %}
+      - "traefik.http.routers.whoami.middlewares=auth@file"
+{% endif %}
+      - "traefik.http.services.whoami.loadbalancer.server.port=80"
+
+  # === Monitoring ===
+{% if monitoring_services.node_exporter | default(false) | bool %}
+  node-exporter:
+    image: {{ node_exporter_image }}
+    container_name: node-exporter
+    restart: unless-stopped
+    mem_limit: {{ mem_node_exporter }}
+    pid: host
+    command:
+      - '--path.rootfs=/host'
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+    volumes:
+      - /:/host:ro,rslave
+{% endif %}
+
+{% if monitoring_services.cadvisor | default(false) | bool %}
+  cadvisor:
+    image: {{ cadvisor_image }}
+    container_name: cadvisor
+    restart: unless-stopped
+    mem_limit: {{ mem_cadvisor }}
+    privileged: true
+    devices:
+      - /dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+{% endif %}
+
+{% if monitoring_services.prometheus | default(false) | bool %}
+  prometheus:
+    image: {{ prometheus_image }}
+    container_name: prometheus
+    restart: unless-stopped
+    mem_limit: {{ mem_prometheus }}
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=30d'
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+{% endif %}
+
+{% if monitoring_services.grafana | default(false) | bool %}
+  grafana:
+    image: {{ grafana_image }}
+    container_name: grafana
+    restart: unless-stopped
+    mem_limit: {{ mem_grafana }}
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      - GF_SERVER_ROOT_URL={{ grafana_root_url | default('https://grafana.' + drayve_domain) }}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.rule=Host(`grafana.{{ drayve_domain }}`)"
+      - "traefik.http.routers.grafana.entrypoints=websecure"
+      - "traefik.http.routers.grafana.tls=true"
+      - "traefik.http.routers.grafana.tls.certresolver=letsencrypt"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+{% endif %}
+
+{% if monitoring_services.loki | default(false) | bool %}
+  loki:
+    image: {{ loki_image }}
+    container_name: loki
+    restart: unless-stopped
+    mem_limit: {{ mem_loki }}
+    command: -config.file=/etc/loki/loki-config.yml
+    volumes:
+      - ./monitoring/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki_data:/loki
+{% endif %}
+
+{% if monitoring_services.promtail | default(false) | bool %}
+  promtail:
+    image: {{ promtail_image }}
+    container_name: promtail
+    restart: unless-stopped
+    mem_limit: {{ mem_promtail }}
+    command: -config.file=/etc/promtail/promtail-config.yml
+    volumes:
+      - /var/log:/var/log:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+{% endif %}
+
+volumes:
+  traefik_logs: {}
+{% if crowdsec_enabled | default(true) %}
+  crowdsec_config: {}
+  crowdsec_db: {}
+{% endif %}
+{% if auth_provider == 'authelia' and auth_lldap | default(false) | bool %}
+  lldap_data: {}
+{% endif %}
+{% if monitoring_services.prometheus | default(false) | bool %}
+  prometheus_data: {}
+{% endif %}
+{% if monitoring_services.grafana | default(false) | bool %}
+  grafana_data: {}
+{% endif %}
+{% if monitoring_services.loki | default(false) | bool %}
+  loki_data: {}
+{% endif %}

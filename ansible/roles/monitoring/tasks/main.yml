@@ -1,0 +1,173 @@
+---
+# Monitoring role — profile-based with a-la-carte overrides.
+#
+# Profiles:
+#   full (~800MB)  — Prometheus, Grafana, Loki, Promtail, cAdvisor, node_exporter
+#   light (~50MB)  — node_exporter, Promtail (push to remote Grafana)
+#   none           — no monitoring containers
+
+# === Resolve effective flags ===
+- name: Set monitoring defaults from profile
+  ansible.builtin.set_fact:
+    _mon_grafana: "{{ monitoring_grafana | default(monitoring_profile == 'full') | bool }}"
+    _mon_prometheus: "{{ monitoring_prometheus | default(monitoring_profile == 'full') | bool }}"
+    _mon_loki: "{{ monitoring_loki | default(monitoring_profile == 'full') | bool }}"
+    _mon_promtail: "{{ monitoring_promtail | default(monitoring_profile in ['full', 'light']) | bool }}"
+    _mon_cadvisor: "{{ monitoring_cadvisor | default(monitoring_profile == 'full') | bool }}"
+    _mon_node_exporter: "{{ monitoring_node_exporter | default(monitoring_profile in ['full', 'light']) | bool }}"
+  tags: [monitoring]
+
+- name: Skip monitoring (profile=none, no overrides)
+  ansible.builtin.debug:
+    msg: "Monitoring profile: none — skipping"
+  when: monitoring_profile == "none" and not (_mon_grafana or _mon_prometheus or _mon_loki or _mon_promtail or _mon_cadvisor or _mon_node_exporter)
+  tags: [monitoring]
+
+# === Directories ===
+- name: Create monitoring directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0755"
+  loop:
+    - "{{ drayve_deploy_dir }}/monitoring"
+    - "{{ drayve_deploy_dir }}/monitoring/grafana"
+    - "{{ drayve_deploy_dir }}/monitoring/prometheus"
+  when: _mon_grafana or _mon_prometheus
+  tags: [monitoring]
+
+# === Prometheus config ===
+- name: Deploy Prometheus config
+  ansible.builtin.copy:
+    dest: "{{ drayve_deploy_dir }}/monitoring/prometheus/prometheus.yml"
+    content: |
+      global:
+        scrape_interval: 15s
+        evaluation_interval: 15s
+
+      scrape_configs:
+        - job_name: 'prometheus'
+          static_configs:
+            - targets: ['localhost:9090']
+
+        - job_name: 'node'
+          static_configs:
+            - targets: ['node-exporter:9100']
+
+        - job_name: 'cadvisor'
+          static_configs:
+            - targets: ['cadvisor:8080']
+
+        - job_name: 'traefik'
+          static_configs:
+            - targets: ['traefik:8080']
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0644"
+  when: _mon_prometheus
+  tags: [monitoring]
+
+# === Loki config ===
+- name: Create Loki directory
+  ansible.builtin.file:
+    path: "{{ drayve_deploy_dir }}/monitoring/loki"
+    state: directory
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0755"
+  when: _mon_loki
+  tags: [monitoring]
+
+- name: Deploy Loki config
+  ansible.builtin.copy:
+    dest: "{{ drayve_deploy_dir }}/monitoring/loki/loki-config.yml"
+    content: |
+      auth_enabled: false
+      server:
+        http_listen_port: 3100
+      common:
+        ring:
+          instance_addr: 127.0.0.1
+          kvstore:
+            store: inmemory
+        replication_factor: 1
+        path_prefix: /loki
+      schema_config:
+        configs:
+          - from: "2024-01-01"
+            store: tsdb
+            object_store: filesystem
+            schema: v13
+            index:
+              prefix: index_
+              period: 24h
+      storage_config:
+        filesystem:
+          directory: /loki/chunks
+      limits_config:
+        retention_period: 168h
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0644"
+  when: _mon_loki
+  tags: [monitoring]
+
+# === Grafana provisioning (dashboards + datasources) ===
+- name: Create Grafana provisioning directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0755"
+  loop:
+    - "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/dashboards/json"
+    - "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/datasources"
+  when: _mon_grafana
+  tags: [monitoring, dashboards]
+
+- name: Deploy Grafana dashboard provider config
+  ansible.builtin.copy:
+    src: "{{ ops_repo_root }}/config/grafana/provisioning/dashboards/provider.yml"
+    dest: "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/dashboards/provider.yml"
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0644"
+  when: _mon_grafana
+  tags: [monitoring, dashboards]
+
+- name: Deploy Grafana datasources
+  ansible.builtin.copy:
+    src: "{{ ops_repo_root }}/config/grafana/provisioning/datasources/prometheus.yml"
+    dest: "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/datasources/prometheus.yml"
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0644"
+  when: _mon_grafana
+  tags: [monitoring, dashboards]
+
+- name: Deploy Grafana dashboards
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/dashboards/json/"
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0644"
+  with_fileglob:
+    - "{{ ops_repo_root }}/config/grafana/provisioning/dashboards/json/*.json"
+  when: _mon_grafana
+  tags: [monitoring, dashboards]
+
+# === Set facts for compose template ===
+- name: Export monitoring flags for compose template
+  ansible.builtin.set_fact:
+    monitoring_services:
+      grafana: "{{ _mon_grafana }}"
+      prometheus: "{{ _mon_prometheus }}"
+      loki: "{{ _mon_loki }}"
+      promtail: "{{ _mon_promtail }}"
+      cadvisor: "{{ _mon_cadvisor }}"
+      node_exporter: "{{ _mon_node_exporter }}"
+  tags: [monitoring]

@@ -1,0 +1,87 @@
+---
+- name: Check if Docker is installed
+  ansible.builtin.command:
+    cmd: docker --version
+  register: docker_check
+  changed_when: false
+  failed_when: false
+  tags: [docker]
+
+- name: Install Docker prerequisites
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - gnupg
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  when: docker_check.rc != 0
+  tags: [docker]
+
+- name: Add Docker GPG key
+  ansible.builtin.shell:
+    cmd: |
+      install -m 0755 -d /etc/apt/keyrings
+      curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+      chmod a+r /etc/apt/keyrings/docker.asc
+    creates: /etc/apt/keyrings/docker.asc
+  when: docker_check.rc != 0
+  tags: [docker]
+
+- name: Add Docker apt repository
+  ansible.builtin.shell:
+    cmd: |
+      echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" \
+        > /etc/apt/sources.list.d/docker.list
+    creates: /etc/apt/sources.list.d/docker.list
+  when: docker_check.rc != 0
+  tags: [docker]
+
+- name: Install Docker Engine
+  ansible.builtin.apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-compose-plugin
+      - docker-buildx-plugin
+    state: present
+    update_cache: true
+  when: docker_check.rc != 0
+  tags: [docker]
+
+- name: Configure Docker daemon (journald logging)
+  ansible.builtin.copy:
+    dest: /etc/docker/daemon.json
+    content: |
+      {
+        "log-driver": "journald",
+        "log-opts": {
+          "tag": "{% raw %}{{.Name}}{% endraw %}"
+        }
+      }
+    mode: "0644"
+  register: docker_daemon_config
+  tags: [docker]
+
+- name: Restart Docker if daemon config changed
+  ansible.builtin.service:
+    name: docker
+    state: restarted
+  when: docker_daemon_config.changed
+  tags: [docker]
+
+- name: Ensure Docker is running
+  ansible.builtin.service:
+    name: docker
+    state: started
+    enabled: true
+  tags: [docker]
+
+- name: Ensure drayve user is in docker group
+  ansible.builtin.user:
+    name: "{{ drayve_user }}"
+    groups: docker
+    append: true
+  tags: [docker]

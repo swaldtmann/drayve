@@ -1,0 +1,12 @@
+---
+# Auth provider: none | basic | authelia
+# Roles query auth_provider, not specific implementations.
+auth_provider: basic
+
+# basic auth credentials (used when auth_provider=basic)
+auth_basic_user: admin
+# auth_basic_password must be set in secrets
+
+# Authelia settings (used when auth_provider=authelia)
+auth_lldap: false
+authelia_image: authelia/authelia:4.39

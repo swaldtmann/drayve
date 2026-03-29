@@ -1,0 +1,10 @@
+---
+traefik_config_dir: "{{ drayve_deploy_dir }}/traefik/config"
+traefik_dynamic_dir: "{{ drayve_deploy_dir }}/traefik/config/dynamic"
+traefik_certs_dir: "{{ drayve_deploy_dir }}/traefik/certs"
+
+traefik_image: traefik:v3.6
+
+# CrowdSec whitelist — override per host
+crowdsec_whitelist_ips:
+  - "127.0.0.1"

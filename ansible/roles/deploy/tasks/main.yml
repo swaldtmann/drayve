@@ -1,0 +1,63 @@
+---
+- name: Template docker-compose.yml
+  ansible.builtin.template:
+    src: "{{ ops_repo_root }}/ansible/templates/docker-compose.yml.j2"
+    dest: "{{ drayve_deploy_dir }}/docker-compose.yml"
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0644"
+  tags: [deploy]
+
+- name: Template .env
+  ansible.builtin.template:
+    src: "{{ ops_repo_root }}/ansible/templates/env.j2"
+    dest: "{{ drayve_deploy_dir }}/.env"
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0600"
+  no_log: true
+  tags: [deploy]
+
+- name: Deploy Traefik static config
+  ansible.builtin.template:
+    src: "{{ ops_repo_root }}/config/traefik/traefik.yml.j2"
+    dest: "{{ traefik_config_dir }}/traefik.yml"
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0644"
+  tags: [deploy, traefik]
+
+- name: Docker compose pull
+  ansible.builtin.command:
+    cmd: docker compose pull
+    chdir: "{{ drayve_deploy_dir }}"
+  become: true
+  become_user: "{{ drayve_user }}"
+  tags: [deploy]
+
+- name: Docker compose up
+  ansible.builtin.command:
+    cmd: docker compose up -d --remove-orphans
+    chdir: "{{ drayve_deploy_dir }}"
+  become: true
+  become_user: "{{ drayve_user }}"
+  tags: [deploy]
+
+- name: Wait for containers to stabilize
+  ansible.builtin.pause:
+    seconds: 10
+  tags: [deploy]
+
+- name: Verify containers are running
+  ansible.builtin.command:
+    cmd: docker compose ps --format json
+    chdir: "{{ drayve_deploy_dir }}"
+  become: true
+  become_user: "{{ drayve_user }}"
+  register: compose_ps
+  tags: [deploy]
+
+- name: Show running containers
+  ansible.builtin.debug:
+    msg: "{{ compose_ps.stdout }}"
+  tags: [deploy]

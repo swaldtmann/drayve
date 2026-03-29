@@ -1,0 +1,31 @@
+# Full Drayve stack — Authelia + LLDAP, full monitoring, SOPS secrets.
+# Enterprise-grade setup on a single VPS.
+
+drayve_version: "0.1"
+
+stack:
+  name: production
+  domain: ops.example.com
+
+provider:
+  type: hetzner
+  server_type: cx32
+  location: fsn1
+
+auth:
+  provider: authelia
+  lldap: true
+
+monitoring:
+  profile: full
+
+security:
+  crowdsec: true
+
+secrets:
+  mode: sops
+
+backup:
+  enabled: true
+  schedule: "0 3 * * *"
+  target: storagebox

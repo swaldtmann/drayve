@@ -1,0 +1,24 @@
+# Minimal Drayve stack — basic auth, light monitoring, quickstart secrets.
+# This is the smallest useful configuration.
+
+drayve_version: "0.1"
+
+stack:
+  name: myserver
+  domain: example.com
+
+provider:
+  type: hetzner
+
+auth:
+  provider: basic
+
+monitoring:
+  profile: light
+
+secrets:
+  mode: quickstart
+
+backup:
+  enabled: true
+  target: local
