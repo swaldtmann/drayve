@@ -313,3 +313,18 @@
     - crowdsec_lapi_key | default('') | length > 0
   no_log: true
   tags: [deploy, crowdsec]
+
+# === Post-deploy: LLDAP user provisioning (containers are running) ===
+- name: Post-deploy authelia (LLDAP bind user)
+  ansible.builtin.include_role:
+    name: authelia
+    tasks_from: post-deploy
+  when: auth_provider == 'authelia'
+  tags: [deploy, authelia]
+
+- name: Post-deploy lldap (user provisioning)
+  ansible.builtin.include_role:
+    name: lldap
+    tasks_from: post-deploy
+  when: auth_provider == 'authelia' and (auth_lldap | default(false) | bool)
+  tags: [deploy, lldap]

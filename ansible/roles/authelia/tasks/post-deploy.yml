@@ -1,0 +1,52 @@
+---
+# Post-deploy phase — runs AFTER deploy (compose up).
+# LLDAP container is already running, configure users.
+
+- name: Wait for lldap to be healthy
+  ansible.builtin.command:
+    cmd: docker inspect lldap --format {% raw %}"{{.State.Health.Status}}"{% endraw %}
+  register: lldap_health
+  until: lldap_health.stdout == "healthy"
+  retries: 15
+  delay: 2
+  changed_when: false
+  when: auth_lldap | default(false) | bool
+  tags: [authelia]
+
+- name: Check if authelia bind user exists in lldap
+  ansible.builtin.command:
+    cmd: >-
+      docker exec lldap /app/lldap_set_password
+      --base-url http://localhost:17170
+      --admin-username admin --admin-password "{{ lldap_admin_password }}"
+      --username authelia --password "{{ authelia_ldap_password }}"
+  register: lldap_bind_user_check
+  changed_when: false
+  failed_when: false
+  no_log: true
+  when: auth_lldap | default(false) | bool
+  tags: [authelia]
+
+- name: Create authelia bind user in lldap
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      LLDAP_IP=$(docker inspect lldap --format '{% raw %}{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}')
+      TOKEN=$(curl -s http://$LLDAP_IP:17170/auth/simple/login \
+        -H "Content-Type: application/json" \
+        -d '{"username":"admin","password":"{{ lldap_admin_password }}"}' \
+        | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])")
+      curl -s http://$LLDAP_IP:17170/api/graphql \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer $TOKEN" \
+        -d '{"query":"mutation { createUser(user: {id: \"authelia\", email: \"authelia@{{ drayve_domain }}\"}) { id } }"}'
+      docker exec lldap /app/lldap_set_password \
+        --base-url http://localhost:17170 \
+        --admin-username admin --admin-password "{{ lldap_admin_password }}" \
+        --username authelia --password "{{ authelia_ldap_password }}"
+    executable: /bin/bash
+  when: >-
+    (auth_lldap | default(false) | bool)
+    and (lldap_bind_user_check.rc != 0 or 'Successfully' not in (lldap_bind_user_check.stdout | default('')))
+  no_log: true
+  tags: [authelia]

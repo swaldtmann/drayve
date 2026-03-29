@@ -2,6 +2,8 @@
 - name: Integration — full Drayve stack
   hosts: all
   become: true
+  vars:
+    ops_repo_root: "{{ playbook_dir | regex_replace('/molecule/integration$', '') }}"
   roles:
     - role: common
     - role: docker

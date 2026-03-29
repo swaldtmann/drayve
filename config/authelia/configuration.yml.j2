@@ -45,12 +45,18 @@ notifier:
   filesystem:
     filename: /data/notification.txt
 
+identity_validation:
+  reset_password:
+    jwt_secret: {{ authelia_jwt_secret }}
+
 identity_providers:
   oidc:
     hmac_secret: {{ authelia_oidc_hmac_secret }}
     jwks:
       - key_id: main
-        key: {{ '{{' }} secret "/config/jwks.pem" {{ '}}' }}
+        algorithm: RS256
+        key: |
+          {{ authelia_jwks_pem | default('') | indent(10) }}
     clients:
       - client_id: grafana
         client_name: Grafana

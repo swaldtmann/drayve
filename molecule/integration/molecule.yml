@@ -17,6 +17,8 @@ provisioner:
   name: ansible
   playbooks:
     converge: converge.yml
+  env:
+    ANSIBLE_ROLES_PATH: "../../ansible/roles"
   inventory:
     group_vars:
       all:
@@ -24,7 +26,6 @@ provisioner:
         drayve_root: /opt/drayve
         drayve_deploy_dir: /opt/drayve/deploy/stack
         drayve_config_dir: /opt/drayve/config
-        ops_repo_root: "{{ playbook_dir | regex_replace('/molecule/integration$', '') }}"
         # --- User ---
         drayve_user: drayve
         drayve_uid: 1000

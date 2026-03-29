@@ -1,0 +1,69 @@
+---
+# Post-deploy phase — runs AFTER deploy (compose up).
+# LLDAP container is already running, provision users.
+
+- name: Wait for lldap to be healthy
+  ansible.builtin.command:
+    cmd: docker inspect lldap --format {% raw %}"{{.State.Health.Status}}"{% endraw %}
+  register: lldap_health
+  until: lldap_health.stdout == "healthy"
+  retries: 15
+  delay: 2
+  changed_when: false
+  tags: [lldap]
+
+- name: Set admin email in lldap
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      LLDAP_IP=$(docker inspect lldap --format '{% raw %}{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}')
+      TOKEN=$(curl -sf http://$LLDAP_IP:{{ lldap_http_port }}/auth/simple/login \
+        -H "Content-Type: application/json" \
+        -d '{"username":"admin","password":"{{ lldap_admin_password }}"}' \
+        | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])")
+      curl -sf http://$LLDAP_IP:{{ lldap_http_port }}/api/graphql \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer $TOKEN" \
+        -d '{"query":"mutation { updateUser(user: {id: \"admin\", email: \"{{ lldap_admin_email }}\"}) { ok } }"}'
+    executable: /bin/bash
+  changed_when: false
+  no_log: true
+  tags: [lldap, lldap-users]
+
+- name: Provision lldap users
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      LLDAP_IP=$(docker inspect lldap --format '{% raw %}{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}')
+      TOKEN=$(curl -sf http://$LLDAP_IP:{{ lldap_http_port }}/auth/simple/login \
+        -H "Content-Type: application/json" \
+        -d '{"username":"admin","password":"{{ lldap_admin_password }}"}' \
+        | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])")
+      curl -sf http://$LLDAP_IP:{{ lldap_http_port }}/api/graphql \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer $TOKEN" \
+        -d '{"query":"mutation { createUser(user: {id: \"{{ item.id }}\", email: \"{{ item.email }}\", displayName: \"{{ item.displayName }}\"}) { id } }"}' || true
+    executable: /bin/bash
+  loop: "{{ lldap_users }}"
+  loop_control:
+    label: "{{ item.id }}"
+  changed_when: false
+  no_log: true
+  when: lldap_users | length > 0
+  tags: [lldap, lldap-users]
+
+- name: Set lldap user passwords
+  ansible.builtin.shell: |
+    docker exec lldap /app/lldap_set_password \
+      --base-url http://localhost:{{ lldap_http_port }} \
+      --admin-username admin \
+      --admin-password "{{ lldap_admin_password }}" \
+      --username "{{ item.id }}" \
+      --password "{{ lookup('vars', item.password_var) }}"
+  loop: "{{ lldap_users | selectattr('password_var', 'defined') }}"
+  loop_control:
+    label: "{{ item.id }}"
+  changed_when: false
+  no_log: true
+  when: lldap_users | length > 0
+  tags: [lldap, lldap-users]

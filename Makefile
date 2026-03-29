@@ -184,6 +184,10 @@ test-integration: _require-hcloud-token  ## Full stack integration test (needs H
 	@echo "==> Running integration test (creates Hetzner server)"
 	@molecule test -s integration
 
+test-authelia: _require-hcloud-token  ## Authelia + LLDAP integration test (needs HCLOUD_TOKEN)
+	@echo "==> Running Authelia integration test (creates Hetzner server)"
+	@molecule test -s authelia
+
 setup:  ## One-time setup: venv + git hooks
 	@echo "==> Setting up venv..."
 	@python3 -m venv .venv
