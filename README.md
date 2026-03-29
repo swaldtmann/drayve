@@ -7,6 +7,11 @@ Generic Ops framework for Docker stacks. Provision, deploy, monitor, secure, bac
 ## Quick Start
 
 ```bash
+# Python dependencies (for validate, lint)
+python3 -m venv .venv
+source .venv/bin/activate
+pip install pyyaml ansible ansible-lint
+
 cp examples/stack-minimal.yaml stack.yaml
 # Edit stack.yaml to match your server
 make validate

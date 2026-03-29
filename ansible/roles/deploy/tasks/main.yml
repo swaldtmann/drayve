@@ -1,4 +1,26 @@
 ---
+- name: Verify drayve_domain is set
+  ansible.builtin.fail:
+    msg: "drayve_domain is required. Set it in inventory or via -e domain=<domain>"
+  when: drayve_domain is not defined or drayve_domain == ""
+  tags: [deploy]
+
+- name: Verify htpasswd exists (basic auth)
+  ansible.builtin.stat:
+    path: "{{ drayve_deploy_dir }}/.htpasswd"
+  register: htpasswd_check
+  when: auth_provider == "basic"
+  tags: [deploy]
+
+- name: Fail if htpasswd missing
+  ansible.builtin.fail:
+    msg: ".htpasswd not found at {{ drayve_deploy_dir }}/.htpasswd — run the auth role first"
+  when:
+    - auth_provider == "basic"
+    - htpasswd_check.stat is defined
+    - not htpasswd_check.stat.exists
+  tags: [deploy]
+
 - name: Template docker-compose.yml
   ansible.builtin.template:
     src: "{{ ops_repo_root }}/ansible/templates/docker-compose.yml.j2"
@@ -33,6 +55,8 @@
     chdir: "{{ drayve_deploy_dir }}"
   become: true
   become_user: "{{ drayve_user }}"
+  changed_when: "'Pull complete' in compose_pull.stdout or 'Downloaded' in compose_pull.stdout"
+  register: compose_pull
   tags: [deploy]
 
 - name: Docker compose up
@@ -41,6 +65,8 @@
     chdir: "{{ drayve_deploy_dir }}"
   become: true
   become_user: "{{ drayve_user }}"
+  changed_when: "'Started' in compose_up.stderr or 'Recreated' in compose_up.stderr"
+  register: compose_up
   tags: [deploy]
 
 - name: Wait for containers to stabilize

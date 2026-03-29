@@ -29,6 +29,9 @@ ufw_allowed_ports:
 ssh_password_auth: "no"
 ssh_root_login: "prohibit-password"
 
+# === Domain (must be set per host or via -e domain=) ===
+drayve_domain: ""
+
 # === ACME / Let's Encrypt ===
 acme_email: "sw@authbox.de"
 

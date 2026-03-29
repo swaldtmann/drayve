@@ -114,6 +114,43 @@
   when: _mon_loki
   tags: [monitoring]
 
+# === Promtail config ===
+- name: Create Promtail directory
+  ansible.builtin.file:
+    path: "{{ drayve_deploy_dir }}/monitoring/promtail"
+    state: directory
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0755"
+  when: _mon_promtail
+  tags: [monitoring]
+
+- name: Deploy Promtail config
+  ansible.builtin.copy:
+    dest: "{{ drayve_deploy_dir }}/monitoring/promtail/promtail-config.yml"
+    content: |
+      server:
+        http_listen_port: 9080
+        grpc_listen_port: 0
+      positions:
+        filename: /tmp/positions.yaml
+      clients:
+        - url: http://loki:3100/loki/api/v1/push
+      scrape_configs:
+        - job_name: docker
+          docker_sd_configs:
+            - host: unix:///var/run/docker.sock
+              refresh_interval: 5s
+          relabel_configs:
+            - source_labels: ['__meta_docker_container_name']
+              regex: '/(.*)'
+              target_label: 'container'
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0644"
+  when: _mon_promtail
+  tags: [monitoring]
+
 # === Grafana provisioning (dashboards + datasources) ===
 - name: Create Grafana provisioning directories
   ansible.builtin.file:

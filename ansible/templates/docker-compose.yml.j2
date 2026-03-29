@@ -207,6 +207,7 @@ services:
     mem_limit: {{ mem_promtail }}
     command: -config.file=/etc/promtail/promtail-config.yml
     volumes:
+      - ./monitoring/promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
       - /var/log:/var/log:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
 {% endif %}
