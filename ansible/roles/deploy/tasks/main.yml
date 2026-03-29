@@ -5,6 +5,25 @@
   when: drayve_domain is not defined or drayve_domain == ""
   tags: [deploy]
 
+# Ensure monitoring_services is set even if monitoring role didn't run (e.g. tag-only deploy)
+- name: Resolve monitoring profile for deploy
+  ansible.builtin.set_fact:
+    _deploy_mon_profile: "{{ monitoring.profile | default(monitoring_profile) | default('full') }}"
+  when: monitoring_services is not defined
+  tags: [deploy]
+
+- name: Set monitoring_services from profile (monitoring role didn't run)
+  ansible.builtin.set_fact:
+    monitoring_services:
+      grafana: "{{ _deploy_mon_profile == 'full' }}"
+      prometheus: "{{ _deploy_mon_profile == 'full' }}"
+      loki: "{{ _deploy_mon_profile == 'full' }}"
+      promtail: "{{ _deploy_mon_profile in ['full', 'light'] }}"
+      cadvisor: "{{ _deploy_mon_profile == 'full' }}"
+      node_exporter: "{{ _deploy_mon_profile in ['full', 'light'] }}"
+  when: monitoring_services is not defined
+  tags: [deploy]
+
 - name: Verify htpasswd exists (basic auth)
   ansible.builtin.stat:
     path: "{{ drayve_deploy_dir }}/.htpasswd"
@@ -30,13 +49,13 @@
   when: crowdsec_enabled | default(true)
   tags: [deploy]
 
-- name: Preserve bouncer key if secrets role didn't run
+- name: Preserve existing bouncer key (unless secrets provided a real one)
   ansible.builtin.set_fact:
     crowdsec_bouncer_key: "{{ existing_bouncer_key.stdout | trim }}"
   when:
     - crowdsec_enabled | default(true)
-    - existing_bouncer_key.stdout | default('') | length > 0
-    - crowdsec_bouncer_key | default('') | length == 0
+    - existing_bouncer_key.stdout | default('') | trim | length > 0
+    - crowdsec_bouncer_key | default('') | trim in ['', 'changeme']
   tags: [deploy]
 
 - name: Read existing LAPI key from .env
@@ -48,13 +67,13 @@
   when: crowdsec_enabled | default(true)
   tags: [deploy]
 
-- name: Preserve LAPI key if secrets role didn't run
+- name: Preserve existing LAPI key (unless secrets provided a real one)
   ansible.builtin.set_fact:
     crowdsec_lapi_key: "{{ existing_lapi_key.stdout | trim }}"
   when:
     - crowdsec_enabled | default(true)
-    - existing_lapi_key.stdout | default('') | length > 0
-    - crowdsec_lapi_key | default('') | length == 0
+    - existing_lapi_key.stdout | default('') | trim | length > 0
+    - crowdsec_lapi_key | default('') | trim in ['', 'changeme']
   tags: [deploy]
 
 - name: Create landing page directory

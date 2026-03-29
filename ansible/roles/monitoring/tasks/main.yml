@@ -6,21 +6,27 @@
 #   light (~50MB)  — node_exporter, Promtail (push to remote Grafana)
 #   none           — no monitoring containers
 
+# === Resolve profile from stack.yaml or flat var ===
+- name: Resolve monitoring profile
+  ansible.builtin.set_fact:
+    _monitoring_profile: "{{ monitoring.profile | default(monitoring_profile) | default('full') }}"
+  tags: [monitoring]
+
 # === Resolve effective flags ===
 - name: Set monitoring defaults from profile
   ansible.builtin.set_fact:
-    _mon_grafana: "{{ monitoring_grafana | default(monitoring_profile == 'full') | bool }}"
-    _mon_prometheus: "{{ monitoring_prometheus | default(monitoring_profile == 'full') | bool }}"
-    _mon_loki: "{{ monitoring_loki | default(monitoring_profile == 'full') | bool }}"
-    _mon_promtail: "{{ monitoring_promtail | default(monitoring_profile in ['full', 'light']) | bool }}"
-    _mon_cadvisor: "{{ monitoring_cadvisor | default(monitoring_profile == 'full') | bool }}"
-    _mon_node_exporter: "{{ monitoring_node_exporter | default(monitoring_profile in ['full', 'light']) | bool }}"
+    _mon_grafana: "{{ monitoring_grafana | default(_monitoring_profile == 'full') | bool }}"
+    _mon_prometheus: "{{ monitoring_prometheus | default(_monitoring_profile == 'full') | bool }}"
+    _mon_loki: "{{ monitoring_loki | default(_monitoring_profile == 'full') | bool }}"
+    _mon_promtail: "{{ monitoring_promtail | default(_monitoring_profile in ['full', 'light']) | bool }}"
+    _mon_cadvisor: "{{ monitoring_cadvisor | default(_monitoring_profile == 'full') | bool }}"
+    _mon_node_exporter: "{{ monitoring_node_exporter | default(_monitoring_profile in ['full', 'light']) | bool }}"
   tags: [monitoring]
 
 - name: Skip monitoring (profile=none, no overrides)
   ansible.builtin.debug:
     msg: "Monitoring profile: none — skipping"
-  when: monitoring_profile == "none" and not (_mon_grafana or _mon_prometheus or _mon_loki or _mon_promtail or _mon_cadvisor or _mon_node_exporter)
+  when: _monitoring_profile == "none" and not (_mon_grafana or _mon_prometheus or _mon_loki or _mon_promtail or _mon_cadvisor or _mon_node_exporter)
   tags: [monitoring]
 
 # === Directories ===
