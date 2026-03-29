@@ -10,6 +10,7 @@
 
 - name: Set admin email in lldap
   ansible.builtin.shell: |
+    set -o pipefail
     LLDAP_IP=$(docker inspect lldap --format '{% raw %}{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}')
     TOKEN=$(curl -sf http://$LLDAP_IP:{{ lldap_http_port }}/auth/simple/login \
       -H "Content-Type: application/json" \
@@ -25,6 +26,7 @@
 
 - name: Provision lldap users
   ansible.builtin.shell: |
+    set -o pipefail
     LLDAP_IP=$(docker inspect lldap --format '{% raw %}{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}')
     TOKEN=$(curl -sf http://$LLDAP_IP:{{ lldap_http_port }}/auth/simple/login \
       -H "Content-Type: application/json" \

@@ -15,6 +15,7 @@ ANSIBLE_DIR := ansible
 DEPLOY_DIR := deploy
 INVENTORY := $(DEPLOY_DIR)/hosts.yaml
 PYTHON := $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
+ANSIBLE_LINT := $(if $(wildcard .venv/bin/ansible-lint),.venv/bin/ansible-lint,ansible-lint)
 
 # Per-host paths (set when NAME is defined)
 ifdef NAME
@@ -71,7 +72,7 @@ validate: _require-stack  ## Validate stack.yaml for a host (NAME=)
 
 lint:  ## Lint playbooks + roles
 	@echo "==> Running ansible-lint..."
-	@cd $(ANSIBLE_DIR) && ansible-lint playbooks/ roles/ 2>&1 | grep -v "^WARNING" | sed 's/^/    /'
+	@cd $(ANSIBLE_DIR) && $(CURDIR)/$(ANSIBLE_LINT) playbooks/ roles/ 2>&1 | grep -v "^WARNING" | sed 's/^/    /'
 	@echo "==> Lint passed"
 
 provision: _require-name _require-stack _require-inventory validate  ## Provision + deploy server (NAME=)

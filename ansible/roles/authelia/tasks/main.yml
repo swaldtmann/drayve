@@ -71,6 +71,7 @@
 
 - name: Create authelia bind user in lldap
   ansible.builtin.shell: |
+    set -o pipefail
     LLDAP_IP=$(docker inspect lldap --format '{% raw %}{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}')
     TOKEN=$(curl -s http://$LLDAP_IP:17170/auth/simple/login \
       -H "Content-Type: application/json" \

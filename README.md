@@ -142,6 +142,10 @@ Docker Compose merges the override with the platform stack automatically. Your s
 - Target: Ubuntu 22.04 / 24.04
 - For Hetzner auto-provision: `hcloud` CLI
 
+## Built with
+
+This project is developed with [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (Anthropic Claude Opus 4.6).
+
 ## License
 
 Apache 2.0
