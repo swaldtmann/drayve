@@ -8,7 +8,7 @@ import re
 SCHEMA_PATH = "config/stack.schema.yaml"
 
 ENUMS = {
-    "drayve_version": ["0.1"],
+    "drayve_version": ["0.1.0"],
     "provider.type": ["hetzner", "manual"],
     "auth.provider": ["none", "basic", "authelia"],
     "monitoring.profile": ["full", "light", "none"],

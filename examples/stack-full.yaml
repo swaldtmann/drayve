@@ -1,7 +1,7 @@
 # Full Drayve stack — Authelia + LLDAP, full monitoring, SOPS secrets.
 # Enterprise-grade setup on a single VPS.
 
-drayve_version: "0.1"
+drayve_version: "0.1.0"
 
 stack:
   name: production

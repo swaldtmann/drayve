@@ -18,7 +18,7 @@ make provision NAME=myserver DOMAIN=example.com
 All configuration lives in one file. See `config/stack.schema.yaml` for the full schema.
 
 ```yaml
-drayve_version: "0.1"
+drayve_version: "0.1.0"
 stack:
   name: myserver
   domain: example.com

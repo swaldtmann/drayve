@@ -12,7 +12,7 @@ properties:
   drayve_version:
     type: string
     description: Schema version for future upgrade compatibility.
-    enum: ["0.1"]
+    enum: ["0.1.0"]
 
   stack:
     type: object

@@ -1,7 +1,7 @@
 # Minimal Drayve stack — basic auth, light monitoring, quickstart secrets.
 # This is the smallest useful configuration.
 
-drayve_version: "0.1"
+drayve_version: "0.1.0"
 
 stack:
   name: myserver
