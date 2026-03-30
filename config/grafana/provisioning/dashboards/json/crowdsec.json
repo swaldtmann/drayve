@@ -154,7 +154,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "cs_lapi_decisions_ko_total + cs_lapi_decisions_ok_total",
+          "expr": "(cs_lapi_decisions_ko_total or vector(0)) + (cs_lapi_decisions_ok_total or vector(0))",
           "legendFormat": "bouncer queries",
           "instant": true,
           "range": false,
