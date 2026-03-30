@@ -1,0 +1,15 @@
+---
+# No auth + monitoring light test.
+- name: Test no auth + monitoring light
+  hosts: all
+  become: true
+  vars:
+    ops_repo_root: "{{ playbook_dir | regex_replace('/molecule/light$', '') }}"
+  roles:
+    - role: common
+    - role: docker
+    - role: secrets
+    - role: traefik
+    - role: auth
+    - role: monitoring
+    - role: deploy

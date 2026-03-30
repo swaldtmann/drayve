@@ -24,11 +24,17 @@
         state: present
         cache_valid_time: 3600
 
+    - name: Check if htpasswd exists
+      ansible.builtin.stat:
+        path: "{{ drayve_deploy_dir }}/.htpasswd"
+      register: _htpasswd_file
+
     - name: Generate htpasswd file
-      ansible.builtin.shell:
+      ansible.builtin.command:
         cmd: >-
           htpasswd -cb {{ drayve_deploy_dir }}/.htpasswd
           "{{ auth_basic_user }}" "{{ auth_basic_password }}"
+      when: not _htpasswd_file.stat.exists
       no_log: true
 
     - name: Set htpasswd permissions
