@@ -75,6 +75,8 @@
         {
           "datasource": { "type": "loki", "uid": "loki" },
           "expr": "sum(count_over_time({service=~\"$service\"} |~ \"(?i)(level=(error|fatal)|\\bERROR\\b|\\bFATAL\\b|\\bPANIC\\b|\\bEXCEPTION\\b)\" [$__range]))",
+          "instant": true,
+          "range": false,
           "refId": "A"
         }
       ],
@@ -107,6 +109,8 @@
         {
           "datasource": { "type": "loki", "uid": "loki" },
           "expr": "sum(count_over_time({service=~\"$service\"} |~ \"(?i)(level=warn|\\bWARN(ING)?\\b)\" [$__range]))",
+          "instant": true,
+          "range": false,
           "refId": "A"
         }
       ],
