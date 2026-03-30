@@ -248,6 +248,17 @@
   when: traefik_config.changed | default(false)
   tags: [deploy, traefik]
 
+- name: Force-recreate Authelia on config change
+  ansible.builtin.command:
+    cmd: docker compose up -d --force-recreate authelia
+    chdir: "{{ drayve_deploy_dir }}"
+  become: true
+  become_user: "{{ drayve_user }}"
+  when:
+    - auth_provider == 'authelia'
+    - authelia_config.changed | default(false)
+  tags: [deploy, authelia]
+
 - name: Reload Prometheus config via API
   ansible.builtin.uri:
     url: "http://localhost:9090/-/reload"

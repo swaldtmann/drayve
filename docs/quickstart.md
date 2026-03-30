@@ -114,7 +114,7 @@ lldap_admin_password: "..."
 
 Use this to log in at `https://auth.<domain>/`. After login, you're redirected to the page you originally requested.
 
-**To create additional users:** Open the LLDAP admin panel at `https://<server-ip>:17170` (direct, not proxied) and add users there. Or define them in your `stack.yaml` — see [Configuration](configuration.md).
+**To create additional users:** Define them in your `stack.yaml` and re-deploy — see [Configuration](configuration.md). For manual access to the LLDAP admin panel, use an SSH tunnel: `ssh -L 17170:localhost:17170 root@<server-ip>`, then open `http://localhost:17170` in your browser. Port 17170 is not exposed on the host for security reasons.
 
 ### Nextcloud (if using compose.override)
 

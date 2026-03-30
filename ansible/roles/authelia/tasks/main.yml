@@ -48,4 +48,5 @@
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
     mode: "0600"
+  register: authelia_config
   tags: [authelia]

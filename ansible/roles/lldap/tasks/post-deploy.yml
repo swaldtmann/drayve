@@ -12,6 +12,24 @@
   changed_when: false
   tags: [lldap]
 
+- name: Verify LLDAP admin password matches secrets.yml
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      LLDAP_IP=$(docker inspect lldap --format '{% raw %}{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}')
+      RESP=$(curl -sw '%{http_code}' -o /dev/null http://$LLDAP_IP:{{ lldap_http_port }}/auth/simple/login \
+        -H "Content-Type: application/json" \
+        -d '{"username":"admin","password":"{{ lldap_admin_password }}"}')
+      if [ "$RESP" != "200" ]; then
+        echo "LLDAP admin login failed (HTTP $RESP). The admin password on the server does not match secrets.yml." >&2
+        echo "Fix: update secrets.yml to match, or reset the password via 'docker exec lldap /app/lldap_set_password'." >&2
+        exit 1
+      fi
+    executable: /bin/bash
+  changed_when: false
+  no_log: true
+  tags: [lldap, lldap-users]
+
 - name: Set admin email in lldap
   ansible.builtin.shell:
     cmd: |
