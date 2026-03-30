@@ -41,6 +41,56 @@
   no_log: true
   tags: [authelia]
 
+- name: Check for existing OIDC client secret hash
+  ansible.builtin.stat:
+    path: "{{ authelia_data_dir }}/.oidc_grafana_hash"
+  register: _oidc_hash_file
+  tags: [authelia]
+
+- name: Generate PBKDF2 hash for OIDC client secret
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      python3 << 'PYEOF'
+      import hashlib, os, base64, sys
+      salt = os.urandom(16)
+      dk = hashlib.pbkdf2_hmac('sha512', sys.stdin.read().strip().encode(), salt, 310000, dklen=32)
+      salt_b64 = base64.b64encode(salt).decode().rstrip('=')
+      dk_b64 = base64.b64encode(dk).decode().rstrip('=')
+      print(f'$pbkdf2-sha512$310000${salt_b64}${dk_b64}')
+      PYEOF
+    executable: /bin/bash
+    stdin: "{{ authelia_oidc_grafana_secret }}"
+  register: _oidc_hash_generated
+  changed_when: false
+  no_log: true
+  when: not _oidc_hash_file.stat.exists
+  tags: [authelia]
+
+- name: Store OIDC client secret hash
+  ansible.builtin.copy:
+    content: "{{ _oidc_hash_generated.stdout }}"
+    dest: "{{ authelia_data_dir }}/.oidc_grafana_hash"
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0600"
+  when: not _oidc_hash_file.stat.exists
+  no_log: true
+  tags: [authelia]
+
+- name: Read OIDC client secret hash
+  ansible.builtin.slurp:
+    src: "{{ authelia_data_dir }}/.oidc_grafana_hash"
+  register: _oidc_hash_raw
+  no_log: true
+  tags: [authelia]
+
+- name: Set OIDC client secret hash variable
+  ansible.builtin.set_fact:
+    authelia_oidc_grafana_secret_hash: "{{ _oidc_hash_raw.content | b64decode }}"
+  no_log: true
+  tags: [authelia]
+
 - name: Deploy Authelia configuration
   ansible.builtin.template:
     src: "{{ ops_repo_root }}/config/authelia/configuration.yml.j2"
