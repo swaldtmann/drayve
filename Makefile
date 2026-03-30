@@ -60,7 +60,7 @@ _host_domain = $(call _stack_val,c.get('stack',{}).get('domain',''))
 
 # --- Targets ---
 
-.PHONY: help init validate lint provision deploy deploy-prod burn status secrets-init secrets-template backup list test test-role test-integration setup
+.PHONY: help init validate lint provision deploy deploy-prod burn status secrets-init secrets-template backup list test test-role test-integration setup unban bans
 
 help:  ## Show available targets
 	@grep -E '^[a-z][a-z0-9_-]+:.*##' $(MAKEFILE_LIST) | sort | awk -F ':.*##' '{printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -196,6 +196,17 @@ setup:  ## One-time setup: venv + git hooks
 	@cp scripts/hooks/pre-push .git/hooks/pre-push
 	@chmod +x .git/hooks/pre-push
 	@echo "==> Done. Activate with: source .venv/bin/activate"
+
+bans: _require-name _require-inventory  ## List active CrowdSec bans (NAME=)
+	@_host=$$($(PYTHON) -c "import yaml; d=yaml.safe_load(open('$(INVENTORY)')); print(d.get('all',{}).get('children',{}).get('drayve',{}).get('hosts',{}).get('$(NAME)',{}).get('ansible_host','$(NAME)'))" 2>/dev/null || echo "$(NAME)"); \
+	ssh root@$$_host "docker exec crowdsec cscli decisions list" 2>/dev/null || echo "    SSH failed"
+
+unban: _require-name _require-inventory  ## Unban an IP (NAME= IP=)
+ifndef IP
+	$(error IP is required. Usage: make unban NAME=<name> IP=<ip>)
+endif
+	@_host=$$($(PYTHON) -c "import yaml; d=yaml.safe_load(open('$(INVENTORY)')); print(d.get('all',{}).get('children',{}).get('drayve',{}).get('hosts',{}).get('$(NAME)',{}).get('ansible_host','$(NAME)'))" 2>/dev/null || echo "$(NAME)"); \
+	ssh root@$$_host "docker exec crowdsec cscli decisions delete --ip $(IP)" 2>/dev/null || echo "    SSH failed"
 
 test: lint  ## Run lint + validate all examples
 	@echo "==> Validating examples..."
