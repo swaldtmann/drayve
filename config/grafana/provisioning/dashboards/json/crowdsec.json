@@ -123,7 +123,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(cs_parsed_total[5m])",
+          "expr": "rate(cs_parser_hits_ok_total[5m])",
           "legendFormat": "parsed/s",
           "instant": true,
           "range": false,
@@ -310,7 +310,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(cs_parsed_total[5m])",
+          "expr": "rate(cs_parser_hits_ok_total[5m])",
           "legendFormat": "parsed/s",
           "instant": false,
           "range": true,
@@ -321,7 +321,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(cs_unparsed_total[5m])",
+          "expr": "rate(cs_node_hits_ko_total[5m])",
           "legendFormat": "unparsed/s",
           "instant": false,
           "range": true,
@@ -352,7 +352,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(cs_lapi_requests_total[5m])",
+          "expr": "rate(cs_lapi_route_requests_total[5m])",
           "legendFormat": "{{route}} {{method}}",
           "instant": false,
           "range": true,
