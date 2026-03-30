@@ -291,6 +291,15 @@
     msg: "{{ compose_ps.stdout }}"
   tags: [deploy]
 
+- name: Force-recreate CrowdSec on whitelist change
+  ansible.builtin.command:
+    cmd: docker compose up -d --force-recreate crowdsec
+    chdir: "{{ drayve_deploy_dir }}"
+  become: true
+  become_user: "{{ drayve_user }}"
+  when: crowdsec_whitelist.changed | default(false)
+  tags: [deploy, crowdsec]
+
 # === CrowdSec bouncer registration ===
 - name: Check if CrowdSec bouncer is registered
   ansible.builtin.command:

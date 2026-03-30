@@ -26,6 +26,8 @@ monitoring:
 
 security:
   crowdsec: true
+  # crowdsec_whitelist:
+  #   - 203.0.113.1
 
 secrets:
   mode: sops
