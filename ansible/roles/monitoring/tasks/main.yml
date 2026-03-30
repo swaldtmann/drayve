@@ -229,18 +229,14 @@
       datasources:
         - name: CrowdSec LAPI
           uid: crowdsec-lapi
-          type: yesoreyeram-infinity-datasource
+          type: crowdsec-crowdsec-datasource
           access: proxy
           editable: false
           url: http://crowdsec:8080
           jsonData:
-            auth_method: apiKey
-            apiKeyKey: X-Api-Key
             apiKeyType: header
-            allowedHosts:
-              - "http://crowdsec:8080"
           secureJsonData:
-            apiKeyValue: $__env{CROWDSEC_LAPI_KEY}
+            apiKey: $__env{CROWDSEC_LAPI_KEY}
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
     mode: "0644"
