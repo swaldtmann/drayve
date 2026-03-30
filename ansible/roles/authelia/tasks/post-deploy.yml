@@ -45,10 +45,15 @@
         --admin-username admin --admin-password "{{ lldap_admin_password }}" \
         --username authelia --password "{{ authelia_ldap_password }}"
       # Add authelia to lldap_strict_readonly group (needed for LDAP search permissions)
-      curl -s http://$LLDAP_IP:17170/api/graphql \
+      GROUP_ID=$(curl -sf http://$LLDAP_IP:17170/api/graphql \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer $TOKEN" \
-        -d '{"query":"mutation { addUserToGroup(userId: \"authelia\", groupId: 3) { ok } }"}'
+        -d '{"query":"{ groups { id displayName } }"}' \
+        | python3 -c "import sys,json;groups=json.load(sys.stdin)['data']['groups'];print(next(g['id'] for g in groups if g['displayName']=='lldap_strict_readonly'))")
+      curl -sf http://$LLDAP_IP:17170/api/graphql \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer $TOKEN" \
+        -d "{\"query\":\"mutation { addUserToGroup(userId: \\\"authelia\\\", groupId: $GROUP_ID) { ok } }\"}"
     executable: /bin/bash
   when: >-
     (auth_lldap | default(false) | bool)
