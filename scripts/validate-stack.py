@@ -111,8 +111,10 @@ def main():
             print(f"  - {err}")
         sys.exit(1)
 
+    is_example = "example" in path.lower()
     for warn in warnings:
-        print(f"  WARNING: {warn}")
+        if not is_example:
+            print(f"  WARNING: {warn}")
 
     print(f"OK: {path} is valid (drayve_version={config['drayve_version']})")
 
