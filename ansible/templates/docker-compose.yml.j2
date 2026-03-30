@@ -81,6 +81,14 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.lldap.rule=Host(`ldap.{{ drayve_domain }}`)"
+      - "traefik.http.routers.lldap.entrypoints=websecure"
+      - "traefik.http.routers.lldap.tls=true"
+      - "traefik.http.routers.lldap.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.lldap.middlewares=auth@file"
+      - "traefik.http.services.lldap.loadbalancer.server.port=17170"
 
 {% endif %}
   authelia:
