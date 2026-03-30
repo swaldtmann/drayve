@@ -74,7 +74,7 @@
       "targets": [
         {
           "datasource": { "type": "loki", "uid": "loki" },
-          "expr": "sum(count_over_time({service=~\"$service\"} |~ \"(?i)(level=(error|fatal)|\\bERROR\\b|\\bFATAL\\b|\\bPANIC\\b|\\bEXCEPTION\\b)\" [$__range]))",
+          "expr": "sum(count_over_time({service=~\"$service\"} |~ \"level=error|level=fatal|\\s+ERROR\\s+|\\s+FATAL\\s+\" [$__range]))",
           "instant": true,
           "range": false,
           "refId": "A"
@@ -108,7 +108,7 @@
       "targets": [
         {
           "datasource": { "type": "loki", "uid": "loki" },
-          "expr": "sum(count_over_time({service=~\"$service\"} |~ \"(?i)(level=warn|\\bWARN(ING)?\\b)\" [$__range]))",
+          "expr": "sum(count_over_time({service=~\"$service\"} |~ \"level=warn|\\s+WARN(ING)?\\s+\" [$__range]))",
           "instant": true,
           "range": false,
           "refId": "A"
@@ -147,7 +147,7 @@
       "targets": [
         {
           "datasource": { "type": "loki", "uid": "loki" },
-          "expr": "sum by (service) (rate({service=~\"$service\"} |~ \"(?i)(level=(error|fatal)|\\bERROR\\b|\\bFATAL\\b|\\bPANIC\\b|\\bEXCEPTION\\b)\" [$__interval]))",
+          "expr": "sum by (service) (rate({service=~\"$service\"} |~ \"level=error|level=fatal|\\s+ERROR\\s+|\\s+FATAL\\s+\" [$__interval]))",
           "legendFormat": "{{service}}",
           "refId": "A"
         }
@@ -182,7 +182,7 @@
       "targets": [
         {
           "datasource": { "type": "loki", "uid": "loki" },
-          "expr": "topk(10, sum by (service) (count_over_time({service=~\"$service\"} |~ \"(?i)(level=(error|fatal)|\\bERROR\\b|\\bFATAL\\b|\\bPANIC\\b|\\bEXCEPTION\\b)\" [$__range])))",
+          "expr": "topk(10, sum by (service) (count_over_time({service=~\"$service\"} |~ \"level=error|level=fatal|\\s+ERROR\\s+|\\s+FATAL\\s+\" [$__range])))",
           "instant": true,
           "refId": "A"
         }
