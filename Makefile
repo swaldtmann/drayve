@@ -60,7 +60,7 @@ _host_domain = $(call _stack_val,c.get('stack',{}).get('domain',''))
 
 # --- Targets ---
 
-.PHONY: help init validate lint provision deploy deploy-prod burn status secrets-init secrets-template backup list test test-role test-integration setup unban bans
+.PHONY: help init validate lint provision deploy deploy-prod burn status secrets-init secrets-template backup list test test-role test-integration setup unban bans dashboards
 
 help:  ## Show available targets
 	@grep -E '^[a-z][a-z0-9_-]+:.*##' $(MAKEFILE_LIST) | sort | awk -F ':.*##' '{printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -207,6 +207,9 @@ ifndef IP
 endif
 	@_host=$$($(PYTHON) -c "import yaml; d=yaml.safe_load(open('$(INVENTORY)')); print(d.get('all',{}).get('children',{}).get('drayve',{}).get('hosts',{}).get('$(NAME)',{}).get('ansible_host','$(NAME)'))" 2>/dev/null || echo "$(NAME)"); \
 	ssh root@$$_host "docker exec crowdsec cscli decisions delete --ip $(IP)" 2>/dev/null || echo "    SSH failed"
+
+dashboards: _require-name _require-stack _require-inventory  ## Deploy only dashboards + datasources (NAME=)
+	$(ANSIBLE) playbooks/deploy.yml -l $(NAME) -e @../$(STACK_CONFIG) --tags dashboards
 
 test: lint  ## Run lint + validate all examples
 	@echo "==> Validating examples..."
