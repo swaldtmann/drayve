@@ -186,6 +186,8 @@ services:
       - GF_SECURITY_ADMIN_EMAIL=admin@{{ drayve_domain }}
       - GF_SERVER_ROOT_URL={{ grafana_root_url | default('https://grafana.' + drayve_domain) }}
 {% if auth_provider == 'authelia' %}
+      - GF_SECURITY_ADMIN_USER=grafana-builtin-admin
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
       - GF_AUTH_GENERIC_OAUTH_ENABLED=true
       - GF_AUTH_GENERIC_OAUTH_NAME=Authelia
       - GF_AUTH_GENERIC_OAUTH_CLIENT_ID=grafana
