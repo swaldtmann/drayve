@@ -44,6 +44,11 @@
         --base-url http://localhost:17170 \
         --admin-username admin --admin-password "{{ lldap_admin_password }}" \
         --username authelia --password "{{ authelia_ldap_password }}"
+      # Add authelia to lldap_strict_readonly group (needed for LDAP search permissions)
+      curl -s http://$LLDAP_IP:17170/api/graphql \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer $TOKEN" \
+        -d '{"query":"mutation { addUserToGroup(userId: \"authelia\", groupId: 3) { ok } }"}'
     executable: /bin/bash
   when: >-
     (auth_lldap | default(false) | bool)
