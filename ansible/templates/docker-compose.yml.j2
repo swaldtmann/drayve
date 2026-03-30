@@ -215,7 +215,7 @@ services:
       - GF_AUTH_OAUTH_ALLOW_INSECURE_EMAIL_LOOKUP=true
       - GF_AUTH_SIGNOUT_REDIRECT_URL=https://auth.{{ drayve_domain }}/logout
 {% endif %}
-      - GF_FEATURE_TOGGLES_ENABLE=
+      - GF_FEATURE_TOGGLES_DISABLE=kubernetesDashboards
 {% if crowdsec_enabled %}
       - GF_INSTALL_PLUGINS=yesoreyeram-infinity-datasource
       - CROWDSEC_LAPI_KEY=${CROWDSEC_LAPI_KEY:-}
