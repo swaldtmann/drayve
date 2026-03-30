@@ -87,6 +87,67 @@ After provisioning, your services are available at:
 - `https://shop.example.com` — Landing page
 - `https://grafana.shop.example.com` — Grafana dashboards (if monitoring: full)
 - `https://traefik.shop.example.com` — Traefik dashboard
+- `https://auth.shop.example.com` — Authelia login (if auth: authelia)
+
+## First login
+
+All protected pages redirect to the auth provider. What you need depends on your `auth.provider` setting:
+
+### Basic auth
+
+Username and password are in `deploy/<name>/secrets.yml`:
+
+```yaml
+auth_basic_user: admin
+auth_basic_password: "..."
+```
+
+Your browser will show a standard HTTP auth prompt.
+
+### Authelia + LLDAP
+
+Authelia authenticates against LLDAP (a lightweight LDAP server). The default admin user is `admin` — the password is in `deploy/<name>/secrets.yml`:
+
+```yaml
+lldap_admin_password: "..."
+```
+
+Use this to log in at `https://auth.<domain>/`. After login, you're redirected to the page you originally requested.
+
+**To create additional users:** Open the LLDAP admin panel at `https://<server-ip>:17170` (direct, not proxied) and add users there. Or define them in your `stack.yaml` — see [Configuration](configuration.md).
+
+### Nextcloud (if using compose.override)
+
+Nextcloud has its own user database, separate from Authelia/LLDAP. The admin credentials are in `deploy/<name>/env.override`:
+
+```
+NC_ADMIN_USER=admin
+NC_ADMIN_PASSWORD=...
+```
+
+Open `https://cloud.<domain>/` and log in directly — Nextcloud is not behind the Authelia middleware.
+
+## Files overview
+
+After `make provision`, your host directory contains:
+
+```
+deploy/webshop/
+├── stack.yaml              # What to deploy (auth, monitoring, domain, ...)
+├── secrets.yml             # Auto-generated passwords (quickstart mode)
+│                           # Contains: LLDAP, Authelia, Grafana, CrowdSec secrets
+├── compose.override.yml    # Your apps (optional — Nextcloud example in deploy/_example/)
+└── env.override            # Passwords for your apps (optional — referenced by override)
+```
+
+| File | Managed by | Contains |
+|------|------------|----------|
+| `stack.yaml` | You | Stack configuration — what gets deployed |
+| `secrets.yml` | `make provision` (quickstart) or you (SOPS) | Platform secrets (auth, monitoring, security) |
+| `compose.override.yml` | You | Your services — Docker Compose merged with main stack |
+| `env.override` | You | Your service secrets — appended to `.env` on server |
+
+**Important:** `deploy/` is gitignored. These files contain your infrastructure secrets. Back them up. In SOPS mode, also back up `deploy/.age-key.txt` — it's the master key.
 
 ## Managing multiple hosts
 
