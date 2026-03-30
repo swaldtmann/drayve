@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.2.0-rc1 — 2026-03-30
+
+### Security
+- **OIDC client_secret hashed** — Authelia config now uses PBKDF2-SHA512 hashes instead of plaintext. Hash generated once, stored persistently for idempotency. (#59)
+- **CrowdSec IP whitelist** — `security.crowdsec_whitelist` in stack.yaml, deployed as parser-level whitelist. (#S167)
+
+### Fixes
+- **LLDAP groupId dynamic** — `lldap_strict_readonly` group ID resolved via GraphQL instead of hardcoded `3`. (#58)
+- **LLDAP email collision** — check if user exists before `createUser` mutation, prevents UNIQUE constraint errors on every deploy. (#69)
+- **LLDAP healthcheck timing** — increased `start_period` to 20s, reduced interval to 5s. Reduces Authelia LDAP race condition on startup. (#85)
+- **Grafana Feature-Toggle** — `GF_FEATURE_TOGGLES_DISABLE=kubernetesDashboards` prevents intermittent 403 on OIDC users. (#82)
+- **Grafana dashboard queries** — precise error/warning regex, CrowdSec NaN guard, correct metric names, range+lastNotNull for stat panels.
+- **Grafana restart guard** — skip `docker compose up` when compose file doesn't exist yet (first provision).
+- **htpasswd idempotent** — basic auth file only generated once, not on every deploy.
+- **validate-stack warnings** — suppress `acme_email` warning for example files. (#89)
+
+### Features
+- **`make dashboards NAME=`** — deploy only Grafana dashboards/datasources without full redeploy. (#87)
+- **`make bans/unban NAME=`** — manage CrowdSec decisions from CLI. (#S167)
+- **Grafana auto-restart** — monitoring role restarts Grafana on dashboard/datasource changes.
+- **LLDAP user provisioning** — users + groups from stack.yaml, auto-generated passwords.
+- **Grafana OIDC** — full SSO via Authelia, role mapping from LLDAP groups.
+- **Landing page apps** — user apps from stack.yaml shown on landing page.
+
+### Testing
+- **3 Molecule scenarios** — `authelia` (full+SSO), `basic` (basic auth+full monitoring), `light` (no auth+light monitoring). All pass converge, idempotency, and verification.
+- **44 Testinfra assertions** across all scenarios.
+- **Upgrade-path tested** on live drayve-authbox instance.
+
+### Documentation
+- First login guide, files overview, env.override docs.
+
 ## 0.1.0 — 2026-03-29
 
 ### Architecture
