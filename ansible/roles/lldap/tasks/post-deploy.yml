@@ -57,12 +57,22 @@
         -H "Content-Type: application/json" \
         -d '{"username":"admin","password":"{{ lldap_admin_password }}"}' \
         | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])")
+      # Check if user already exists before creating
+      EXISTS=$(curl -sf http://$LLDAP_IP:{{ lldap_http_port }}/api/graphql \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer $TOKEN" \
+        -d '{"query":"{ user(userId: \"{{ item.id }}\") { id } }"}' \
+        | python3 -c "import sys,json;d=json.load(sys.stdin);print('yes' if d.get('data',{}).get('user') else 'no')" 2>/dev/null)
+      if [ "$EXISTS" = "yes" ]; then
+        echo "User {{ item.id }}: already exists — skipping"
+        exit 0
+      fi
       RESULT=$(curl -sf http://$LLDAP_IP:{{ lldap_http_port }}/api/graphql \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer $TOKEN" \
         -d '{"query":"mutation { createUser(user: {id: \"{{ item.id }}\", email: \"{{ item.email }}\", displayName: \"{{ item.displayName }}\"}) { id } }"}')
-      if echo "$RESULT" | python3 -c "import sys,json;d=json.load(sys.stdin);errors=d.get('errors',[]); sys.exit(0 if not errors or any('duplicate' in str(e).lower() or 'unique' in str(e).lower() for e in errors) else 1)" 2>/dev/null; then
-        echo "User {{ item.id }}: created or already exists"
+      if echo "$RESULT" | python3 -c "import sys,json;d=json.load(sys.stdin);sys.exit(0 if not d.get('errors') else 1)" 2>/dev/null; then
+        echo "User {{ item.id }}: created"
       else
         echo "User {{ item.id }}: creation failed — $RESULT" >&2
         exit 1
