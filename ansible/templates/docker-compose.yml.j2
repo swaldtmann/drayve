@@ -213,7 +213,7 @@ services:
       - GF_AUTH_SIGNOUT_REDIRECT_URL=https://auth.{{ drayve_domain }}/logout
 {% endif %}
 {% if crowdsec_enabled %}
-      - GF_INSTALL_PLUGINS=crowdsec-crowdsec-datasource
+      - GF_INSTALL_PLUGINS=yesoreyeram-infinity-datasource
       - CROWDSEC_LAPI_KEY=${CROWDSEC_LAPI_KEY:-}
 {% endif %}
     volumes:
