@@ -56,6 +56,7 @@
   ansible.builtin.set_fact:
     auth_lldap: "{{ auth.lldap | default(auth_lldap) | default(false) | bool }}"
     lldap_base_dn: "{{ auth.lldap_base_dn | default(lldap_base_dn) | default('DC=drayve,DC=local') }}"
+    lldap_users: "{{ auth.lldap_users | default(lldap_users) | default([]) }}"
   when: auth_provider == 'authelia'
   tags: [deploy]
 

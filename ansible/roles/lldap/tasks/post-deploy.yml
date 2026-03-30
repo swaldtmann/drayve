@@ -85,3 +85,32 @@
   no_log: true
   when: lldap_users | length > 0
   tags: [lldap, lldap-users]
+
+- name: Add lldap users to groups
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      LLDAP_IP=$(docker inspect lldap --format '{% raw %}{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}')
+      TOKEN=$(curl -sf http://$LLDAP_IP:{{ lldap_http_port }}/auth/simple/login \
+        -H "Content-Type: application/json" \
+        -d '{"username":"admin","password":"{{ lldap_admin_password }}"}' \
+        | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])")
+      {% for group in item.groups %}
+      GROUP_ID=$(curl -sf http://$LLDAP_IP:{{ lldap_http_port }}/api/graphql \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer $TOKEN" \
+        -d '{"query":"{ groups { id displayName } }"}' \
+        | python3 -c "import sys,json;groups=json.load(sys.stdin)['data']['groups'];print(next(g['id'] for g in groups if g['displayName']=='{{ group }}'))")
+      curl -sf http://$LLDAP_IP:{{ lldap_http_port }}/api/graphql \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer $TOKEN" \
+        -d "{\"query\":\"mutation { addUserToGroup(userId: \\\"{{ item.id }}\\\", groupId: $GROUP_ID) { ok } }\"}" || true
+      {% endfor %}
+    executable: /bin/bash
+  loop: "{{ lldap_users | selectattr('groups', 'defined') }}"
+  loop_control:
+    label: "{{ item.id }} -> {{ item.groups }}"
+  changed_when: false
+  no_log: true
+  when: lldap_users | length > 0
+  tags: [lldap, lldap-users]
