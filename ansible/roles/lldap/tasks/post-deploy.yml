@@ -77,7 +77,7 @@
       --admin-username admin \
       --admin-password "{{ lldap_admin_password }}" \
       --username "{{ item.id }}" \
-      --password "{{ lookup('vars', item.password_var) }}"
+      --password "{{ host_secrets[item.password_var] }}"
   loop: "{{ lldap_users | selectattr('password_var', 'defined') }}"
   loop_control:
     label: "{{ item.id }}"
