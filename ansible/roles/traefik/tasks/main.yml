@@ -161,15 +161,7 @@
 - name: Deploy CrowdSec IP whitelist
   ansible.builtin.copy:
     dest: "{{ drayve_deploy_dir }}/crowdsec/whitelist.yaml"
-    content: |
-      name: drayve/whitelist
-      description: "Whitelisted IPs from stack.yaml"
-      whitelist:
-        reason: "stack.yaml crowdsec_whitelist"
-        ip:
-{% for ip in security.crowdsec_whitelist %}
-          - "{{ ip }}"
-{% endfor %}
+    content: "{{ lookup('template', 'crowdsec-whitelist.yaml.j2') }}"
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
     mode: "0644"
