@@ -269,6 +269,12 @@
   register: grafana_dashboards
   tags: [monitoring, dashboards]
 
+- name: Check if compose file exists (skip restart on first provision)
+  ansible.builtin.stat:
+    path: "{{ drayve_deploy_dir }}/docker-compose.yml"
+  register: _compose_file
+  tags: [monitoring, dashboards]
+
 - name: Force-recreate Grafana on config change
   ansible.builtin.command:
     cmd: docker compose up -d --force-recreate grafana
@@ -276,9 +282,10 @@
   become: true
   become_user: "{{ drayve_user }}"
   when: >-
-    (grafana_dashboards.changed | default(false)) or
+    _compose_file.stat.exists and
+    ((grafana_dashboards.changed | default(false)) or
     (grafana_datasources.changed | default(false)) or
-    (grafana_crowdsec_ds.changed | default(false))
+    (grafana_crowdsec_ds.changed | default(false)))
   tags: [monitoring, dashboards]
 
 # === Set facts for compose template ===
