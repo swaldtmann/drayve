@@ -126,13 +126,13 @@ _burn-without-stack:
 
 _burn-backup-local:
 	@_has_files=0; \
-	for f in compose.override.yml env.override stack.yaml; do \
+	for f in compose.override.yml env.override stack.yaml secrets.yml; do \
 		if [ -f "$(HOST_DIR)/$$f" ]; then _has_files=1; break; fi; \
 	done; \
 	if [ "$$_has_files" = "1" ]; then \
 		echo "==> Backing up local user files from deploy/$(NAME)/:"; \
 		mkdir -p /tmp/drayve-burn-$(NAME); \
-		for f in compose.override.yml env.override stack.yaml; do \
+		for f in compose.override.yml env.override stack.yaml secrets.yml; do \
 			if [ -f "$(HOST_DIR)/$$f" ]; then \
 				cp "$(HOST_DIR)/$$f" "/tmp/drayve-burn-$(NAME)/$$f"; \
 				echo "    $$f -> /tmp/drayve-burn-$(NAME)/$$f"; \

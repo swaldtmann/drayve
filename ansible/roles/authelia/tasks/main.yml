@@ -50,3 +50,10 @@
     mode: "0600"
   register: authelia_config
   tags: [authelia]
+
+- name: Remove stale Authelia DB on config change
+  ansible.builtin.file:
+    path: "{{ authelia_data_dir }}/db.sqlite3"
+    state: absent
+  when: authelia_config.changed | default(false)
+  tags: [authelia]

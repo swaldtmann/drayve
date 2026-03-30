@@ -57,10 +57,16 @@
         -H "Content-Type: application/json" \
         -d '{"username":"admin","password":"{{ lldap_admin_password }}"}' \
         | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])")
-      curl -sf http://$LLDAP_IP:{{ lldap_http_port }}/api/graphql \
+      RESULT=$(curl -sf http://$LLDAP_IP:{{ lldap_http_port }}/api/graphql \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer $TOKEN" \
-        -d '{"query":"mutation { createUser(user: {id: \"{{ item.id }}\", email: \"{{ item.email }}\", displayName: \"{{ item.displayName }}\"}) { id } }"}' || true
+        -d '{"query":"mutation { createUser(user: {id: \"{{ item.id }}\", email: \"{{ item.email }}\", displayName: \"{{ item.displayName }}\"}) { id } }"}')
+      if echo "$RESULT" | python3 -c "import sys,json;d=json.load(sys.stdin);errors=d.get('errors',[]); sys.exit(0 if not errors or any('duplicate' in str(e).lower() or 'unique' in str(e).lower() for e in errors) else 1)" 2>/dev/null; then
+        echo "User {{ item.id }}: created or already exists"
+      else
+        echo "User {{ item.id }}: creation failed — $RESULT" >&2
+        exit 1
+      fi
     executable: /bin/bash
   loop: "{{ lldap_users }}"
   loop_control:
