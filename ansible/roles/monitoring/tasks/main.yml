@@ -214,6 +214,7 @@
     group: "{{ drayve_group }}"
     mode: "0644"
   when: _mon_grafana
+  register: grafana_datasources
   tags: [monitoring, dashboards]
 
 - name: Deploy CrowdSec LAPI datasource
@@ -245,6 +246,7 @@
     group: "{{ drayve_group }}"
     mode: "0644"
   when: _mon_grafana and (crowdsec_enabled)
+  register: grafana_crowdsec_ds
   tags: [monitoring, dashboards]
 
 - name: Remove CrowdSec LAPI datasource when CrowdSec disabled
@@ -264,6 +266,19 @@
   with_fileglob:
     - "{{ ops_repo_root }}/config/grafana/provisioning/dashboards/json/*.json"
   when: _mon_grafana
+  register: grafana_dashboards
+  tags: [monitoring, dashboards]
+
+- name: Force-recreate Grafana on config change
+  ansible.builtin.command:
+    cmd: docker compose up -d --force-recreate grafana
+    chdir: "{{ drayve_deploy_dir }}"
+  become: true
+  become_user: "{{ drayve_user }}"
+  when: >-
+    (grafana_dashboards.changed | default(false)) or
+    (grafana_datasources.changed | default(false)) or
+    (grafana_crowdsec_ds.changed | default(false))
   tags: [monitoring, dashboards]
 
 # === Set facts for compose template ===
