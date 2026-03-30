@@ -271,6 +271,7 @@
   become: true
   become_user: "{{ drayve_user }}"
   register: compose_ps
+  changed_when: false
   tags: [deploy]
 
 - name: Show running containers
