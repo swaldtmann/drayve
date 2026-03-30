@@ -19,7 +19,7 @@
   become: false
 
   vars:
-    _provider: "{{ provider_type | default('hetzner') }}"
+    _provider: "{{ provider.type | default(provider_type) | default('hetzner') }}"
     _server_type: "{{ server_type | default('cx23') }}"
     _server_location: "{{ server_location | default('nbg1') }}"
     ssh_key_name: "{{ provider.hcloud_ssh_key | default(hcloud_ssh_key) | default('') }}"
@@ -87,14 +87,15 @@
             key: "{{ host_key.stdout }}"
             state: present
 
-    - name: Add host to in-memory inventory
+    - name: Add host to in-memory inventory (hetzner — not in static inventory yet)
       ansible.builtin.add_host:
         name: "{{ drayve_name }}"
-        ansible_host: "{{ (server_ip.stdout | trim) if _provider == 'hetzner' else (ansible_host | default(drayve_name)) }}"
+        ansible_host: "{{ server_ip.stdout | trim }}"
         ansible_user: root
         groups: drayve
         drayve_domain: "{{ domain }}"
         drayve_hostname: "{{ drayve_name }}"
+      when: _provider == 'hetzner'
 
     - name: Show provision info
       ansible.builtin.debug:
@@ -104,6 +105,9 @@
 - name: Provision host
   hosts: "{{ drayve_name }}"
   become: true
+
+  vars:
+    ops_repo_root: "{{ playbook_dir | regex_replace('/playbooks$', '') | regex_replace('/ansible$', '') }}"
 
   roles:
     - secrets

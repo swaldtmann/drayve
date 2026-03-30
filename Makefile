@@ -28,7 +28,7 @@ STACK_CONFIG := $(HOST_DIR)/stack.yaml
 SECRETS_FILE := $(HOST_DIR)/secrets.yml
 endif
 
-ANSIBLE := cd $(ANSIBLE_DIR) && ansible-playbook -i ../$(INVENTORY)
+ANSIBLE := cd $(ANSIBLE_DIR) && ansible-playbook -i ../$(INVENTORY) -i inventory/
 
 # --- Guards ---
 _require-name:

@@ -13,7 +13,7 @@
   become: false
 
   vars:
-    _provider: "{{ provider_type | default('hetzner') }}"
+    _provider: "{{ provider.type | default(provider_type) | default('hetzner') }}"
     _hcloud_dns_context: "{{ provider.hcloud_dns_context | default(hcloud_dns_context) | default('') }}"
 
   tasks:
