@@ -80,10 +80,10 @@ services:
       - lldap_data:/data
     healthcheck:
       test: ["CMD", "/app/lldap", "healthcheck"]
-      interval: 10s
+      interval: 5s
       timeout: 5s
-      retries: 5
-      start_period: 10s
+      retries: 6
+      start_period: 20s
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.lldap.rule=Host(`ldap.{{ drayve_domain }}`)"
