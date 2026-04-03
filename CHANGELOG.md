@@ -32,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Testing
 - 3 Molecule scenarios — `authelia`, `basic`, `light`. All pass converge, idempotency, and verification
 - 44 Testinfra assertions across all scenarios
-- Upgrade-path tested on live drayve-authbox instance
+- Upgrade-path tested on live instance
 
 ### Documentation
 - First login guide, files overview, env.override docs
