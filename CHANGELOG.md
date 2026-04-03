@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-04-03
+
 ### Security
 - OIDC client_secret hashed — Authelia config now uses PBKDF2-SHA512 hashes instead of plaintext (#59)
 - CrowdSec IP whitelist — `security.crowdsec_whitelist` in stack.yaml, deployed as parser-level whitelist (#S167)
