@@ -1,0 +1,17 @@
+---
+# Authelia + LLDAP integration test.
+# Auth config runs before deploy, LLDAP user provisioning runs after deploy
+# (triggered by deploy role's post-deploy includes).
+- name: Testrunde 3 — Authelia + LLDAP full stack
+  hosts: all
+  become: true
+  vars:
+    ops_repo_root: "{{ playbook_dir | regex_replace('/molecule/authelia$', '') }}"
+  roles:
+    - role: common
+    - role: docker
+    - role: secrets
+    - role: traefik
+    - role: auth
+    - role: monitoring
+    - role: deploy

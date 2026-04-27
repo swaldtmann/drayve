@@ -1,0 +1,239 @@
+#!/usr/bin/env python3
+"""Drayve Auth-Sync.
+
+Reads label-scanner output and ensures Authentik has matching
+proxy providers + applications for services with authentik@file middleware.
+
+Diff logic:
+- Missing → create provider + application + outpost assignment
+- Existing → skip (no update)
+- Extra (in Authentik but not in labels) → warn, don't delete
+
+Runs on the server after bootstrap. Uses the same API token.
+"""
+
+import json
+import os
+import sys
+import urllib.request
+import urllib.error
+
+DOMAIN = "{{ drayve_domain }}"
+
+MAX_RETRIES = 3
+RETRY_DELAY = 2
+
+
+def log(msg):
+    print(f"[auth-sync] {msg}", file=sys.stderr)
+
+
+class AuthentikAPI:
+    """Simple Authentik API client (same as bootstrap)."""
+
+    def __init__(self, base_url, token):
+        self.base_url = base_url
+        self.token = token
+
+    def _request(self, method, path, data=None):
+        import time
+        url = f"{self.base_url}{path}"
+        body = json.dumps(data).encode() if data else None
+        headers = {
+            "Authorization": f"Bearer {self.token}",
+            "Content-Type": "application/json",
+        }
+        for attempt in range(1, MAX_RETRIES + 1):
+            try:
+                req = urllib.request.Request(url, data=body, headers=headers, method=method)
+                with urllib.request.urlopen(req, timeout=30) as resp:
+                    return json.loads(resp.read())
+            except urllib.error.HTTPError as e:
+                if 400 <= e.code < 500:
+                    raise
+                if attempt == MAX_RETRIES:
+                    raise
+                import time
+                time.sleep(RETRY_DELAY * attempt)
+            except (urllib.error.URLError, OSError):
+                if attempt == MAX_RETRIES:
+                    raise
+                import time
+                time.sleep(RETRY_DELAY * attempt)
+
+    def get(self, path):
+        return self._request("GET", path)
+
+    def post(self, path, data):
+        return self._request("POST", path, data)
+
+    def patch(self, path, data):
+        return self._request("PATCH", path, data)
+
+
+def get_api_token():
+    """Read API token from bootstrap token file or Django shell."""
+    import subprocess
+    script = """
+import os, django
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'authentik.root.settings')
+django.setup()
+from authentik.core.models import Token
+t = Token.objects.get(identifier='drayve-bootstrap')
+print(t.key)
+"""
+    result = subprocess.run(
+        ["docker", "exec", "authentik-server", "python", "-c", script],
+        capture_output=True, text=True,
+    )
+    if result.returncode == 0:
+        return result.stdout.strip().split("\n")[-1]
+    raise RuntimeError(f"Failed to get API token: {result.stderr}")
+
+
+def get_container_ip():
+    """Get Authentik server container IP."""
+    import subprocess
+    result = subprocess.run(
+        ["docker", "inspect", "authentik-server",
+         "--format", "{% raw %}{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}"],
+        capture_output=True, text=True, check=True,
+    )
+    return result.stdout.strip()
+
+
+def get_flow(api, slug):
+    resp = api.get(f"/flows/instances/?slug={slug}&page_size=50")
+    results = resp.get("results", [])
+    return results[0]["pk"] if results else None
+
+
+def get_embedded_outpost(api):
+    resp = api.get("/outposts/instances/?page_size=50")
+    for o in resp.get("results", []):
+        if "Embedded" in o.get("name", ""):
+            return o["pk"]
+    return None
+
+
+def get_existing_providers(api):
+    """Get all proxy provider names."""
+    resp = api.get("/providers/proxy/?page_size=200")
+    return {r["name"]: r["pk"] for r in resp.get("results", [])}
+
+
+def get_existing_applications(api):
+    """Get all application slugs."""
+    resp = api.get("/core/applications/?page_size=200")
+    return {r["slug"]: r["pk"] for r in resp.get("results", [])}
+
+
+def sync_auth(api, auth_sync_entries):
+    """Sync Authentik providers/applications from label-scanner output."""
+    auth_flow = get_flow(api, "default-provider-authorization-implicit-consent")
+    if not auth_flow:
+        auth_flow = get_flow(api, "default-provider-authorization-explicit")
+    inval_flow = get_flow(api, "default-provider-invalidation-flow")
+    outpost = get_embedded_outpost(api)
+
+    existing_providers = get_existing_providers(api)
+    existing_apps = get_existing_applications(api)
+
+    # Track what labels want
+    wanted_slugs = set()
+
+    for entry in auth_sync_entries:
+        service = entry["service"]
+        url = entry.get("url", "")
+        if not url:
+            log(f"WARNING: Service '{service}' has authentik middleware but no URL — skipping")
+            continue
+
+        slug = service.replace("_", "-")
+        wanted_slugs.add(slug)
+
+        # Provider
+        provider_name = service
+        if provider_name in existing_providers:
+            log(f"Provider '{provider_name}' already exists — skipping")
+            provider_pk = existing_providers[provider_name]
+        else:
+            try:
+                resp = api.post("/providers/proxy/", {
+                    "name": provider_name,
+                    "authorization_flow": auth_flow,
+                    "invalidation_flow": inval_flow,
+                    "external_host": url,
+                    "mode": "forward_single",
+                    "access_token_validity": "hours=24",
+                })
+                provider_pk = resp["pk"]
+                log(f"Created proxy provider '{provider_name}' (pk={provider_pk})")
+            except urllib.error.HTTPError as e:
+                body = e.read().decode() if e.fp else ""
+                if e.code == 400 and "already exists" in body:
+                    log(f"Provider '{provider_name}' already exists (confirmed by 400)")
+                    continue
+                log(f"Failed to create provider '{provider_name}': {e.code} {body}")
+                continue
+
+        # Application
+        if slug in existing_apps:
+            log(f"Application '{slug}' already exists — skipping")
+        else:
+            try:
+                api.post("/core/applications/", {
+                    "name": service.replace("-", " ").replace("_", " ").title(),
+                    "slug": slug,
+                    "provider": provider_pk,
+                })
+                log(f"Created application '{slug}'")
+            except urllib.error.HTTPError as e:
+                body = e.read().decode() if e.fp else ""
+                if e.code == 400 and "already exists" in body:
+                    log(f"Application '{slug}' already exists (confirmed by 400)")
+                else:
+                    log(f"Failed to create application '{slug}': {e.code} {body}")
+
+        # Outpost assignment
+        if outpost and provider_pk:
+            resp = api.get(f"/outposts/instances/{outpost}/?page_size=50")
+            current = resp.get("providers", [])
+            if provider_pk not in current:
+                current.append(provider_pk)
+                api.patch(f"/outposts/instances/{outpost}/", {"providers": current})
+                log(f"Assigned '{provider_name}' to embedded outpost")
+
+    # Warn about extra providers not in labels (but don't delete)
+    # Skip frame services (whoami, landing, traefik-dashboard, grafana)
+    frame_providers = {"whoami", "landing", "traefik-dashboard", "grafana"}
+    for name in existing_providers:
+        if name not in frame_providers and name not in {e["service"] for e in auth_sync_entries}:
+            log(f"WARNING: Provider '{name}' exists in Authentik but not in labels — orphaned?")
+
+
+def main():
+    if len(sys.argv) < 2:
+        print(f"Usage: {sys.argv[0]} <label-scanner-output.json>", file=sys.stderr)
+        sys.exit(1)
+
+    with open(sys.argv[1]) as f:
+        labels = json.load(f)
+
+    auth_sync_entries = labels.get("auth_sync", [])
+    if not auth_sync_entries:
+        log("No services with authentik@file middleware found — nothing to sync")
+        return
+
+    log(f"Syncing {len(auth_sync_entries)} service(s) to Authentik")
+
+    ip = get_container_ip()
+    token = get_api_token()
+    api = AuthentikAPI(f"http://{ip}:9000/api/v3", token)
+
+    sync_auth(api, auth_sync_entries)
+    log("Auth-sync complete.")
+
+
+if __name__ == "__main__":
+    main()

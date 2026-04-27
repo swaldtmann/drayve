@@ -1,0 +1,82 @@
+---
+# SOPS secrets test — basic auth + light monitoring + SOPS-encrypted secrets.
+- name: Test SOPS secrets
+  hosts: all
+  become: true
+  vars:
+    ops_repo_root: "{{ playbook_dir | regex_replace('/molecule/sops$', '') }}"
+  pre_tasks:
+    - name: Create local deploy dir for secrets
+      ansible.builtin.file:
+        path: "{{ ops_repo_root }}/deploy/{{ inventory_hostname }}"
+        state: directory
+        mode: "0700"
+      delegate_to: localhost
+      become: false
+
+    - name: Install SOPS + AGE locally
+      ansible.builtin.command:
+        cmd: "{{ item }}"
+      loop:
+        - "which sops || brew install sops"
+        - "which age-keygen || brew install age"
+      delegate_to: localhost
+      become: false
+      changed_when: false
+      failed_when: false
+
+    - name: Generate AGE key for test
+      ansible.builtin.shell:
+        cmd: |
+          mkdir -p {{ ops_repo_root }}/deploy
+          if [ ! -f {{ ops_repo_root }}/deploy/.age-key.txt ]; then
+            age-keygen -o {{ ops_repo_root }}/deploy/.age-key.txt 2>&1
+          fi
+          grep 'public key' {{ ops_repo_root }}/deploy/.age-key.txt | awk '{print $NF}'
+      register: age_pubkey
+      delegate_to: localhost
+      become: false
+      changed_when: false
+
+    - name: Create .sops.yaml
+      ansible.builtin.copy:
+        dest: "{{ ops_repo_root }}/.sops.yaml"
+        content: |
+          creation_rules:
+            - age: "{{ age_pubkey.stdout }}"
+      delegate_to: localhost
+      become: false
+
+    - name: Check if encrypted secrets exist
+      ansible.builtin.stat:
+        path: "{{ ops_repo_root }}/deploy/{{ inventory_hostname }}/secrets.yml"
+      register: secrets_file
+      delegate_to: localhost
+      become: false
+
+    - name: Create and encrypt test secrets
+      ansible.builtin.shell:
+        cmd: |
+          cat > /tmp/drayve-test-secrets.yml << 'SECRETS'
+          auth_basic_password: sops-test-password
+          grafana_admin_pass: sops-test-grafana
+          crowdsec_bouncer_key: sops-test-bouncer-key-32chars0000
+          crowdsec_lapi_key: sops-test-lapi-key-32chars000000
+          backup_restic_password: sops-test-restic-pw
+          SECRETS
+          SOPS_AGE_KEY_FILE={{ ops_repo_root }}/deploy/.age-key.txt \
+            sops -e --age {{ age_pubkey.stdout }} \
+            /tmp/drayve-test-secrets.yml \
+            > {{ ops_repo_root }}/deploy/{{ inventory_hostname }}/secrets.yml
+          rm /tmp/drayve-test-secrets.yml
+      delegate_to: localhost
+      become: false
+      when: not secrets_file.stat.exists
+  roles:
+    - role: common
+    - role: docker
+    - role: secrets
+    - role: traefik
+    - role: auth
+    - role: monitoring
+    - role: deploy

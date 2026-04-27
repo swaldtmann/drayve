@@ -1,0 +1,22 @@
+---
+# Authentik + LDAP Source integration test (LLDAP as test backend).
+- name: Authentik + LDAP Source integration test
+  hosts: all
+  become: true
+  vars:
+    ops_repo_root: "{{ playbook_dir | regex_replace('/molecule/authentik-ldap$', '') }}"
+  roles:
+    - role: common
+    - role: docker
+    - role: secrets
+    - role: traefik
+    - role: lldap
+    - role: auth
+    - role: monitoring
+    - role: deploy
+  post_tasks:
+    - name: Post-deploy LLDAP (provision test users)
+      ansible.builtin.include_role:
+        name: lldap
+        tasks_from: post-deploy
+      tags: [lldap]

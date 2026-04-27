@@ -1,0 +1,17 @@
+---
+# Authentik integration test.
+# Auth config runs before deploy, bootstrap runs after deploy
+# (triggered by deploy role's post-deploy includes).
+- name: Authentik full stack integration test
+  hosts: all
+  become: true
+  vars:
+    ops_repo_root: "{{ playbook_dir | regex_replace('/molecule/authentik$', '') }}"
+  roles:
+    - role: common
+    - role: docker
+    - role: secrets
+    - role: traefik
+    - role: auth
+    - role: monitoring
+    - role: deploy

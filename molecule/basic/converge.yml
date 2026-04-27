@@ -1,0 +1,15 @@
+---
+# Basic auth + full monitoring test.
+- name: Test basic auth + full monitoring
+  hosts: all
+  become: true
+  vars:
+    ops_repo_root: "{{ playbook_dir | regex_replace('/molecule/basic$', '') }}"
+  roles:
+    - role: common
+    - role: docker
+    - role: secrets
+    - role: traefik
+    - role: auth
+    - role: monitoring
+    - role: deploy
