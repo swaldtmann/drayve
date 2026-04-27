@@ -1,0 +1,13 @@
+---
+# Deploy — sync config, restart services.
+# Usage: cd ansible && ansible-playbook playbooks/deploy.yml -e target=drayve
+- name: Deploy
+  hosts: "{{ target | default('drayve') }}"
+  become: true
+
+  roles:
+    - secrets
+    - traefik
+    - auth
+    - monitoring
+    - deploy

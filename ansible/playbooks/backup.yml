@@ -1,0 +1,13 @@
+---
+# Deploy/update backup configuration on Drayve hosts.
+#
+# Usage:
+#   cd ansible && ansible-playbook playbooks/backup.yml -e @../stack.yaml
+#   cd ansible && ansible-playbook playbooks/backup.yml -l myhost -e @../stack.yaml
+
+- name: Configure backup
+  hosts: drayve
+  become: true
+
+  roles:
+    - backup

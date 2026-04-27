@@ -1,0 +1,450 @@
+#!/usr/bin/env python3
+"""Authentik Zero-Touch Bootstrap.
+
+Runs after compose up — configures Authentik via API.
+Creates API token via Django shell, then configures providers + applications.
+"""
+
+import json
+import os
+import subprocess
+import sys
+import time
+import urllib.request
+import urllib.error
+
+DOMAIN = "{{ drayve_domain }}"
+GRAFANA_SECRET = "{{ authentik_oidc_grafana_secret }}"
+
+# LDAP Source config (from stack.yaml auth.ldap)
+LDAP_ENABLED = {{ authentik_ldap_enabled | bool | ternary('True', 'False') }}
+LDAP_HOST = "{{ authentik_ldap_host }}"
+LDAP_PORT = {{ authentik_ldap_port }}
+LDAP_BASE_DN = "{{ authentik_ldap_base_dn }}"
+LDAP_BIND_DN = "{{ authentik_ldap_bind_dn }}"
+LDAP_SYNC_INTERVAL = {{ authentik_ldap_sync_interval }}
+LDAP_START_TLS = {{ authentik_ldap_start_tls | bool | ternary('True', 'False') }}
+
+MAX_RETRIES = 3
+RETRY_DELAY = 2
+
+
+def log(msg):
+    print(f"[bootstrap] {msg}", file=sys.stderr)
+
+
+def get_container_ip(name):
+    """Get container IP from Docker network."""
+    result = subprocess.run(
+        ["docker", "inspect", name,
+         "--format", "{% raw %}{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}"],
+        capture_output=True, text=True, check=True,
+    )
+    return result.stdout.strip()
+
+
+def wait_for_ready(base_url, timeout=300, interval=5):
+    """Wait for Authentik health endpoint."""
+    url = f"{base_url}/-/health/ready/"
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            req = urllib.request.Request(url)
+            urllib.request.urlopen(req, timeout=5)
+            return
+        except (urllib.error.URLError, OSError):
+            time.sleep(interval)
+    raise RuntimeError(f"Authentik not ready after {timeout}s")
+
+
+def ensure_api_token():
+    """Create or retrieve API token via Django shell."""
+    script = """
+import os, django
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'authentik.root.settings')
+django.setup()
+from authentik.core.models import Token, TokenIntents, User
+user = User.objects.get(username='akadmin')
+token, created = Token.objects.get_or_create(
+    identifier='drayve-bootstrap',
+    defaults={'user': user, 'intent': TokenIntents.INTENT_API, 'expiring': False}
+)
+print(token.key)
+"""
+    for attempt in range(1, MAX_RETRIES + 1):
+        result = subprocess.run(
+            ["docker", "exec", "authentik-server", "python", "-c", script],
+            capture_output=True, text=True,
+        )
+        if result.returncode == 0:
+            token = result.stdout.strip().split("\n")[-1]
+            if len(token) >= 10:
+                return token
+            log(f"Token too short: {token!r}")
+        else:
+            log(f"Django shell failed (attempt {attempt}/{MAX_RETRIES}): {result.stderr.strip()}")
+        if attempt < MAX_RETRIES:
+            time.sleep(RETRY_DELAY * attempt)
+
+    raise RuntimeError("Failed to create/retrieve API token after retries")
+
+
+class AuthentikAPI:
+    """Simple Authentik API client with retry logic."""
+
+    def __init__(self, base_url, token):
+        self.base_url = base_url
+        self.token = token
+
+    def _request(self, method, path, data=None):
+        url = f"{self.base_url}{path}"
+        body = json.dumps(data).encode() if data else None
+        headers = {
+            "Authorization": f"Bearer {self.token}",
+            "Content-Type": "application/json",
+        }
+        for attempt in range(1, MAX_RETRIES + 1):
+            try:
+                req = urllib.request.Request(url, data=body, headers=headers, method=method)
+                with urllib.request.urlopen(req, timeout=30) as resp:
+                    return json.loads(resp.read())
+            except urllib.error.HTTPError as e:
+                # 4xx = client error, don't retry — let caller handle
+                if 400 <= e.code < 500:
+                    raise
+                error_body = e.read().decode() if e.fp else ""
+                if attempt == MAX_RETRIES:
+                    log(f"FAILED {method} {path} (attempt {attempt}): {e.code} {error_body}")
+                    raise
+                log(f"Retry {attempt}/{MAX_RETRIES} for {method} {path}: {e.code}")
+                time.sleep(RETRY_DELAY * attempt)
+            except (urllib.error.URLError, OSError) as e:
+                if attempt == MAX_RETRIES:
+                    log(f"FAILED {method} {path} (attempt {attempt}): {e}")
+                    raise
+                log(f"Retry {attempt}/{MAX_RETRIES} for {method} {path}: {e}")
+                time.sleep(RETRY_DELAY * attempt)
+
+    def get(self, path):
+        return self._request("GET", path)
+
+    def post(self, path, data):
+        return self._request("POST", path, data)
+
+    def patch(self, path, data):
+        return self._request("PATCH", path, data)
+
+
+def get_flow(api, slug):
+    """Get flow PK by slug."""
+    resp = api.get(f"/flows/instances/?slug={slug}&page_size=50")
+    results = resp.get("results", [])
+    return results[0]["pk"] if results else None
+
+
+def get_embedded_outpost(api):
+    """Find the embedded outpost PK."""
+    resp = api.get("/outposts/instances/?page_size=50")
+    for o in resp.get("results", []):
+        if "Embedded" in o.get("name", ""):
+            return o["pk"]
+    return None
+
+
+def ensure_proxy_provider(api, name, external_host, auth_flow, inval_flow):
+    """Create proxy provider if it doesn't exist. Returns PK."""
+    resp = api.get(f"/providers/proxy/?name={name}&page_size=50")
+    results = resp.get("results", [])
+    exact = [r for r in results if r.get("name") == name]
+    if exact:
+        pk = exact[0]["pk"]
+        log(f"Provider '{name}' already exists (pk={pk})")
+        return pk
+
+    try:
+        resp = api.post("/providers/proxy/", {
+            "name": name,
+            "authorization_flow": auth_flow,
+            "invalidation_flow": inval_flow,
+            "external_host": external_host,
+            "mode": "forward_single",
+            "access_token_validity": "hours=24",
+        })
+        pk = resp["pk"]
+        log(f"Created proxy provider '{name}' (pk={pk})")
+        return pk
+    except urllib.error.HTTPError as e:
+        body = e.read().decode() if e.fp else ""
+        if e.code == 400 and "already exists" in body:
+            log(f"Provider '{name}' already exists (confirmed by 400)")
+            # Re-fetch to get the pk
+            resp = api.get(f"/providers/proxy/?name={name}&page_size=50")
+            for r in resp.get("results", []):
+                if r.get("name") == name:
+                    return r["pk"]
+        raise
+
+
+def ensure_oauth2_provider(api, name, client_id, client_secret, redirect_url,
+                           auth_flow, inval_flow):
+    """Create OAuth2 provider if it doesn't exist. Returns PK."""
+    resp = api.get(f"/providers/oauth2/?name={name}&page_size=50")
+    results = resp.get("results", [])
+    exact = [r for r in results if r.get("name") == name]
+    if exact:
+        pk = exact[0]["pk"]
+        log(f"OAuth2 provider '{name}' already exists (pk={pk})")
+        return pk
+
+    try:
+        resp = api.post("/providers/oauth2/", {
+            "name": name,
+            "authorization_flow": auth_flow,
+            "invalidation_flow": inval_flow,
+            "client_type": "confidential",
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "redirect_uris": [{"matching_mode": "strict", "url": redirect_url}],
+            "property_mappings": [],
+            "signing_key": None,
+        })
+        pk = resp["pk"]
+        log(f"Created OAuth2 provider '{name}' (pk={pk})")
+        return pk
+    except urllib.error.HTTPError as e:
+        body = e.read().decode() if e.fp else ""
+        if e.code == 400 and "already exists" in body:
+            log(f"OAuth2 provider '{name}' already exists (confirmed by 400)")
+            resp = api.get(f"/providers/oauth2/?name={name}&page_size=50")
+            for r in resp.get("results", []):
+                if r.get("name") == name:
+                    return r["pk"]
+        raise
+
+
+def ensure_application(api, name, slug, provider_pk):
+    """Create application if it doesn't exist.
+
+    Note: Authentik's slug search may return empty results even when the app
+    exists (possible eventual consistency after create). We fall back to
+    treating 400 "already exists" on POST as success (idempotent).
+    """
+    resp = api.get(f"/core/applications/?slug={slug}&page_size=50")
+    results = resp.get("results", [])
+    exact = [r for r in results if r.get("slug") == slug]
+    if exact:
+        log(f"Application '{slug}' already exists")
+        return
+
+    try:
+        api.post("/core/applications/", {
+            "name": name,
+            "slug": slug,
+            "provider": provider_pk,
+        })
+        log(f"Created application: {name} (slug={slug})")
+    except urllib.error.HTTPError as e:
+        body = e.read().decode() if e.fp else ""
+        if e.code == 400 and "already exists" in body:
+            log(f"Application '{slug}' already exists (confirmed by 400)")
+            return
+        raise
+
+
+def assign_to_outpost(api, outpost_pk, provider_pk):
+    """Add provider to embedded outpost if not already assigned."""
+    if not outpost_pk:
+        return
+
+    resp = api.get(f"/outposts/instances/{outpost_pk}/?page_size=50")
+    current = resp.get("providers", [])
+    if provider_pk in current:
+        return
+
+    current.append(provider_pk)
+    api.patch(f"/outposts/instances/{outpost_pk}/", {"providers": current})
+    log(f"Assigned provider pk={provider_pk} to embedded outpost")
+
+
+def get_ldap_property_mappings(api):
+    """Get all built-in LDAP source property mapping PKs."""
+    # Try v3 API endpoint first, fall back to legacy
+    for endpoint in ["/propertymappings/source/ldap/?page_size=200",
+                     "/propertymappings/ldap/?page_size=200"]:
+        try:
+            resp = api.get(endpoint)
+            break
+        except urllib.error.HTTPError:
+            resp = {"results": []}
+
+    results = resp.get("results", [])
+    user_mappings = []
+    group_mappings = []
+    for m in results:
+        managed = m.get("managed", "") or ""
+        name = m.get("name", "").lower()
+        # Match built-in LDAP mappings by managed field or name
+        is_builtin = ("goauthentik.io/sources/ldap" in managed
+                      or "ldap" in managed.lower())
+        if is_builtin:
+            if "group" in managed.lower() or "group" in name:
+                group_mappings.append(m["pk"])
+            else:
+                user_mappings.append(m["pk"])
+
+    if not user_mappings and results:
+        # Fallback: use ALL available LDAP source mappings
+        log("No built-in mappings matched — using all available LDAP mappings")
+        for m in results:
+            name = m.get("name", "").lower()
+            if "group" in name:
+                group_mappings.append(m["pk"])
+            else:
+                user_mappings.append(m["pk"])
+
+    return user_mappings, group_mappings
+
+
+def ensure_ldap_source(api, bind_password):
+    """Create or update LDAP source for DS389. Returns source slug."""
+    slug = "drayve-ldap"
+    name = "LDAP (DS389)"
+
+    # Check if source exists
+    resp = api.get(f"/sources/ldap/?slug={slug}&page_size=50")
+    results = resp.get("results", [])
+    existing = [r for r in results if r.get("slug") == slug]
+
+    # Build server_uri
+    protocol = "ldaps" if LDAP_PORT == 636 else "ldap"
+    server_uri = f"{protocol}://{LDAP_HOST}:{LDAP_PORT}"
+
+    # Get property mappings
+    user_mappings, group_mappings = get_ldap_property_mappings(api)
+    if not user_mappings:
+        log("WARNING: No built-in LDAP user property mappings found")
+    if not group_mappings:
+        log("WARNING: No built-in LDAP group property mappings found")
+
+    source_data = {
+        "name": name,
+        "slug": slug,
+        "enabled": True,
+        "server_uri": server_uri,
+        "bind_cn": LDAP_BIND_DN,
+        "bind_password": bind_password,
+        "base_dn": LDAP_BASE_DN,
+        "sync_users": True,
+        "sync_users_password": False,  # No writeback to read-only DS389
+        "password_login_update_internal_password": True,  # Import on first login
+        "sync_groups": bool(group_mappings),  # Only sync groups if mappings available
+        "user_property_mappings": user_mappings,
+        "group_property_mappings": group_mappings,
+        "start_tls": LDAP_START_TLS,
+        "additional_user_dn": "",
+        "additional_group_dn": "",
+        "user_object_filter": "(objectClass=inetOrgPerson)",
+        "group_object_filter": "(objectClass=groupOfNames)",
+        "object_uniqueness_field": "entryUUID",
+        "group_membership_field": "member",
+    }
+
+    if existing:
+        api.patch(f"/sources/ldap/{slug}/", source_data)
+        log(f"Updated LDAP source '{name}' (slug={slug})")
+    else:
+        try:
+            resp = api.post("/sources/ldap/", source_data)
+            pk = resp["pk"]
+            log(f"Created LDAP source '{name}' (pk={pk})")
+        except urllib.error.HTTPError as e:
+            body = e.read().decode() if e.fp else ""
+            if e.code == 400 and "already exists" in body:
+                log(f"LDAP source '{slug}' already exists (confirmed by 400)")
+                return slug
+            log(f"LDAP source creation failed ({e.code}): {body}")
+            raise
+
+    return slug
+
+
+def trigger_ldap_sync(api, slug):
+    """Trigger a full LDAP sync."""
+    resp = api.get(f"/sources/ldap/?slug={slug}&page_size=50")
+    results = resp.get("results", [])
+    if not results:
+        log(f"WARNING: LDAP source '{slug}' not found for sync trigger")
+        return
+
+    pk = results[0]["pk"]
+    try:
+        api.post(f"/sources/ldap/{pk}/sync/", {})
+        log(f"Triggered LDAP sync for '{slug}'")
+    except urllib.error.HTTPError as e:
+        # Sync trigger may fail if already running — not critical
+        log(f"LDAP sync trigger returned {e.code} — may already be running")
+
+
+def main():
+    # 1. Resolve container IP and wait for ready
+    ip = get_container_ip("authentik-server")
+    base_url = f"http://{ip}:9000/api/v3"
+    log(f"Authentik IP: {ip}")
+
+    wait_for_ready(f"http://{ip}:9000")
+    log("Authentik is ready.")
+
+    # 2. Ensure API token
+    token = ensure_api_token()
+    log("API token ready.")
+    api = AuthentikAPI(base_url, token)
+
+    # 3. Get flows
+    auth_flow = get_flow(api, "default-provider-authorization-implicit-consent")
+    if not auth_flow:
+        log("WARNING: Implicit consent flow not found — using explicit consent")
+        auth_flow = get_flow(api, "default-provider-authorization-explicit")
+    log(f"Authorization flow: {auth_flow}")
+
+    inval_flow = get_flow(api, "default-provider-invalidation-flow")
+    log(f"Invalidation flow: {inval_flow}")
+
+    # 4. Get embedded outpost
+    outpost = get_embedded_outpost(api)
+    if not outpost:
+        log("WARNING: Embedded outpost not found")
+
+    # 5. Create proxy providers + applications
+    for name, host, slug in [
+        ("whoami", f"https://whoami.{DOMAIN}", "whoami"),
+        ("landing", f"https://{DOMAIN}", "landing"),
+        ("traefik-dashboard", f"https://traefik.{DOMAIN}", "traefik-dashboard"),
+    ]:
+        pk = ensure_proxy_provider(api, name, host, auth_flow, inval_flow)
+        ensure_application(api, name.replace("-", " ").title(), slug, pk)
+        assign_to_outpost(api, outpost, pk)
+
+    # 6. Grafana OIDC
+    gf_pk = ensure_oauth2_provider(
+        api, "grafana", "grafana", GRAFANA_SECRET,
+        f"https://grafana.{DOMAIN}/login/generic_oauth",
+        auth_flow, inval_flow,
+    )
+    ensure_application(api, "Grafana", "grafana", gf_pk)
+
+    # 7. LDAP Source (if configured)
+    if LDAP_ENABLED and LDAP_HOST:
+        ldap_bind_pw = os.environ.get("AUTHENTIK_LDAP_BIND_PASSWORD", "")
+        if not ldap_bind_pw:
+            log("WARNING: LDAP enabled but AUTHENTIK_LDAP_BIND_PASSWORD not set — skipping")
+        else:
+            ldap_slug = ensure_ldap_source(api, ldap_bind_pw)
+            trigger_ldap_sync(api, ldap_slug)
+    elif LDAP_ENABLED:
+        log("WARNING: LDAP enabled but no host configured — skipping")
+
+    log("Bootstrap complete.")
+
+
+if __name__ == "__main__":
+    main()

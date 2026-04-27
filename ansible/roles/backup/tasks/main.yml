@@ -1,0 +1,107 @@
+---
+# Backup role — Restic-based backup for Drayve volumes.
+
+- name: Resolve backup settings from stack.yaml
+  ansible.builtin.set_fact:
+    backup_enabled: "{{ backup.enabled | default(backup_enabled) | default(false) | bool }}"
+    backup_target: "{{ backup.target | default(backup_target) | default('local') }}"
+    backup_schedule: "{{ backup.schedule | default(backup_schedule) | default('0 3 * * *') }}"
+  tags: [backup]
+
+- name: Skip backup (disabled)
+  ansible.builtin.debug:
+    msg: "Backup disabled — set backup.enabled: true in stack.yaml"
+  when: not (backup_enabled | bool)
+  tags: [backup]
+
+- name: Install restic
+  ansible.builtin.apt:
+    name: restic
+    state: present
+    cache_valid_time: 3600
+  when: backup_enabled | bool
+  tags: [backup]
+
+- name: Create local backup directory
+  ansible.builtin.file:
+    path: "{{ backup_local_repo }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+  when:
+    - backup_enabled | bool
+    - backup_target == "local"
+  tags: [backup]
+
+  # NOTE: restic error message for existing repos varies by version:
+  # older: "already initialized", newer: "config file already exists".
+  # Match on 'already' (not full string) for cross-version compatibility.
+- name: Initialize restic repo (local)
+  ansible.builtin.command:
+    cmd: "restic init --repo {{ backup_local_repo }}"
+  environment:
+    RESTIC_PASSWORD: "{{ backup_restic_password }}"
+  register: restic_init
+  changed_when: "'created restic repository' in restic_init.stdout"
+  failed_when: restic_init.rc != 0 and 'already' not in restic_init.stderr
+  when:
+    - backup_enabled | bool
+    - backup_target == "local"
+  tags: [backup]
+
+- name: Deploy backup script
+  ansible.builtin.copy:
+    dest: "{{ drayve_deploy_dir }}/backup.sh"
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+      export RESTIC_PASSWORD="{{ backup_restic_password }}"
+      {% if backup_target == "local" %}
+      REPO="{{ backup_local_repo }}"
+      {% elif backup_target == "sftp" %}
+      REPO="sftp:{{ backup_sftp_host }}:{{ backup_sftp_path }}"
+      {% endif %}
+
+      # Stop services for consistent backup
+      cd {{ drayve_deploy_dir }}
+      docker compose stop grafana prometheus loki 2>/dev/null || true
+
+      # Backup named volumes
+      for vol in $(docker volume ls --filter name=drayve_ -q); do
+        mountpoint=$(docker volume inspect "$vol" --format '{% raw %}{{.Mountpoint}}{% endraw %}')
+        restic backup --repo "$REPO" --tag "$vol" "$mountpoint"
+      done
+
+      # Backup deploy dir (configs, .env, compose)
+      restic backup --repo "$REPO" --tag config {{ drayve_deploy_dir }}
+
+      # Restart services
+      cd {{ drayve_deploy_dir }}
+      docker compose up -d
+
+      # Prune old snapshots
+      restic forget --repo "$REPO" \
+        --keep-daily {{ backup_retain_daily }} \
+        --keep-weekly {{ backup_retain_weekly }} \
+        --keep-monthly {{ backup_retain_monthly }} \
+        --prune
+    owner: root
+    group: root
+    mode: "0700"
+  no_log: true
+  when: backup_enabled | bool
+  tags: [backup]
+
+- name: Deploy backup cron job
+  ansible.builtin.cron:
+    name: "drayve-backup"
+    minute: "{{ backup_schedule.split(' ')[0] }}"
+    hour: "{{ backup_schedule.split(' ')[1] }}"
+    day: "{{ backup_schedule.split(' ')[2] }}"
+    month: "{{ backup_schedule.split(' ')[3] }}"
+    weekday: "{{ backup_schedule.split(' ')[4] }}"
+    job: "{{ drayve_deploy_dir }}/backup.sh >> /var/log/drayve-backup.log 2>&1"
+    user: root
+  when: backup_enabled | bool
+  tags: [backup]

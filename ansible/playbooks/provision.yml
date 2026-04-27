@@ -1,0 +1,119 @@
+---
+# Provision a new Drayve host.
+#
+# Usage:
+#   cd ansible && ansible-playbook playbooks/provision.yml \
+#     -e drayve_name=demo -e domain=demo.example.com
+#
+# Optional:
+#   -e server_type=cx32     (default: cx23)
+#   -e server_location=fsn1 (default: nbg1)
+#
+# Provider "manual" skips server creation — expects existing SSH access.
+
+# Phase 1: Create server (hetzner only)
+- name: Create server
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  become: false
+
+  vars:
+    _provider: "{{ provider.type | default(provider_type) | default('hetzner') }}"
+    _server_type: "{{ server_type | default('cx23') }}"
+    _server_location: "{{ server_location | default('nbg1') }}"
+    ssh_key_name: "{{ provider.hcloud_ssh_key | default(hcloud_ssh_key) | default('') }}"
+
+  tasks:
+    - name: Verify required variables
+      ansible.builtin.fail:
+        msg: "Usage: -e drayve_name=<hostname> -e domain=<domain>"
+      when: drayve_name is not defined or domain is not defined
+
+    - name: Skip server creation (manual provider)
+      ansible.builtin.debug:
+        msg: "Provider: manual — expecting existing server at {{ ansible_host | default(drayve_name) }}"
+      when: _provider == "manual"
+
+    - name: Guard — hcloud_ssh_key must be set for Hetzner
+      ansible.builtin.fail:
+        msg: >-
+          hcloud_ssh_key is empty — cannot create a Hetzner server without an SSH key.
+          Add 'hcloud_ssh_key: <key-name>' to your stack.yaml under provider.
+      when: _provider == "hetzner" and ssh_key_name == ""
+
+    - name: Create Hetzner server
+      when: _provider == "hetzner"
+      block:
+        - name: Check if server already exists
+          ansible.builtin.command:
+            cmd: "hcloud server ip {{ drayve_name }}"
+          register: existing_ip
+          changed_when: false
+          failed_when: false
+
+        - name: Create server
+          ansible.builtin.command:
+            cmd: >
+              hcloud server create
+              --name {{ drayve_name }}
+              --type {{ _server_type }}
+              --image ubuntu-24.04
+              --location {{ _server_location }}
+              {{ '--ssh-key ' + ssh_key_name if ssh_key_name else '' }}
+          when: existing_ip.rc != 0
+
+        - name: Get server IP
+          ansible.builtin.command:
+            cmd: "hcloud server ip {{ drayve_name }}"
+          register: server_ip
+          changed_when: false
+
+        - name: Wait for SSH
+          ansible.builtin.wait_for:
+            host: "{{ server_ip.stdout | trim }}"
+            port: 22
+            timeout: 120
+
+        - name: Accept SSH host key
+          ansible.builtin.command:
+            cmd: "ssh-keyscan -t ed25519 {{ server_ip.stdout | trim }}"
+          register: host_key
+          changed_when: false
+
+        - name: Add host key to known_hosts
+          ansible.builtin.known_hosts:
+            name: "{{ server_ip.stdout | trim }}"
+            key: "{{ host_key.stdout }}"
+            state: present
+
+    - name: Add host to in-memory inventory (hetzner — not in static inventory yet)
+      ansible.builtin.add_host:
+        name: "{{ drayve_name }}"
+        ansible_host: "{{ server_ip.stdout | trim }}"
+        ansible_user: root
+        groups: drayve
+        drayve_domain: "{{ domain }}"
+        drayve_hostname: "{{ drayve_name }}"
+      when: _provider == 'hetzner'
+
+    - name: Show provision info
+      ansible.builtin.debug:
+        msg: "Provisioning: {{ drayve_name }} ({{ domain }})"
+
+# Phase 2: Provision host
+- name: Provision host
+  hosts: "{{ drayve_name }}"
+  become: true
+
+  vars:
+    ops_repo_root: "{{ playbook_dir | regex_replace('/playbooks$', '') | regex_replace('/ansible$', '') }}"
+
+  roles:
+    - secrets
+    - common
+    - docker
+    - traefik
+    - auth
+    - monitoring
+    - deploy

@@ -1,0 +1,8 @@
+name: drayve/whitelist
+description: "Whitelisted IPs from stack.yaml"
+whitelist:
+  reason: "stack.yaml crowdsec_whitelist"
+  ip:
+{% for ip in security.crowdsec_whitelist %}
+    - "{{ ip }}"
+{% endfor %}

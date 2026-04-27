@@ -1,0 +1,123 @@
+---
+# === Packages ===
+- name: Install common packages
+  ansible.builtin.apt:
+    name: "{{ common_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  tags: [bootstrap]
+
+# === Swap ===
+- name: Check if swap file exists
+  ansible.builtin.stat:
+    path: "{{ swap_file }}"
+  register: swap_check
+  tags: [bootstrap]
+
+- name: Create swap file
+  ansible.builtin.command:
+    cmd: "dd if=/dev/zero of={{ swap_file }} bs=1M count={{ swap_size_mb }}"
+    creates: "{{ swap_file }}"
+  when: not swap_check.stat.exists
+  tags: [bootstrap]
+
+- name: Set swap file permissions
+  ansible.builtin.file:
+    path: "{{ swap_file }}"
+    mode: "0600"
+  tags: [bootstrap]
+
+- name: Format swap file
+  ansible.builtin.command:
+    cmd: "mkswap {{ swap_file }}"
+  when: not swap_check.stat.exists
+  tags: [bootstrap]
+
+- name: Enable swap
+  ansible.builtin.command:
+    cmd: "swapon {{ swap_file }}"
+  when: not swap_check.stat.exists
+  tags: [bootstrap]
+
+- name: Add swap to fstab
+  ansible.builtin.lineinfile:
+    path: /etc/fstab
+    line: "{{ swap_file }} none swap sw 0 0"
+    state: present
+  tags: [bootstrap]
+
+# === UFW Firewall ===
+- name: Set UFW default deny incoming
+  community.general.ufw:
+    default: deny
+    direction: incoming
+  tags: [firewall]
+
+- name: Allow UFW ports
+  community.general.ufw:
+    rule: allow
+    port: "{{ item.port }}"
+    proto: "{{ item.proto }}"
+  loop: "{{ ufw_allowed_ports }}"
+  tags: [firewall]
+
+- name: Enable UFW
+  community.general.ufw:
+    state: enabled
+  tags: [firewall]
+
+# === SSH Hardening ===
+- name: Disable SSH password authentication
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?PasswordAuthentication"
+    line: "PasswordAuthentication {{ ssh_password_auth }}"
+  notify: Restart sshd
+  tags: [bootstrap]
+
+- name: Set SSH root login policy
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?PermitRootLogin"
+    line: "PermitRootLogin {{ ssh_root_login }}"
+  notify: Restart sshd
+  tags: [bootstrap]
+
+# === App user ===
+- name: Create drayve group
+  ansible.builtin.group:
+    name: "{{ drayve_group }}"
+    gid: "{{ drayve_uid }}"
+    state: present
+  tags: [users]
+
+- name: Create drayve user
+  ansible.builtin.user:
+    name: "{{ drayve_user }}"
+    uid: "{{ drayve_uid }}"
+    group: "{{ drayve_group }}"
+    shell: /bin/bash
+    create_home: true
+  tags: [users]
+
+- name: Set up SSH authorized keys
+  ansible.posix.authorized_key:
+    user: "{{ drayve_user }}"
+    key: "{{ lookup('file', '~/.ssh/id_ed25519.pub') }}"
+    state: present
+  tags: [users]
+
+# === Base directories ===
+- name: Create directory structure
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0755"
+  loop:
+    - "{{ drayve_root }}"
+    - "{{ drayve_deploy_dir }}"
+    - "{{ drayve_config_dir }}"
+  tags: [bootstrap]

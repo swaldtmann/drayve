@@ -1,0 +1,12 @@
+---
+common_packages:
+  - curl
+  - jq
+  - rsync
+  - git
+  - ufw
+  - python3-pip
+  - acl
+
+swap_size_mb: 2048
+swap_file: /swapfile

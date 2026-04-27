@@ -1,0 +1,39 @@
+---
+driver:
+  name: molecule_hetznercloud
+platforms:
+  - name: test-docker
+    image: ubuntu-24.04
+    server_type: cx23
+    location: nbg1
+provisioner:
+  name: ansible
+  env:
+    ANSIBLE_ROLES_PATH: "${MOLECULE_PROJECT_DIRECTORY}/.."
+  inventory:
+    group_vars:
+      all:
+        drayve_root: /opt/drayve
+        drayve_deploy_dir: /opt/drayve/deploy/stack
+        drayve_config_dir: /opt/drayve/config
+        drayve_user: drayve
+        drayve_uid: 1000
+        drayve_group: drayve
+        swap_size_mb: 1024
+        swap_file: /swapfile
+        common_packages:
+          - curl
+          - jq
+          - rsync
+          - git
+          - ufw
+          - python3-pip
+          - acl
+        ufw_allowed_ports:
+          - { port: "22", proto: "tcp" }
+          - { port: "80", proto: "tcp" }
+          - { port: "443", proto: "tcp" }
+        ssh_password_auth: "no"
+        ssh_root_login: "prohibit-password"
+verifier:
+  name: testinfra

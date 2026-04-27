@@ -1,0 +1,3 @@
+---
+# Traefik reloads dynamic config automatically (file watcher).
+# Static config changes require container restart (handled by deploy role).

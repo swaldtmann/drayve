@@ -1,0 +1,8 @@
+{
+  "log-driver": "journald",
+  "log-opts": {
+    "tag": "{% raw %}{{.Name}}{% endraw %}"
+  }{% if docker_registry_mirrors %},
+  "registry-mirrors": {{ docker_registry_mirrors | to_json }}{% endif %}
+
+}

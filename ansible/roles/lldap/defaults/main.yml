@@ -1,0 +1,7 @@
+---
+lldap_data_dir: "{{ drayve_deploy_dir }}/lldap"
+lldap_base_dn: "DC=drayve,DC=local"
+lldap_port: 3890
+lldap_http_port: 17170
+lldap_admin_email: "admin@{{ drayve_domain | default('localhost') }}"
+lldap_users: []

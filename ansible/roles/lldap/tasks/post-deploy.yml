@@ -1,0 +1,132 @@
+---
+# Post-deploy phase — runs AFTER deploy (compose up).
+# LLDAP container is already running, provision users.
+
+- name: Wait for lldap to be healthy
+  ansible.builtin.command:
+    cmd: docker inspect lldap --format {% raw %}"{{.State.Health.Status}}"{% endraw %}
+  register: lldap_health
+  until: lldap_health.stdout == "healthy"
+  retries: 15
+  delay: 2
+  changed_when: false
+  tags: [lldap]
+
+- name: Verify LLDAP admin password matches secrets.yml
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      LLDAP_IP=$(docker inspect lldap --format '{% raw %}{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}')
+      RESP=$(curl -sw '%{http_code}' -o /dev/null http://$LLDAP_IP:{{ lldap_http_port }}/auth/simple/login \
+        -H "Content-Type: application/json" \
+        -d '{"username":"admin","password":"{{ lldap_admin_password }}"}')
+      if [ "$RESP" != "200" ]; then
+        echo "LLDAP admin login failed (HTTP $RESP). The admin password on the server does not match secrets.yml." >&2
+        echo "Fix: update secrets.yml to match, or reset the password via 'docker exec lldap /app/lldap_set_password'." >&2
+        exit 1
+      fi
+    executable: /bin/bash
+  changed_when: false
+  no_log: true
+  tags: [lldap, lldap-users]
+
+- name: Set admin email in lldap
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      LLDAP_IP=$(docker inspect lldap --format '{% raw %}{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}')
+      TOKEN=$(curl -sf http://$LLDAP_IP:{{ lldap_http_port }}/auth/simple/login \
+        -H "Content-Type: application/json" \
+        -d '{"username":"admin","password":"{{ lldap_admin_password }}"}' \
+        | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])")
+      curl -sf http://$LLDAP_IP:{{ lldap_http_port }}/api/graphql \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer $TOKEN" \
+        -d '{"query":"mutation { updateUser(user: {id: \"admin\", email: \"{{ lldap_admin_email }}\"}) { ok } }"}'
+    executable: /bin/bash
+  changed_when: false
+  no_log: true
+  tags: [lldap, lldap-users]
+
+- name: Provision lldap users
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      LLDAP_IP=$(docker inspect lldap --format '{% raw %}{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}')
+      TOKEN=$(curl -sf http://$LLDAP_IP:{{ lldap_http_port }}/auth/simple/login \
+        -H "Content-Type: application/json" \
+        -d '{"username":"admin","password":"{{ lldap_admin_password }}"}' \
+        | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])")
+      # Check if user already exists before creating
+      EXISTS=$(curl -sf http://$LLDAP_IP:{{ lldap_http_port }}/api/graphql \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer $TOKEN" \
+        -d '{"query":"{ user(userId: \"{{ item.id }}\") { id } }"}' \
+        | python3 -c "import sys,json;d=json.load(sys.stdin);print('yes' if d.get('data',{}).get('user') else 'no')" 2>/dev/null)
+      if [ "$EXISTS" = "yes" ]; then
+        echo "User {{ item.id }}: already exists — skipping"
+        exit 0
+      fi
+      RESULT=$(curl -sf http://$LLDAP_IP:{{ lldap_http_port }}/api/graphql \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer $TOKEN" \
+        -d '{"query":"mutation { createUser(user: {id: \"{{ item.id }}\", email: \"{{ item.email }}\", displayName: \"{{ item.displayName }}\"}) { id } }"}')
+      if echo "$RESULT" | python3 -c "import sys,json;d=json.load(sys.stdin);sys.exit(0 if not d.get('errors') else 1)" 2>/dev/null; then
+        echo "User {{ item.id }}: created"
+      else
+        echo "User {{ item.id }}: creation failed — $RESULT" >&2
+        exit 1
+      fi
+    executable: /bin/bash
+  loop: "{{ lldap_users }}"
+  loop_control:
+    label: "{{ item.id }}"
+  changed_when: false
+  no_log: true
+  when: lldap_users | length > 0
+  tags: [lldap, lldap-users]
+
+- name: Set lldap user passwords
+  ansible.builtin.shell: |
+    docker exec lldap /app/lldap_set_password \
+      --base-url http://localhost:{{ lldap_http_port }} \
+      --admin-username admin \
+      --admin-password "{{ lldap_admin_password }}" \
+      --username "{{ item.id }}" \
+      --password "{{ host_secrets[item.password_var] }}"
+  loop: "{{ lldap_users | selectattr('password_var', 'defined') }}"
+  loop_control:
+    label: "{{ item.id }}"
+  changed_when: false
+  no_log: true
+  when: lldap_users | length > 0
+  tags: [lldap, lldap-users]
+
+- name: Add lldap users to groups
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      LLDAP_IP=$(docker inspect lldap --format '{% raw %}{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}')
+      TOKEN=$(curl -sf http://$LLDAP_IP:{{ lldap_http_port }}/auth/simple/login \
+        -H "Content-Type: application/json" \
+        -d '{"username":"admin","password":"{{ lldap_admin_password }}"}' \
+        | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])")
+      {% for group in item.groups %}
+      GROUP_ID=$(curl -sf http://$LLDAP_IP:{{ lldap_http_port }}/api/graphql \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer $TOKEN" \
+        -d '{"query":"{ groups { id displayName } }"}' \
+        | python3 -c "import sys,json;groups=json.load(sys.stdin)['data']['groups'];print(next(g['id'] for g in groups if g['displayName']=='{{ group }}'))")
+      curl -sf http://$LLDAP_IP:{{ lldap_http_port }}/api/graphql \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer $TOKEN" \
+        -d "{\"query\":\"mutation { addUserToGroup(userId: \\\"{{ item.id }}\\\", groupId: $GROUP_ID) { ok } }\"}" || true
+      {% endfor %}
+    executable: /bin/bash
+  loop: "{{ lldap_users | selectattr('groups', 'defined') }}"
+  loop_control:
+    label: "{{ item.id }} -> {{ item.groups }}"
+  changed_when: false
+  no_log: true
+  when: lldap_users | length > 0
+  tags: [lldap, lldap-users]

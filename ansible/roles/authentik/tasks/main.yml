@@ -1,0 +1,25 @@
+---
+# Authentik role — config phase (runs BEFORE deploy/compose up).
+# Creates directories, deploys bootstrap script.
+# Zero-touch: after compose up, bootstrap.sh runs via post-deploy.
+
+- name: Create Authentik directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0755"
+  loop:
+    - "{{ authentik_config_dir }}"
+    - "{{ authentik_bootstrap_dir }}"
+  tags: [authentik]
+
+- name: Deploy Authentik bootstrap script
+  ansible.builtin.template:
+    src: bootstrap.py.j2
+    dest: "{{ authentik_bootstrap_dir }}/bootstrap.py"
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0755"
+  tags: [authentik]

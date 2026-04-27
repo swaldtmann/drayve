@@ -1,0 +1,13 @@
+---
+authentik_config_dir: "{{ drayve_deploy_dir }}/authentik"
+authentik_bootstrap_dir: "{{ drayve_deploy_dir }}/authentik/bootstrap"
+
+# LDAP Source (optional, from auth.ldap in stack.yaml)
+authentik_ldap_enabled: "{{ (auth.ldap | default({})) | length > 0 }}"
+authentik_ldap_host: "{{ auth.ldap.host | default('') }}"
+authentik_ldap_port: "{{ auth.ldap.port | default(636) }}"
+authentik_ldap_base_dn: "{{ auth.ldap.base_dn | default('') }}"
+authentik_ldap_bind_dn: "{{ auth.ldap.bind_dn | default('') }}"
+authentik_ldap_readonly: "{{ auth.ldap.readonly | default(true) | bool }}"
+authentik_ldap_sync_interval: "{{ auth.ldap.sync_interval | default(60) }}"
+authentik_ldap_start_tls: "{{ auth.ldap.start_tls | default(false) | bool }}"

@@ -1,0 +1,29 @@
+---
+# Post-deploy phase — runs AFTER compose up.
+# Authentik containers are running, run bootstrap via API.
+
+- name: Wait for Authentik to be healthy
+  ansible.builtin.command:
+    cmd: docker inspect authentik-server --format {% raw %}"{{.State.Health.Status}}"{% endraw %}
+  register: authentik_health
+  until: authentik_health.stdout.strip() == "healthy"
+  retries: 60
+  delay: 5
+  changed_when: false
+  tags: [authentik]
+
+- name: Run Authentik bootstrap
+  ansible.builtin.command:
+    cmd: python3 {{ authentik_bootstrap_dir }}/bootstrap.py
+  environment:
+    AUTHENTIK_BOOTSTRAP_TOKEN: "{{ authentik_bootstrap_token }}"
+    AUTHENTIK_OIDC_GRAFANA_SECRET: "{{ authentik_oidc_grafana_secret }}"
+    AUTHENTIK_LDAP_BIND_PASSWORD: "{{ ldap_bind_password | default('') }}"
+  register: authentik_bootstrap
+  changed_when: "'Created' in authentik_bootstrap.stderr"
+  tags: [authentik]
+
+- name: Show bootstrap output
+  ansible.builtin.debug:
+    msg: "{{ authentik_bootstrap.stderr_lines }}"
+  tags: [authentik]

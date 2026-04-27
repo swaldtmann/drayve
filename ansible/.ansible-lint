@@ -1,0 +1,23 @@
+# Drayve ansible-lint config
+exclude_paths:
+  - .venv
+  # provision.yml uses runtime vars (-e name= -e domain=) that aren't available at lint time
+  - playbooks/provision.yml
+
+skip_list:
+  # Role prefix rule — our roles use drayve_ or role-specific prefixes intentionally
+  - var-naming[no-role-prefix]
+  # Provision playbook uses commands that legitimately change state
+  - no-changed-when
+
+warn_list:
+  - risky-shell-pipe
+  - no-handler
+  - command-instead-of-shell
+  - yaml[line-length]
+  - args[module]
+
+mock_modules:
+  - community.general.ufw
+  - ansible.posix.authorized_key
+  - community.sops.load_vars

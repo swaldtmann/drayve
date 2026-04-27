@@ -1,0 +1,390 @@
+# Managed by Ansible — do not edit manually on the server.
+# Template: ansible/templates/docker-compose.yml.j2
+name: drayve
+
+services:
+  traefik:
+    image: {{ traefik_image | default('traefik:v3.6') }}
+    container_name: traefik
+    restart: unless-stopped
+    mem_limit: {{ mem_traefik }}
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - HETZNER_API_TOKEN=${HETZNER_API_TOKEN:-}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/config/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/config/dynamic:/config/dynamic:ro
+      - ./traefik/certs:/certs
+      - traefik_logs:/var/log/traefik
+{% if auth_provider == 'basic' %}
+      - ./.htpasswd:/etc/traefik/.htpasswd:ro
+{% endif %}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`traefik.{{ drayve_domain }}`)"
+      - "traefik.http.routers.dashboard.entrypoints=websecure"
+      - "traefik.http.routers.dashboard.tls=true"
+      - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.dashboard.service=api@internal"
+{% if auth_provider != 'none' %}
+      - "traefik.http.routers.dashboard.middlewares=auth@file"
+{% endif %}
+{% if crowdsec_enabled %}
+    depends_on:
+      crowdsec:
+        condition: service_healthy
+{% endif %}
+
+{% if crowdsec_enabled %}
+  crowdsec:
+    image: {{ crowdsec_image | default('crowdsecurity/crowdsec:latest') }}
+    container_name: crowdsec
+    restart: unless-stopped
+    mem_limit: {{ mem_crowdsec }}
+    environment:
+      - GID=1000
+      - COLLECTIONS=crowdsecurity/traefik crowdsecurity/http-cve crowdsecurity/whitelist-good-actors
+    volumes:
+      - crowdsec_config:/etc/crowdsec
+      - crowdsec_db:/var/lib/crowdsec/data
+      - traefik_logs:/var/log/traefik:ro
+      - ./crowdsec/acquis.yaml:/etc/crowdsec/acquis.yaml:ro
+{% if security.crowdsec_whitelist | default([]) | length > 0 %}
+      - ./crowdsec/whitelist.yaml:/etc/crowdsec/parsers/s02-enrich/whitelist.yaml:ro
+{% endif %}
+    healthcheck:
+      test: ["CMD", "cscli", "version"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+{% endif %}
+
+{% if auth_lldap | default(false) | bool %}
+  lldap:
+    image: {{ lldap_image | default('lldap/lldap:stable') }}
+    container_name: lldap
+    restart: unless-stopped
+    mem_limit: {{ mem_lldap }}
+    environment:
+      - LLDAP_JWT_SECRET=${LLDAP_JWT_SECRET}
+      - LLDAP_LDAP_USER_PASS=${LLDAP_ADMIN_PASSWORD}
+      - LLDAP_LDAP_BASE_DN={{ lldap_base_dn }}
+      - LLDAP_DATABASE_URL=sqlite:///data/lldap.db?mode=rwc
+      - LLDAP_LDAP_USER_DN=admin
+    volumes:
+      - lldap_data:/data
+    healthcheck:
+      test: ["CMD", "/app/lldap", "healthcheck"]
+      interval: 5s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.lldap.rule=Host(`ldap.{{ drayve_domain }}`)"
+      - "traefik.http.routers.lldap.entrypoints=websecure"
+      - "traefik.http.routers.lldap.tls=true"
+      - "traefik.http.routers.lldap.tls.certresolver=letsencrypt"
+      - "traefik.http.services.lldap.loadbalancer.server.port=17170"
+{% endif %}
+
+{% if auth_provider == 'authelia' %}
+  authelia:
+    image: {{ authelia_image | default('authelia/authelia:4.39') }}
+    container_name: authelia
+    restart: unless-stopped
+    mem_limit: {{ mem_authelia }}
+    volumes:
+      - ./authelia/configuration.yml:/config/configuration.yml:ro
+      - ./authelia/data:/data
+      - ./authelia/jwks.pem:/config/jwks.pem:ro
+{% if auth_lldap | default(false) | bool %}
+    depends_on:
+      lldap:
+        condition: service_healthy
+{% endif %}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.authelia.rule=Host(`auth.{{ drayve_domain }}`)"
+      - "traefik.http.routers.authelia.entrypoints=websecure"
+      - "traefik.http.routers.authelia.tls=true"
+      - "traefik.http.routers.authelia.tls.certresolver=letsencrypt"
+      - "traefik.http.services.authelia.loadbalancer.server.port=9091"
+{% endif %}
+
+{% if auth_provider == 'authentik' %}
+  authentik-db:
+    image: {{ authentik_pg_image | default('postgres:16-alpine') }}
+    container_name: authentik-db
+    restart: unless-stopped
+    mem_limit: {{ mem_authentik_pg }}
+    environment:
+      - POSTGRES_DB=authentik
+      - POSTGRES_USER=authentik
+      - POSTGRES_PASSWORD=${PG_PASS}
+    volumes:
+      - authentik_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d authentik -U authentik"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  authentik-redis:
+    image: {{ authentik_redis_image | default('redis:7-alpine') }}
+    container_name: authentik-redis
+    restart: unless-stopped
+    mem_limit: {{ mem_authentik_redis }}
+    command: --save 60 1 --loglevel warning
+    volumes:
+      - authentik_redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  authentik-server:
+    image: {{ authentik_image | default('ghcr.io/goauthentik/server:2025.2.4') }}
+    container_name: authentik-server
+    restart: unless-stopped
+    mem_limit: {{ mem_authentik_server }}
+    command: server
+    environment:
+      - AUTHENTIK_SECRET_KEY=${AUTHENTIK_SECRET_KEY}
+      - AUTHENTIK_POSTGRESQL__HOST=authentik-db
+      - AUTHENTIK_POSTGRESQL__USER=authentik
+      - AUTHENTIK_POSTGRESQL__NAME=authentik
+      - AUTHENTIK_POSTGRESQL__PASSWORD=${PG_PASS}
+      - AUTHENTIK_REDIS__HOST=authentik-redis
+      - AUTHENTIK_BOOTSTRAP_PASSWORD=${AUTHENTIK_BOOTSTRAP_PASSWORD}
+      - AUTHENTIK_BOOTSTRAP_TOKEN=${AUTHENTIK_BOOTSTRAP_TOKEN}
+    depends_on:
+      authentik-db:
+        condition: service_healthy
+      authentik-redis:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.authentik.rule=Host(`auth.{{ drayve_domain }}`)"
+      - "traefik.http.routers.authentik.entrypoints=websecure"
+      - "traefik.http.routers.authentik.tls=true"
+      - "traefik.http.routers.authentik.tls.certresolver=letsencrypt"
+      - "traefik.http.services.authentik.loadbalancer.server.port=9000"
+      # Outpost routes (must be accessible without auth middleware)
+      - "traefik.http.routers.authentik-outpost.rule=HostRegexp(`{subdomain:[a-z0-9-]+}.{{ drayve_domain }}`) && PathPrefix(`/outpost.goauthentik.io/`)"
+      - "traefik.http.routers.authentik-outpost.entrypoints=websecure"
+      - "traefik.http.routers.authentik-outpost.tls=true"
+      - "traefik.http.routers.authentik-outpost.tls.certresolver=letsencrypt"
+      - "traefik.http.services.authentik-outpost.loadbalancer.server.port=9000"
+
+  authentik-worker:
+    image: {{ authentik_image | default('ghcr.io/goauthentik/server:2025.2.4') }}
+    container_name: authentik-worker
+    restart: unless-stopped
+    mem_limit: {{ mem_authentik_worker }}
+    command: worker
+    environment:
+      - AUTHENTIK_SECRET_KEY=${AUTHENTIK_SECRET_KEY}
+      - AUTHENTIK_POSTGRESQL__HOST=authentik-db
+      - AUTHENTIK_POSTGRESQL__USER=authentik
+      - AUTHENTIK_POSTGRESQL__NAME=authentik
+      - AUTHENTIK_POSTGRESQL__PASSWORD=${PG_PASS}
+      - AUTHENTIK_REDIS__HOST=authentik-redis
+    depends_on:
+      authentik-db:
+        condition: service_healthy
+      authentik-redis:
+        condition: service_healthy
+{% endif %}
+
+  # === Landing page ===
+  landing:
+    image: nginx:alpine
+    container_name: landing
+    restart: unless-stopped
+    volumes:
+      - ./landing:/usr/share/nginx/html:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/ || exit 1"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.landing.rule=Host(`{{ drayve_domain }}`)"
+      - "traefik.http.routers.landing.entrypoints=websecure"
+      - "traefik.http.routers.landing.tls=true"
+      - "traefik.http.routers.landing.tls.certresolver=letsencrypt"
+{% if auth_provider != 'none' %}
+      - "traefik.http.routers.landing.middlewares=auth@file"
+{% endif %}
+      - "traefik.http.services.landing.loadbalancer.server.port=80"
+
+  # === Monitoring ===
+{% if monitoring_services.node_exporter | default(false) | bool %}
+  node-exporter:
+    image: {{ node_exporter_image }}
+    container_name: node-exporter
+    restart: unless-stopped
+    mem_limit: {{ mem_node_exporter }}
+    pid: host
+    command:
+      - '--path.rootfs=/host'
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+    volumes:
+      - /:/host:ro,rslave
+{% endif %}
+
+{% if monitoring_services.cadvisor | default(false) | bool %}
+  cadvisor:
+    image: {{ cadvisor_image }}
+    container_name: cadvisor
+    restart: unless-stopped
+    mem_limit: {{ mem_cadvisor }}
+    privileged: true
+    devices:
+      - /dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+{% endif %}
+
+{% if monitoring_services.prometheus | default(false) | bool %}
+  prometheus:
+    image: {{ prometheus_image }}
+    container_name: prometheus
+    restart: unless-stopped
+    mem_limit: {{ mem_prometheus }}
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=30d'
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+{% endif %}
+
+{% if monitoring_services.grafana | default(false) | bool %}
+  grafana:
+    image: {{ grafana_image }}
+    container_name: grafana
+    restart: unless-stopped
+    mem_limit: {{ mem_grafana }}
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      - GF_SECURITY_ADMIN_EMAIL=admin@{{ drayve_domain }}
+      - GF_SERVER_ROOT_URL={{ grafana_root_url | default('https://grafana.' + drayve_domain) }}
+{% if auth_provider == 'authelia' %}
+      - GF_SECURITY_ADMIN_USER=grafana-builtin-admin
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+      - GF_AUTH_GENERIC_OAUTH_ENABLED=true
+      - GF_AUTH_GENERIC_OAUTH_NAME=Authelia
+      - GF_AUTH_GENERIC_OAUTH_CLIENT_ID=grafana
+      - GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET=${AUTHELIA_OIDC_GRAFANA_SECRET}
+      - GF_AUTH_GENERIC_OAUTH_SCOPES=openid profile email groups
+      - GF_AUTH_GENERIC_OAUTH_AUTH_URL=https://auth.{{ drayve_domain }}/api/oidc/authorization
+      - GF_AUTH_GENERIC_OAUTH_TOKEN_URL=http://authelia:9091/api/oidc/token
+      - GF_AUTH_GENERIC_OAUTH_API_URL=http://authelia:9091/api/oidc/userinfo
+      - GF_AUTH_GENERIC_OAUTH_LOGIN_ATTRIBUTE_PATH=preferred_username
+      - GF_AUTH_GENERIC_OAUTH_NAME_ATTRIBUTE_PATH=name
+      - GF_AUTH_GENERIC_OAUTH_EMAIL_ATTRIBUTE_PATH=email
+      - GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH=contains(groups, 'lldap_admin') && 'Admin' || 'Viewer'
+      - GF_AUTH_GENERIC_OAUTH_ALLOW_SIGN_UP=true
+      - GF_AUTH_GENERIC_OAUTH_AUTO_LOGIN=true
+      - GF_AUTH_OAUTH_ALLOW_INSECURE_EMAIL_LOOKUP=true
+      - GF_AUTH_SIGNOUT_REDIRECT_URL=https://auth.{{ drayve_domain }}/logout
+{% endif %}
+{% if auth_provider == 'authentik' %}
+      - GF_SECURITY_ADMIN_USER=grafana-builtin-admin
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+      - GF_AUTH_GENERIC_OAUTH_ENABLED=true
+      - GF_AUTH_GENERIC_OAUTH_NAME=Authentik
+      - GF_AUTH_GENERIC_OAUTH_CLIENT_ID=grafana
+      - GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET=${AUTHENTIK_OIDC_GRAFANA_SECRET}
+      - GF_AUTH_GENERIC_OAUTH_SCOPES=openid profile email
+      - GF_AUTH_GENERIC_OAUTH_AUTH_URL=https://auth.{{ drayve_domain }}/application/o/authorize/
+      - GF_AUTH_GENERIC_OAUTH_TOKEN_URL=http://authentik-server:9000/application/o/token/
+      - GF_AUTH_GENERIC_OAUTH_API_URL=http://authentik-server:9000/application/o/userinfo/
+      - GF_AUTH_GENERIC_OAUTH_LOGIN_ATTRIBUTE_PATH=preferred_username
+      - GF_AUTH_GENERIC_OAUTH_NAME_ATTRIBUTE_PATH=name
+      - GF_AUTH_GENERIC_OAUTH_EMAIL_ATTRIBUTE_PATH=email
+      - GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH=contains(groups[*], 'authentik Admins') && 'Admin' || 'Viewer'
+      - GF_AUTH_GENERIC_OAUTH_ALLOW_SIGN_UP=true
+      - GF_AUTH_GENERIC_OAUTH_AUTO_LOGIN=true
+      - GF_AUTH_OAUTH_ALLOW_INSECURE_EMAIL_LOOKUP=true
+      - GF_AUTH_SIGNOUT_REDIRECT_URL=https://auth.{{ drayve_domain }}/application/o/grafana/end-session/
+{% endif %}
+      - GF_FEATURE_TOGGLES_DISABLE=kubernetesDashboards
+{% if crowdsec_enabled %}
+      - GF_INSTALL_PLUGINS=yesoreyeram-infinity-datasource
+      - CROWDSEC_LAPI_KEY=${CROWDSEC_LAPI_KEY:-}
+{% endif %}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - grafana_plugins:/var/lib/grafana/plugins
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.rule=Host(`grafana.{{ drayve_domain }}`)"
+      - "traefik.http.routers.grafana.entrypoints=websecure"
+      - "traefik.http.routers.grafana.tls=true"
+      - "traefik.http.routers.grafana.tls.certresolver=letsencrypt"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+{% endif %}
+
+{% if monitoring_services.loki | default(false) | bool %}
+  loki:
+    image: {{ loki_image }}
+    container_name: loki
+    restart: unless-stopped
+    mem_limit: {{ mem_loki }}
+    command: -config.file=/etc/loki/loki-config.yml
+    volumes:
+      - ./monitoring/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki_data:/loki
+{% endif %}
+
+{% if monitoring_services.promtail | default(false) | bool %}
+  promtail:
+    image: {{ promtail_image }}
+    container_name: promtail
+    restart: unless-stopped
+    mem_limit: {{ mem_promtail }}
+    command: -config.file=/etc/promtail/promtail-config.yml
+    volumes:
+      - ./monitoring/promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      - /var/log:/var/log:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+{% endif %}
+
+volumes:
+  traefik_logs: {}
+{% if crowdsec_enabled %}
+  crowdsec_config: {}
+  crowdsec_db: {}
+{% endif %}
+{% if auth_lldap | default(false) | bool %}
+  lldap_data: {}
+{% endif %}
+{% if auth_provider == 'authentik' %}
+  authentik_pg_data: {}
+  authentik_redis_data: {}
+{% endif %}
+{% if monitoring_services.prometheus | default(false) | bool %}
+  prometheus_data: {}
+{% endif %}
+{% if monitoring_services.grafana | default(false) | bool %}
+  grafana_data: {}
+  grafana_plugins: {}
+{% endif %}
+{% if monitoring_services.loki | default(false) | bool %}
+  loki_data: {}
+{% endif %}

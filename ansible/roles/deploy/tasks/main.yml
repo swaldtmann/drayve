@@ -1,0 +1,464 @@
+---
+- name: Verify drayve_domain is set
+  ansible.builtin.fail:
+    msg: "drayve_domain is required. Set it in inventory or via -e domain=<domain>"
+  when: drayve_domain is not defined or drayve_domain == ""
+  tags: [deploy]
+
+# Ensure monitoring_services is set even if monitoring role didn't run (e.g. tag-only deploy)
+- name: Resolve monitoring profile for deploy
+  ansible.builtin.set_fact:
+    _deploy_mon_profile: "{{ monitoring.profile | default(monitoring_profile) | default('full') }}"
+  when: monitoring_services is not defined
+  tags: [deploy]
+
+- name: Set monitoring_services from profile (monitoring role didn't run)
+  ansible.builtin.set_fact:
+    monitoring_services:
+      grafana: "{{ _deploy_mon_profile == 'full' }}"
+      prometheus: "{{ _deploy_mon_profile == 'full' }}"
+      loki: "{{ _deploy_mon_profile == 'full' }}"
+      promtail: "{{ _deploy_mon_profile in ['full', 'light'] }}"
+      cadvisor: "{{ _deploy_mon_profile == 'full' }}"
+      node_exporter: "{{ _deploy_mon_profile in ['full', 'light'] }}"
+  when: monitoring_services is not defined
+  tags: [deploy]
+
+# Resolve nested stack.yaml values to flat vars
+- name: Resolve auth_provider from stack.yaml
+  ansible.builtin.set_fact:
+    auth_provider: "{{ auth.provider | default(auth_provider) | default('basic') }}"
+  tags: [deploy]
+
+- name: Resolve crowdsec_enabled from stack.yaml
+  ansible.builtin.set_fact:
+    crowdsec_enabled: "{{ security.crowdsec | default(crowdsec_enabled) | default(true) | bool }}"
+  tags: [deploy]
+
+- name: Resolve backup_enabled from stack.yaml
+  ansible.builtin.set_fact:
+    backup_enabled: "{{ backup.enabled | default(backup_enabled) | default(false) | bool }}"
+    backup_target: "{{ backup.target | default(backup_target) | default('local') }}"
+    backup_schedule: "{{ backup.schedule | default(backup_schedule) | default('0 3 * * *') }}"
+  tags: [deploy]
+
+- name: Resolve acme_email from stack.yaml
+  ansible.builtin.set_fact:
+    acme_email: "{{ stack.acme_email | default(acme_email) | default('') }}"
+  tags: [deploy]
+
+- name: Resolve apps from stack.yaml
+  ansible.builtin.set_fact:
+    apps: "{{ apps | default([]) }}"
+  tags: [deploy]
+
+- name: Resolve auth_lldap from stack.yaml
+  ansible.builtin.set_fact:
+    auth_lldap: "{{ auth.lldap | default(auth_lldap) | default(false) | bool }}"
+    lldap_base_dn: "{{ auth.lldap_base_dn | default(lldap_base_dn) | default('DC=drayve,DC=local') }}"
+    lldap_users: "{{ auth.lldap_users | default(lldap_users) | default([]) }}"
+  when: auth_provider == 'authelia'
+  tags: [deploy]
+
+- name: Verify htpasswd exists (basic auth)
+  ansible.builtin.stat:
+    path: "{{ drayve_deploy_dir }}/.htpasswd"
+  register: htpasswd_check
+  when: auth_provider == "basic"
+  tags: [deploy]
+
+- name: Fail if htpasswd missing
+  ansible.builtin.fail:
+    msg: ".htpasswd not found at {{ drayve_deploy_dir }}/.htpasswd — run the auth role first"
+  when:
+    - auth_provider == "basic"
+    - htpasswd_check.stat is defined
+    - not htpasswd_check.stat.exists
+  tags: [deploy]
+
+- name: Read existing bouncer key from .env
+  ansible.builtin.command:
+    cmd: grep -oP '^CROWDSEC_BOUNCER_KEY=\K.+' {{ drayve_deploy_dir }}/.env
+  register: existing_bouncer_key
+  changed_when: false
+  failed_when: false
+  when: crowdsec_enabled
+  tags: [deploy]
+
+- name: Preserve existing bouncer key (unless secrets provided a real one)
+  ansible.builtin.set_fact:
+    crowdsec_bouncer_key: "{{ existing_bouncer_key.stdout | trim }}"
+  when:
+    - crowdsec_enabled
+    - existing_bouncer_key.stdout | default('') | trim | length > 0
+    - crowdsec_bouncer_key | default('') | trim in ['', 'changeme']
+  tags: [deploy]
+
+- name: Read existing LAPI key from .env
+  ansible.builtin.command:
+    cmd: grep -oP '^CROWDSEC_LAPI_KEY=\K.+' {{ drayve_deploy_dir }}/.env
+  register: existing_lapi_key
+  changed_when: false
+  failed_when: false
+  when: crowdsec_enabled
+  tags: [deploy]
+
+- name: Preserve existing LAPI key (unless secrets provided a real one)
+  ansible.builtin.set_fact:
+    crowdsec_lapi_key: "{{ existing_lapi_key.stdout | trim }}"
+  when:
+    - crowdsec_enabled
+    - existing_lapi_key.stdout | default('') | trim | length > 0
+    - crowdsec_lapi_key | default('') | trim in ['', 'changeme']
+  tags: [deploy]
+
+- name: Template docker-compose.yml
+  ansible.builtin.template:
+    src: "{{ ops_repo_root }}/ansible/templates/docker-compose.yml.j2"
+    dest: "{{ drayve_deploy_dir }}/docker-compose.yml"
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0644"
+  tags: [deploy]
+
+- name: Check for compose override
+  ansible.builtin.stat:
+    path: "{{ ops_repo_root }}/deploy/{{ inventory_hostname }}/compose.override.yml"
+  register: compose_override
+  delegate_to: localhost
+  become: false
+  tags: [deploy]
+
+- name: Deploy compose override
+  ansible.builtin.copy:
+    src: "{{ ops_repo_root }}/deploy/{{ inventory_hostname }}/compose.override.yml"
+    dest: "{{ drayve_deploy_dir }}/docker-compose.override.yml"
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0644"
+  when: compose_override.stat.exists
+  tags: [deploy]
+
+- name: Remove compose override if not present locally
+  ansible.builtin.file:
+    path: "{{ drayve_deploy_dir }}/docker-compose.override.yml"
+    state: absent
+  when: not compose_override.stat.exists
+  tags: [deploy]
+
+- name: Template .env
+  ansible.builtin.template:
+    src: "{{ ops_repo_root }}/ansible/templates/env.j2"
+    dest: "{{ drayve_deploy_dir }}/.env"
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0600"
+  no_log: true
+  tags: [deploy]
+
+- name: Check for env.override
+  ansible.builtin.stat:
+    path: "{{ ops_repo_root }}/deploy/{{ inventory_hostname }}/env.override"
+  register: env_override
+  delegate_to: localhost
+  become: false
+  tags: [deploy]
+
+- name: Append env.override to .env
+  ansible.builtin.blockinfile:
+    path: "{{ drayve_deploy_dir }}/.env"
+    marker: "# {mark} USER APP SECRETS (from env.override)"
+    block: "{{ lookup('file', ops_repo_root + '/deploy/' + inventory_hostname + '/env.override') }}"
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0600"
+  no_log: true
+  when: env_override.stat.exists
+  tags: [deploy]
+
+# === Label Scanner — scan compose files for drayve.* labels ===
+- name: Deploy label-scanner script
+  ansible.builtin.copy:
+    src: "{{ ops_repo_root }}/scripts/label-scanner.py"
+    dest: "{{ drayve_deploy_dir }}/label-scanner.py"
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0755"
+  tags: [deploy]
+
+- name: Run label-scanner
+  ansible.builtin.command:
+    cmd: python3 {{ drayve_deploy_dir }}/label-scanner.py {{ drayve_deploy_dir }}
+  register: label_scanner_output
+  changed_when: false
+  tags: [deploy]
+
+- name: Parse label-scanner results
+  ansible.builtin.set_fact:
+    scanned_labels: "{{ label_scanner_output.stdout | from_json }}"
+  tags: [deploy]
+
+# === Landing Page (rendered from scanned labels + frame services) ===
+- name: Create landing page directory
+  ansible.builtin.file:
+    path: "{{ drayve_deploy_dir }}/landing"
+    state: directory
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0755"
+  tags: [deploy]
+
+- name: Deploy landing page
+  ansible.builtin.template:
+    src: "{{ ops_repo_root }}/ansible/templates/landing.html.j2"
+    dest: "{{ drayve_deploy_dir }}/landing/index.html"
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0644"
+  tags: [deploy]
+
+- name: Deploy Traefik static config
+  ansible.builtin.template:
+    src: "{{ ops_repo_root }}/config/traefik/traefik.yml.j2"
+    dest: "{{ traefik_config_dir }}/traefik.yml"
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0644"
+  register: traefik_config
+  tags: [deploy, traefik]
+
+- name: Check for Traefik dynamic config changes
+  ansible.builtin.find:
+    paths: "{{ traefik_dynamic_dir }}"
+    patterns: "*.yml"
+  register: traefik_dynamic_files
+  tags: [deploy, traefik]
+
+- name: Check Prometheus config
+  ansible.builtin.stat:
+    path: "{{ drayve_deploy_dir }}/monitoring/prometheus/prometheus.yml"
+    checksum_algorithm: sha256
+  register: prom_config_before
+  tags: [deploy]
+
+- name: Docker compose pull
+  ansible.builtin.command:
+    cmd: docker compose pull
+    chdir: "{{ drayve_deploy_dir }}"
+  become: true
+  become_user: "{{ drayve_user }}"
+  changed_when: >-
+    'Pull complete' in compose_pull.stdout + compose_pull.stderr or
+    'Downloaded' in compose_pull.stdout + compose_pull.stderr
+  register: compose_pull
+  tags: [deploy]
+
+- name: Docker compose up
+  ansible.builtin.command:
+    cmd: docker compose up -d --remove-orphans
+    chdir: "{{ drayve_deploy_dir }}"
+  become: true
+  become_user: "{{ drayve_user }}"
+  changed_when: "'Started' in compose_up.stderr or 'Recreated' in compose_up.stderr"
+  register: compose_up
+  tags: [deploy]
+
+- name: Force-recreate Traefik on config change
+  ansible.builtin.command:
+    cmd: docker compose up -d --force-recreate traefik
+    chdir: "{{ drayve_deploy_dir }}"
+  become: true
+  become_user: "{{ drayve_user }}"
+  when: traefik_config.changed | default(false)
+  tags: [deploy, traefik]
+
+- name: Force-recreate Authelia on config change
+  ansible.builtin.command:
+    cmd: docker compose up -d --force-recreate authelia
+    chdir: "{{ drayve_deploy_dir }}"
+  become: true
+  become_user: "{{ drayve_user }}"
+  when:
+    - auth_provider == 'authelia'
+    - authelia_config.changed | default(false)
+  tags: [deploy, authelia]
+
+- name: Reload Prometheus config via API
+  ansible.builtin.uri:
+    url: "http://localhost:9090/-/reload"
+    method: POST
+    status_code: [200, 204]
+  when:
+    - monitoring_services.prometheus | default(false) | bool
+    - prom_config_before.stat.checksum | default('') != ''
+  failed_when: false
+  tags: [deploy]
+
+- name: Wait for containers to stabilize
+  ansible.builtin.pause:
+    seconds: 10
+  tags: [deploy]
+
+- name: Verify containers are running
+  ansible.builtin.command:
+    cmd: docker compose ps --format json
+    chdir: "{{ drayve_deploy_dir }}"
+  become: true
+  become_user: "{{ drayve_user }}"
+  register: compose_ps
+  changed_when: false
+  tags: [deploy]
+
+- name: Show running containers
+  ansible.builtin.debug:
+    msg: "{{ compose_ps.stdout }}"
+  tags: [deploy]
+
+- name: Force-recreate CrowdSec on whitelist change
+  ansible.builtin.command:
+    cmd: docker compose up -d --force-recreate crowdsec
+    chdir: "{{ drayve_deploy_dir }}"
+  become: true
+  become_user: "{{ drayve_user }}"
+  when: crowdsec_whitelist.changed | default(false)
+  tags: [deploy, crowdsec]
+
+# === CrowdSec bouncer registration ===
+- name: Check if CrowdSec bouncer is registered
+  ansible.builtin.command:
+    cmd: docker exec crowdsec cscli bouncers list -o raw
+  register: bouncer_list
+  changed_when: false
+  failed_when: false
+  when: crowdsec_enabled
+  tags: [deploy, crowdsec]
+
+- name: Register CrowdSec bouncer with secrets key
+  ansible.builtin.command:
+    cmd: >-
+      docker exec crowdsec cscli bouncers add traefik-bouncer
+      --key "{{ crowdsec_bouncer_key }}"
+  when:
+    - crowdsec_enabled
+    - bouncer_list.rc == 0
+    - "'traefik-bouncer' not in bouncer_list.stdout"
+    - crowdsec_bouncer_key | default('') | length > 0
+  no_log: true
+  tags: [deploy, crowdsec]
+
+- name: Register CrowdSec LAPI bouncer for Grafana
+  ansible.builtin.command:
+    cmd: >-
+      docker exec crowdsec cscli bouncers add grafana-lapi
+      --key "{{ crowdsec_lapi_key }}"
+  when:
+    - crowdsec_enabled
+    - bouncer_list.rc == 0
+    - "'grafana-lapi' not in bouncer_list.stdout"
+    - crowdsec_lapi_key | default('') | length > 0
+  no_log: true
+  tags: [deploy, crowdsec]
+
+# === Post-deploy: LLDAP user provisioning (containers are running) ===
+- name: Post-deploy authelia (LLDAP bind user)
+  ansible.builtin.include_role:
+    name: authelia
+    tasks_from: post-deploy
+  when: auth_provider == 'authelia'
+  tags: [deploy, authelia]
+
+- name: Post-deploy lldap (user provisioning)
+  ansible.builtin.include_role:
+    name: lldap
+    tasks_from: post-deploy
+  when: auth_provider == 'authelia' and (auth_lldap | default(false) | bool)
+  tags: [deploy, lldap]
+
+- name: Post-deploy authentik (bootstrap)
+  ansible.builtin.include_role:
+    name: authentik
+    tasks_from: post-deploy
+  when: auth_provider == 'authentik'
+  tags: [deploy, authentik]
+
+# === Auth-Sync: create Authentik providers/apps from labels ===
+- name: Save label-scanner output for auth-sync
+  ansible.builtin.copy:
+    content: "{{ scanned_labels | to_nice_json }}"
+    dest: "{{ drayve_deploy_dir }}/scanned-labels.json"
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0644"
+  when: auth_provider == 'authentik'
+  tags: [deploy, authentik]
+
+- name: Deploy auth-sync script
+  ansible.builtin.template:
+    src: "{{ ops_repo_root }}/scripts/auth-sync.py.j2"
+    dest: "{{ drayve_deploy_dir }}/auth-sync.py"
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0755"
+  when: auth_provider == 'authentik'
+  tags: [deploy, authentik]
+
+- name: Run auth-sync
+  ansible.builtin.command:
+    cmd: python3 {{ drayve_deploy_dir }}/auth-sync.py {{ drayve_deploy_dir }}/scanned-labels.json
+  register: auth_sync_output
+  changed_when: "'Created' in auth_sync_output.stderr"
+  when:
+    - auth_provider == 'authentik'
+    - (scanned_labels.auth_sync | default([])) | length > 0
+  tags: [deploy, authentik]
+
+- name: Show auth-sync output
+  ansible.builtin.debug:
+    msg: "{{ auth_sync_output.stderr_lines | default([]) }}"
+  when:
+    - auth_provider == 'authentik'
+    - auth_sync_output is defined
+    - auth_sync_output.stderr_lines | default([]) | length > 0
+  tags: [deploy, authentik]
+
+# === Dashboard Drop-in: copy custom dashboards from labels ===
+- name: Copy custom Grafana dashboards from labels
+  ansible.builtin.copy:
+    src: "{{ ops_repo_root }}/dashboards/{{ item.dashboard }}.json"
+    dest: "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/dashboards/json/{{ item.dashboard }}.json"
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0644"
+  loop: "{{ scanned_labels.dashboards | default([]) }}"
+  loop_control:
+    label: "{{ item.dashboard }}"
+  when:
+    - monitoring_services.grafana | default(false) | bool
+    - scanned_labels.dashboards | default([]) | length > 0
+  register: custom_dashboards
+  tags: [deploy, dashboards]
+
+- name: Check custom dashboards source files exist
+  ansible.builtin.stat:
+    path: "{{ ops_repo_root }}/dashboards/{{ item.dashboard }}.json"
+  loop: "{{ scanned_labels.dashboards | default([]) }}"
+  loop_control:
+    label: "{{ item.dashboard }}"
+  delegate_to: localhost
+  become: false
+  register: dashboard_check
+  when:
+    - monitoring_services.grafana | default(false) | bool
+    - scanned_labels.dashboards | default([]) | length > 0
+  tags: [deploy, dashboards]
+
+- name: Warn about missing custom dashboards
+  ansible.builtin.debug:
+    msg: "WARNING: Dashboard file dashboards/{{ item.item.dashboard }}.json not found — skipping"
+  loop: "{{ dashboard_check.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.dashboard | default('unknown') }}"
+  when:
+    - item.stat is defined
+    - not item.stat.exists
+  tags: [deploy, dashboards]
