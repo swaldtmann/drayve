@@ -1,0 +1,49 @@
+# Full Drayve stack — Authelia + LLDAP, full monitoring, SOPS secrets.
+# Enterprise-grade setup on a single VPS.
+
+drayve_version: "0.1.0"
+
+stack:
+  name: production
+  domain: ops.example.com
+  acme_email: admin@example.com
+
+provider:
+  type: hetzner
+  server_type: cx32
+  location: fsn1
+  hcloud_ssh_key: my-ssh-key
+  # hcloud_dns_context: my-dns-context  # hcloud CLI context for DNS API (burn cleanup)
+
+auth:
+  provider: authelia
+  lldap: true
+  # lldap_base_dn: "DC=myorg,DC=local"
+
+monitoring:
+  profile: full
+  # loki_url: https://loki.example.com/loki/api/v1/push  # required for light profile
+
+security:
+  crowdsec: true
+  # crowdsec_whitelist:
+  #   - 203.0.113.1
+
+secrets:
+  mode: sops
+
+backup:
+  enabled: true
+  schedule: "0 3 * * *"
+  target: storagebox
+
+# Apps shown on the landing page (from compose.override.yml services)
+# apps:
+#   - name: Nextcloud
+#     url: https://cloud.ops.example.com
+#     icon: "&#x2601;"
+#     description: Files, calendar, contacts
+#   - name: Gitea
+#     url: https://git.ops.example.com
+#     icon: "&#x1F4BB;"
+#     description: Git hosting

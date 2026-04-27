@@ -1,0 +1,99 @@
+# Example: Forgejo (self-hosted Git forge) with PostgreSQL.
+#
+# Copy this file to deploy/<name>/compose.override.yml (or merge with an
+# existing override). Put FORGEJO_* secrets in deploy/<name>/env.override.
+#
+# What you get:
+#   - Forgejo reachable at https://${FORGEJO_DOMAIN}/ via Traefik (TLS).
+#   - Git-SSH on host port 2222 (open it in your firewall).
+#   - Dedicated PostgreSQL 16 container, isolated on the 'forgejo-net' network.
+#   - Named volumes for repo data and DB data; kedge picks them up automatically
+#     and uses pg_dumpall before backup (hot-safe).
+#
+# Before first deploy:
+#   1. DNS: point ${FORGEJO_DOMAIN} (A + AAAA) at your host.
+#   2. Firewall: allow tcp/2222 from the world (ufw allow 2222/tcp).
+#   3. Registration is disabled by default — create the admin via CLI after
+#      first start:
+#        docker exec -u 1000 forgejo forgejo admin user create \
+#          --admin --username <you> --email <you>@example.com \
+#          --password "${FORGEJO_ADMIN_PASSWORD}" --must-change-password
+#
+# Upgrade: bump the image tag, `make deploy NAME=<name>`. Forgejo runs DB
+# migrations automatically on startup; keep a fresh kedge backup around.
+
+services:
+  forgejo:
+    image: code.forgejo.org/forgejo/forgejo:14.0.4
+    container_name: forgejo
+    restart: unless-stopped
+    environment:
+      - USER_UID=1000
+      - USER_GID=1000
+      - FORGEJO__server__DOMAIN=${FORGEJO_DOMAIN}
+      - FORGEJO__server__ROOT_URL=https://${FORGEJO_DOMAIN}/
+      - FORGEJO__server__SSH_DOMAIN=${FORGEJO_DOMAIN}
+      - FORGEJO__server__SSH_PORT=2222
+      - FORGEJO__server__SSH_LISTEN_PORT=22
+      # START_SSH_SERVER is left at default (false). The non-rootless image
+      # ships an openssh-server that intercepts git commands on port 22 and
+      # dispatches to 'forgejo serv'. Setting START_SSH_SERVER=true makes
+      # Forgejo's built-in Go SSH server fight openssh for port 22.
+      # If you switch to the :rootless image, flip it to true and map 2222:2222.
+      - FORGEJO__database__DB_TYPE=postgres
+      - FORGEJO__database__HOST=forgejo-db:5432
+      - FORGEJO__database__NAME=forgejo
+      - FORGEJO__database__USER=forgejo
+      - FORGEJO__database__PASSWD=${FORGEJO_DB_PASSWORD}
+      - FORGEJO__service__DISABLE_REGISTRATION=true
+      - FORGEJO__service__REQUIRE_SIGNIN_VIEW=true
+      - FORGEJO__security__INSTALL_LOCK=true
+    volumes:
+      - forgejo_data:/var/lib/gitea
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "2222:22"
+    networks:
+      - default
+      - forgejo-net
+    depends_on:
+      forgejo-db:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      # With services on multiple networks, Traefik picks one non-deterministically
+      # and may end up on the wrong side (here: the private forgejo-net that Traefik
+      # can't reach) → 502/504. Pin it to the Drayve network explicitly.
+      - "traefik.docker.network=drayve_default"
+      - "traefik.http.routers.forgejo.rule=Host(`${FORGEJO_DOMAIN}`)"
+      - "traefik.http.routers.forgejo.entrypoints=websecure"
+      - "traefik.http.routers.forgejo.tls=true"
+      - "traefik.http.routers.forgejo.tls.certresolver=letsencrypt"
+      - "traefik.http.services.forgejo.loadbalancer.server.port=3000"
+
+  forgejo-db:
+    image: postgres:16-alpine
+    container_name: forgejo-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=forgejo
+      - POSTGRES_USER=forgejo
+      - POSTGRES_PASSWORD=${FORGEJO_DB_PASSWORD}
+    volumes:
+      - forgejo_db_data:/var/lib/postgresql/data
+    networks:
+      - forgejo-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U forgejo -d forgejo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  forgejo-net:
+    driver: bridge
+
+volumes:
+  forgejo_data:
+  forgejo_db_data:

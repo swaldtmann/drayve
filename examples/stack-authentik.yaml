@@ -1,0 +1,39 @@
+# Drayve stack with Authentik SSO — enterprise-grade auth.
+# Authentik replaces Authelia for environments needing AD/LDAP/SAML/OIDC.
+
+drayve_version: "0.1.0"
+
+stack:
+  name: my-server
+  domain: ops.example.com
+  acme_email: admin@example.com
+
+provider:
+  type: hetzner
+  server_type: cx33
+  location: fsn1
+
+auth:
+  provider: authentik
+  # Optional: external LDAP source (e.g. DS389, Active Directory)
+  # ldap:
+  #   host: 10.0.0.5
+  #   port: 636
+  #   base_dn: "dc=example,dc=com"
+  #   bind_dn: "cn=Directory Manager"
+  #   readonly: true
+  #   sync_interval: 60
+
+monitoring:
+  profile: full
+
+security:
+  crowdsec: true
+
+secrets:
+  mode: quickstart
+
+backup:
+  enabled: true
+  schedule: "0 3 * * *"
+  target: local

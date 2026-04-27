@@ -1,0 +1,15 @@
+# Drayve host inventory.
+# Each host listed here can be managed with: make deploy NAME=<name>
+#
+# Created by `make init`. You can also edit manually.
+# This file is gitignored — it contains your infrastructure.
+
+all:
+  children:
+    drayve:
+      hosts:
+        # myserver:
+        #   ansible_host: 203.0.113.10
+        #   ansible_user: root
+        #   drayve_domain: example.com
+        #   drayve_hostname: myserver

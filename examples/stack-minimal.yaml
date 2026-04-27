@@ -1,0 +1,24 @@
+# Minimal Drayve stack — basic auth, light monitoring, no backup.
+# This is the smallest useful configuration.
+
+drayve_version: "0.1.0"
+
+stack:
+  name: myserver
+  domain: example.com
+  acme_email: you@example.com
+
+provider:
+  type: manual
+
+auth:
+  provider: basic
+
+monitoring:
+  profile: light
+
+secrets:
+  mode: quickstart
+
+backup:
+  enabled: false

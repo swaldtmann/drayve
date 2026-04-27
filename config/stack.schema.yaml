@@ -1,0 +1,174 @@
+# Drayve stack.yaml Schema
+# Defines all configuration options for a Drayve-managed server.
+#
+# Required fields: drayve_version, stack.name, stack.domain
+
+type: object
+required:
+  - drayve_version
+  - stack
+
+properties:
+  drayve_version:
+    type: string
+    description: Schema version for future upgrade compatibility.
+    enum: ["0.1.0"]
+
+  stack:
+    type: object
+    required:
+      - name
+      - domain
+    properties:
+      name:
+        type: string
+        description: Server name (used for hcloud, DNS, inventory).
+        pattern: "^[a-z][a-z0-9-]*$"
+      domain:
+        type: string
+        description: Primary domain for the stack.
+      acme_email:
+        type: string
+        description: Email for Let's Encrypt certificate notifications.
+        format: email
+
+  provider:
+    type: object
+    properties:
+      type:
+        type: string
+        description: >
+          Server provider. "hetzner" uses hcloud API for provisioning + DNS.
+          "manual" skips provisioning — expects an existing server with SSH access.
+        enum:
+          - hetzner
+          - manual
+        default: hetzner
+      server_type:
+        type: string
+        description: Hetzner server type (only for provider.type=hetzner).
+        default: cx23
+      location:
+        type: string
+        description: Hetzner datacenter location.
+        default: fsn1
+
+  auth:
+    type: object
+    properties:
+      provider:
+        type: string
+        description: >
+          Authentication provider. Roles query auth_provider, not specific implementations.
+        enum:
+          - none
+          - basic
+          - authelia
+          - authentik
+        default: basic
+      lldap:
+        type: boolean
+        description: Deploy LLDAP as user backend (only with auth.provider=authelia).
+        default: false
+      lldap_base_dn:
+        type: string
+        description: LDAP base DN for LLDAP (only with auth.lldap=true).
+        default: "DC=drayve,DC=local"
+      ldap:
+        type: object
+        description: External LDAP source for Authentik (only with auth.provider=authentik).
+        properties:
+          host:
+            type: string
+            description: LDAP server hostname or IP.
+          port:
+            type: integer
+            description: LDAP port (636 for LDAPS).
+            default: 636
+          base_dn:
+            type: string
+            description: LDAP base DN for user search.
+          bind_dn:
+            type: string
+            description: Bind DN for LDAP connection.
+          readonly:
+            type: boolean
+            description: Read-only sync (no writeback to LDAP server).
+            default: true
+          sync_interval:
+            type: integer
+            description: Sync interval in minutes.
+            default: 60
+
+  monitoring:
+    type: object
+    properties:
+      profile:
+        type: string
+        description: >
+          Monitoring stack profile.
+          "full" (~800MB): Prometheus, Grafana, Loki, Promtail, cAdvisor, node_exporter.
+          "light" (~50MB): node_exporter, Promtail (push to remote Grafana).
+          "none": No monitoring containers.
+        enum:
+          - full
+          - light
+          - none
+        default: full
+      # A-la-carte overrides (optional, override profile defaults)
+      grafana:
+        type: boolean
+        description: Override Grafana on/off.
+      prometheus:
+        type: boolean
+        description: Override Prometheus on/off.
+      loki:
+        type: boolean
+        description: Override Loki on/off.
+      cadvisor:
+        type: boolean
+        description: Override cAdvisor on/off.
+      node_exporter:
+        type: boolean
+        description: Override node_exporter on/off.
+
+  security:
+    type: object
+    properties:
+      crowdsec:
+        type: boolean
+        description: Deploy CrowdSec + Traefik bouncer.
+        default: true
+
+  secrets:
+    type: object
+    properties:
+      mode:
+        type: string
+        description: >
+          "quickstart": auto-generate random secrets, no setup needed.
+          "sops": versioned secrets via AGE + SOPS.
+        enum:
+          - quickstart
+          - sops
+        default: quickstart
+
+  backup:
+    type: object
+    properties:
+      enabled:
+        type: boolean
+        default: true
+      schedule:
+        type: string
+        description: Cron expression for backup schedule.
+        default: "0 3 * * *"
+      target:
+        type: string
+        description: Backup destination.
+        enum:
+          - storagebox
+          - s3
+          - local
+          - ssh
+        default: local

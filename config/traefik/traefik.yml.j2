@@ -1,0 +1,65 @@
+api:
+  dashboard: true
+
+{% if crowdsec_enabled | default(true) %}
+experimental:
+  plugins:
+    bouncer:
+      moduleName: github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin
+      version: v1.5.1
+{% endif %}
+
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+  websecure:
+    address: ":443"
+{% if crowdsec_enabled | default(true) %}
+    http:
+      middlewares:
+        - crowdsec@file
+{% endif %}
+    forwardedHeaders:
+      trustedIPs:
+        - "172.16.0.0/12"
+
+accessLog:
+  filePath: /var/log/traefik/access.log
+  bufferingSize: 100
+
+metrics:
+  prometheus:
+    addEntryPointsLabels: true
+    addRoutersLabels: true
+    addServicesLabels: true
+
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: {{ acme_email }}
+      storage: /certs/acme.json
+      httpChallenge:
+        entryPoint: web
+  letsencrypt-dns:
+    acme:
+      email: {{ acme_email }}
+      storage: /certs/acme-dns.json
+      dnsChallenge:
+        provider: hetzner
+        propagation:
+          delayBeforeChecks: 30
+
+providers:
+  docker:
+    exposedByDefault: false
+  file:
+    directory: /config/dynamic/
+    watch: true
+
+log:
+  level: WARN
