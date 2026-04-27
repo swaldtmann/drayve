@@ -7,7 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [0.2.0] - 2026-04-03
+## [0.2.0] - 2026-04-27 — initial public release
+
+History before this tag was squashed during the OSS push. The items below
+describe the feature set shipped in v0.2.0; issue/commit references point
+to pre-squash history and are no longer reachable in this repository.
+
 
 ### Security
 - OIDC client_secret hashed — Authelia config now uses PBKDF2-SHA512 hashes instead of plaintext (#59)
