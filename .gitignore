@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+*.egg
+
+# Ansible
+ansible/roles/geerlingguy.*/
+ansible/.ansible/
+*.retry
+
+# SOPS
+.secrets.tmp.enc.yml
+
+# Docker
+docker-compose.override.yml
+
+# OS
+.DS_Store
+
+# Secrets
+.env
+.env.*
+!.env.example
+!.env.test.example

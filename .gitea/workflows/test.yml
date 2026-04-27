@@ -1,0 +1,54 @@
+name: Test & Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  WORKDIR: /home/forgejo-runner/ci-drayve-${{ github.run_id }}
+
+jobs:
+  test:
+    runs-on: codeberg-small
+    steps:
+      - name: Checkout
+        run: |
+          rm -rf $WORKDIR
+          git clone --depth 1 -b ${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}} https://codeberg.org/${GITHUB_REPOSITORY}.git $WORKDIR
+
+      - name: Install dependencies
+        run: cd $WORKDIR && pip install -q pyyaml ansible-lint
+
+      - name: Ansible Lint
+        run: cd $WORKDIR/ansible && ansible-lint playbooks/ roles/ 2>&1 | grep -v "^WARNING"
+
+      - name: Ansible Syntax Check
+        run: |
+          cd $WORKDIR/ansible
+          for pb in playbooks/*.yml; do
+            ansible-playbook --syntax-check "$pb" -i /dev/null \
+              -e drayve_name=ci-check -e domain=ci.local 2>&1 \
+              | grep -v "^\[WARNING\]" || true
+          done
+
+      - name: ShellCheck
+        run: |
+          apt-get update -qq && apt-get install -y -qq shellcheck > /dev/null
+          cd $WORKDIR
+          shellcheck scripts/*.sh
+
+      - name: Python Syntax (test files)
+        run: |
+          cd $WORKDIR
+          for f in molecule/*/tests/*.py; do
+            python3 -m py_compile "$f"
+          done
+
+      - name: Validate examples
+        run: cd $WORKDIR && for f in examples/*.yaml; do python3 scripts/validate-stack.py "$f"; done
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf $WORKDIR
