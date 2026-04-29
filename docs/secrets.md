@@ -108,6 +108,34 @@ Do not store the backup next to your repo. Do not put it in the same cloud stora
 | `authentik_oidc_grafana_secret` | Authentik | Grafana OIDC client secret |
 | `backup_restic_password` | Restic | Backup repository encryption |
 
+## App-level secrets via `env.override`
+
+Drayve `secrets.yml` only covers the framework: Traefik, CrowdSec,
+Authelia/Authentik, Grafana, Backup. Application-level secrets — DB
+passwords, API keys for tools drayve doesn't know about — belong in
+`deploy/<host>/env.override`. The file is appended verbatim to the
+deployed `.env` and exposed to compose containers via standard env-var
+substitution.
+
+Two modes are supported transparently:
+
+- **Plaintext** (gitignored): write `key=value` pairs directly. Fine for
+  local or dev hosts.
+- **sops-encrypted dotenv**: encrypt once, then commit the file. Drayve
+  detects encrypted content at deploy time and decrypts via the age key
+  in `deploy/.age-key.txt`. The role falls back to a plain file read on
+  unencrypted input, so both modes work without configuration.
+
+```bash
+sops --input-type dotenv --output-type dotenv -e -i deploy/<host>/env.override
+```
+
+This is the right place for third-party API tokens (Netcup, Mailgun,
+Stripe). Don't park them as gitignored plaintext in `stacks/<host>/.env.shared`
+or similar — a stray `git add -A` from a wrapper script will pick them
+up the moment the gitignore drifts. Encrypt once; the file becomes
+git-safe.
+
 ## Authentik Bootstrap Path
 
 When using `auth.provider: authentik`, the bootstrap process works as follows:
