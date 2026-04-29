@@ -1,0 +1,20 @@
+[Unit]
+Description=Drayve Bouncer-Watchdog — Self-Heal CrowdSec-Plugin
+Documentation=https://github.com/StephanWaldtmann/drayve
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+Environment=URL={{ bouncer_watchdog_check_url }}
+Environment=THRESHOLD={{ bouncer_watchdog_threshold_seconds }}
+Environment=TIMEOUT={{ bouncer_watchdog_curl_timeout }}
+Environment=STACK_DIR={{ drayve_deploy_dir }}
+Environment=FAIL_FILE=/var/run/drayve-bouncer-watchdog.fail
+ExecStart=/usr/local/sbin/drayve-bouncer-watchdog
+Nice=5
+ProtectSystem=strict
+ReadWritePaths=/var/run {{ drayve_deploy_dir }}
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true

@@ -206,3 +206,64 @@
     state: absent
   when: crowdsec_enabled and (security.crowdsec_whitelist | default([]) | length == 0)
   tags: [traefik, crowdsec]
+
+# === Bouncer-Watchdog ===
+# systemd-Timer + Self-Heal-Script gegen Plugin-fail-closed/Hold nach
+# LAPI-Restart oder akkumuliertem Stream-State.
+
+- name: Deploy bouncer-watchdog script
+  ansible.builtin.copy:
+    src: drayve-bouncer-watchdog.sh
+    dest: /usr/local/sbin/drayve-bouncer-watchdog
+    owner: root
+    group: root
+    mode: "0755"
+  when: crowdsec_enabled and bouncer_watchdog_enabled
+  tags: [traefik, crowdsec, watchdog]
+
+- name: Deploy bouncer-watchdog systemd service unit
+  ansible.builtin.template:
+    src: bouncer-watchdog.service.j2
+    dest: /etc/systemd/system/drayve-bouncer-watchdog.service
+    owner: root
+    group: root
+    mode: "0644"
+  when: crowdsec_enabled and bouncer_watchdog_enabled
+  register: bouncer_watchdog_service_unit
+  tags: [traefik, crowdsec, watchdog]
+
+- name: Deploy bouncer-watchdog systemd timer unit
+  ansible.builtin.template:
+    src: bouncer-watchdog.timer.j2
+    dest: /etc/systemd/system/drayve-bouncer-watchdog.timer
+    owner: root
+    group: root
+    mode: "0644"
+  when: crowdsec_enabled and bouncer_watchdog_enabled
+  register: bouncer_watchdog_timer_unit
+  tags: [traefik, crowdsec, watchdog]
+
+- name: Reload systemd if watchdog units changed
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when:
+    - crowdsec_enabled and bouncer_watchdog_enabled
+    - bouncer_watchdog_service_unit.changed or bouncer_watchdog_timer_unit.changed
+  tags: [traefik, crowdsec, watchdog]
+
+- name: Enable + start bouncer-watchdog timer
+  ansible.builtin.systemd:
+    name: drayve-bouncer-watchdog.timer
+    enabled: true
+    state: started
+  when: crowdsec_enabled and bouncer_watchdog_enabled
+  tags: [traefik, crowdsec, watchdog]
+
+- name: Stop + disable bouncer-watchdog when CrowdSec/Watchdog disabled
+  ansible.builtin.systemd:
+    name: drayve-bouncer-watchdog.timer
+    enabled: false
+    state: stopped
+  when: not (crowdsec_enabled and bouncer_watchdog_enabled)
+  failed_when: false
+  tags: [traefik, crowdsec, watchdog]
