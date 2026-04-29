@@ -70,6 +70,12 @@ For Hetzner Cloud users, set `provider.type: hetzner` — this creates the serve
 
 ## Deploy
 
+For a fresh host, always start with `make provision`. It creates the
+`drayve` user, installs Docker, and runs the full stack deploy in one go.
+The plain `make deploy` target is for re-deploys against an
+already-provisioned host — running it first will fail with an explicit
+"run make provision first" message.
+
 ```bash
 make provision NAME=webshop
 ```
@@ -77,7 +83,7 @@ make provision NAME=webshop
 This will:
 1. Generate secrets (quickstart mode)
 2. Install packages, configure firewall (UFW), harden SSH
-3. Install Docker
+3. Install Docker (creates the `drayve` user)
 4. Deploy Traefik (reverse proxy + automatic TLS via Let's Encrypt)
 5. Set up authentication (basic auth or Authelia)
 6. Deploy monitoring stack (Grafana, Prometheus, Loki — depending on profile)

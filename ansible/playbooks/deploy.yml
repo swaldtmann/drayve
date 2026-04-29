@@ -1,6 +1,34 @@
 ---
 # Deploy — sync config, restart services.
 # Usage: cd ansible && ansible-playbook playbooks/deploy.yml -e target=drayve
+#
+# Note: `deploy.yml` re-deploys an existing host. For the first deploy on a
+# fresh server, use `make provision NAME=<host>` — it runs the full provision
+# playbook (server creation, drayve user, docker, traefik, auth, monitoring,
+# deploy). Running deploy.yml against a host that has not been provisioned
+# yet will fail at the drayve user lookup; the precheck below catches that.
+- name: Pre-deploy host readiness check
+  hosts: "{{ target | default('drayve') }}"
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Check that the drayve user exists on the target
+      ansible.builtin.command:
+        cmd: "getent passwd {{ drayve_user | default('drayve') }}"
+      register: _drayve_user_check
+      changed_when: false
+      failed_when: false
+
+    - name: Fail with actionable message if host has not been provisioned
+      ansible.builtin.fail:
+        msg: |
+          Host {{ inventory_hostname }} is missing the '{{ drayve_user | default('drayve') }}' user.
+          deploy.yml expects a host that has already been provisioned.
+          Run: make provision NAME={{ drayve_name | default(inventory_hostname) }}
+          (this creates the user, installs docker, and runs the full deploy).
+      when: _drayve_user_check.rc != 0
+
 - name: Deploy
   hosts: "{{ target | default('drayve') }}"
   become: true
