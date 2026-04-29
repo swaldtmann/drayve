@@ -106,9 +106,6 @@
   hosts: "{{ drayve_name }}"
   become: true
 
-  vars:
-    ops_repo_root: "{{ playbook_dir | regex_replace('/playbooks$', '') | regex_replace('/ansible$', '') }}"
-
   roles:
     - secrets
     - common

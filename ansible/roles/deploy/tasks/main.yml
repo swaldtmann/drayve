@@ -114,7 +114,7 @@
 
 - name: Template docker-compose.yml
   ansible.builtin.template:
-    src: "{{ ops_repo_root }}/ansible/templates/docker-compose.yml.j2"
+    src: "{{ ops_deploy_root }}/ansible/templates/docker-compose.yml.j2"
     dest: "{{ drayve_deploy_dir }}/docker-compose.yml"
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
@@ -123,7 +123,7 @@
 
 - name: Check for compose override
   ansible.builtin.stat:
-    path: "{{ ops_repo_root }}/deploy/{{ inventory_hostname }}/compose.override.yml"
+    path: "{{ ops_secrets_root }}/deploy/{{ inventory_hostname }}/compose.override.yml"
   register: compose_override
   delegate_to: localhost
   become: false
@@ -131,7 +131,7 @@
 
 - name: Deploy compose override
   ansible.builtin.copy:
-    src: "{{ ops_repo_root }}/deploy/{{ inventory_hostname }}/compose.override.yml"
+    src: "{{ ops_secrets_root }}/deploy/{{ inventory_hostname }}/compose.override.yml"
     dest: "{{ drayve_deploy_dir }}/docker-compose.override.yml"
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
@@ -148,7 +148,7 @@
 
 - name: Template .env
   ansible.builtin.template:
-    src: "{{ ops_repo_root }}/ansible/templates/env.j2"
+    src: "{{ ops_deploy_root }}/ansible/templates/env.j2"
     dest: "{{ drayve_deploy_dir }}/.env"
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
@@ -158,7 +158,7 @@
 
 - name: Check for env.override
   ansible.builtin.stat:
-    path: "{{ ops_repo_root }}/deploy/{{ inventory_hostname }}/env.override"
+    path: "{{ ops_secrets_root }}/deploy/{{ inventory_hostname }}/env.override"
   register: env_override
   delegate_to: localhost
   become: false
@@ -168,7 +168,7 @@
   ansible.builtin.blockinfile:
     path: "{{ drayve_deploy_dir }}/.env"
     marker: "# {mark} USER APP SECRETS (from env.override)"
-    block: "{{ lookup('file', ops_repo_root + '/deploy/' + inventory_hostname + '/env.override') }}"
+    block: "{{ lookup('file', ops_secrets_root + '/deploy/' + inventory_hostname + '/env.override') }}"
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
     mode: "0600"
@@ -179,7 +179,7 @@
 # === Label Scanner — scan compose files for drayve.* labels ===
 - name: Deploy label-scanner script
   ansible.builtin.copy:
-    src: "{{ ops_repo_root }}/scripts/label-scanner.py"
+    src: "{{ ops_deploy_root }}/scripts/label-scanner.py"
     dest: "{{ drayve_deploy_dir }}/label-scanner.py"
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
@@ -210,7 +210,7 @@
 
 - name: Deploy landing page
   ansible.builtin.template:
-    src: "{{ ops_repo_root }}/ansible/templates/landing.html.j2"
+    src: "{{ ops_deploy_root }}/ansible/templates/landing.html.j2"
     dest: "{{ drayve_deploy_dir }}/landing/index.html"
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
@@ -219,7 +219,7 @@
 
 - name: Deploy Traefik static config
   ansible.builtin.template:
-    src: "{{ ops_repo_root }}/config/traefik/traefik.yml.j2"
+    src: "{{ ops_deploy_root }}/config/traefik/traefik.yml.j2"
     dest: "{{ traefik_config_dir }}/traefik.yml"
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
@@ -394,7 +394,7 @@
 
 - name: Deploy auth-sync script
   ansible.builtin.template:
-    src: "{{ ops_repo_root }}/scripts/auth-sync.py.j2"
+    src: "{{ ops_deploy_root }}/scripts/auth-sync.py.j2"
     dest: "{{ drayve_deploy_dir }}/auth-sync.py"
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
@@ -424,7 +424,7 @@
 # === Dashboard Drop-in: copy custom dashboards from labels ===
 - name: Copy custom Grafana dashboards from labels
   ansible.builtin.copy:
-    src: "{{ ops_repo_root }}/dashboards/{{ item.dashboard }}.json"
+    src: "{{ ops_deploy_root }}/dashboards/{{ item.dashboard }}.json"
     dest: "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/dashboards/json/{{ item.dashboard }}.json"
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
@@ -440,7 +440,7 @@
 
 - name: Check custom dashboards source files exist
   ansible.builtin.stat:
-    path: "{{ ops_repo_root }}/dashboards/{{ item.dashboard }}.json"
+    path: "{{ ops_deploy_root }}/dashboards/{{ item.dashboard }}.json"
   loop: "{{ scanned_labels.dashboards | default([]) }}"
   loop_control:
     label: "{{ item.dashboard }}"

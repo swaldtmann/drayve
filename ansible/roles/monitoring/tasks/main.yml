@@ -198,7 +198,7 @@
 
 - name: Deploy Grafana dashboard provider config
   ansible.builtin.copy:
-    src: "{{ ops_repo_root }}/config/grafana/provisioning/dashboards/provider.yml"
+    src: "{{ ops_deploy_root }}/config/grafana/provisioning/dashboards/provider.yml"
     dest: "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/dashboards/provider.yml"
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
@@ -208,7 +208,7 @@
 
 - name: Deploy Grafana datasources
   ansible.builtin.copy:
-    src: "{{ ops_repo_root }}/config/grafana/provisioning/datasources/prometheus.yml"
+    src: "{{ ops_deploy_root }}/config/grafana/provisioning/datasources/prometheus.yml"
     dest: "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/datasources/prometheus.yml"
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
@@ -264,7 +264,7 @@
     group: "{{ drayve_group }}"
     mode: "0644"
   with_fileglob:
-    - "{{ ops_repo_root }}/config/grafana/provisioning/dashboards/json/*.json"
+    - "{{ ops_deploy_root }}/config/grafana/provisioning/dashboards/json/*.json"
   when: _mon_grafana
   register: grafana_dashboards
   tags: [monitoring, dashboards]

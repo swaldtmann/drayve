@@ -1,6 +1,19 @@
 ---
-# === Repo root (for template/config lookups) ===
+# === Repo roots (for template/config lookups) ===
+# ops_repo_root: legacy single-path (kept for backward compat as default of
+# both split variables below — pre-W-109 inventories continue to work).
 ops_repo_root: "{{ playbook_dir | regex_replace('/ansible(/playbooks)?$', '') }}"
+# ops_secrets_root: SITE-repo root holding per-host state.
+#   Expects: deploy/<host>/secrets.yml, deploy/<host>/env.override,
+#            deploy/<host>/compose.override.yml, deploy/.age-key.txt
+# ops_deploy_root: DRAYVE-OSS root holding shared assets.
+#   Expects: ansible/templates/, config/, scripts/, dashboards/
+# In vendor-submodule layouts (drayve-OSS under <site>/vendor/drayve/),
+# override ops_secrets_root to <site> via -e on the make/ansible command;
+# ops_deploy_root keeps its default and resolves to <site>/vendor/drayve.
+# Removes the symlink hack (ansible/config/scripts/dashboards → vendor/drayve).
+ops_secrets_root: "{{ ops_repo_root }}"
+ops_deploy_root: "{{ ops_repo_root }}"
 
 # === Paths ===
 drayve_root: /opt/drayve
