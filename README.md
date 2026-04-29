@@ -96,6 +96,7 @@ make test-integration              Full stack test (Molecule + Hetzner)
 - **[Configuration](docs/configuration.md)** — full `stack.yaml` reference, all options
 - **[Architecture](docs/architecture.md)** — how the pieces fit together, directory layout, provisioning flow
 - **[Secrets](docs/secrets.md)** — quickstart vs SOPS, setup, editing, secret reference
+- **[Single-App Host](docs/single-app-host.md)** — one-app-per-host layout (no landing, vendor-submodule option)
 
 ## Adding your own services
 
