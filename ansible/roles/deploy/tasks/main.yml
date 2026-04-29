@@ -52,6 +52,19 @@
     apps: "{{ apps | default([]) }}"
   tags: [deploy]
 
+- name: Validate apps[].category is set on every app
+  ansible.builtin.assert:
+    that:
+      - apps | rejectattr('category', 'defined') | list | length == 0
+    fail_msg: |
+      stack.yaml: every entry under `apps:` must declare a `category` field.
+      Missing on: {{ apps | rejectattr('category', 'defined') | map(attribute='name') | list }}
+      Add `category: <group-name>` (e.g. "Apps", "Monitoring") to each
+      app — the landing page groups apps by category at render time.
+    success_msg: "apps[].category present on all {{ apps | length }} app(s)"
+  when: apps | length > 0
+  tags: [deploy]
+
 - name: Resolve auth_lldap from stack.yaml
   ansible.builtin.set_fact:
     auth_lldap: "{{ auth.lldap | default(auth_lldap) | default(false) | bool }}"
