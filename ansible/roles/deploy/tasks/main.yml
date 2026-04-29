@@ -182,11 +182,40 @@
   become: false
   tags: [deploy]
 
+# env.override may be plaintext (quickstart mode) or sops-encrypted dotenv
+# (sops mode). Try sops first; fall back to a plain file read if sops can't
+# decrypt (which is the case for unencrypted files — sops exits non-zero).
+- name: Try sops-decrypt env.override
+  ansible.builtin.command:
+    cmd: "sops -d --input-type dotenv --output-type dotenv {{ ops_secrets_root }}/deploy/{{ inventory_hostname }}/env.override"
+  environment:
+    SOPS_AGE_KEY_FILE: "{{ ops_secrets_root }}/deploy/.age-key.txt"
+  register: env_override_sops
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  failed_when: false
+  no_log: true
+  when: env_override.stat.exists
+  tags: [deploy]
+
+- name: Resolve env.override content
+  ansible.builtin.set_fact:
+    env_override_content: >-
+      {{ env_override_sops.stdout
+         if (env_override_sops is defined
+             and env_override_sops.rc is defined
+             and env_override_sops.rc == 0)
+         else lookup('file', ops_secrets_root + '/deploy/' + inventory_hostname + '/env.override') }}
+  no_log: true
+  when: env_override.stat.exists
+  tags: [deploy]
+
 - name: Append env.override to .env
   ansible.builtin.blockinfile:
     path: "{{ drayve_deploy_dir }}/.env"
     marker: "# {mark} USER APP SECRETS (from env.override)"
-    block: "{{ lookup('file', ops_secrets_root + '/deploy/' + inventory_hostname + '/env.override') }}"
+    block: "{{ env_override_content }}"
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
     mode: "0600"
