@@ -188,7 +188,10 @@ The Makefile loads `.env.test` automatically. Alternatively, `export HCLOUD_TOKE
 ## Requirements
 
 - Python 3.8+, Ansible 2.14+
-- Target: Ubuntu 22.04 / 24.04
+- Target: **Ubuntu 22.04 / 24.04 only.** Debian and RHEL-family hosts are
+  not yet supported — the docker role hardcodes the Ubuntu apt repo
+  (`download.docker.com/linux/ubuntu`). Distro-agnostic provisioning is
+  tracked but not implemented; pick Ubuntu when you spin up a fresh host.
 - For Hetzner auto-provision: `hcloud` CLI
 - For Molecule tests: Hetzner Cloud API token (see [Testing](#testing))
 
