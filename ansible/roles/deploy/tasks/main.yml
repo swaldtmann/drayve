@@ -38,6 +38,11 @@
 - name: Resolve backup_enabled from stack.yaml
   ansible.builtin.set_fact:
     backup_enabled: "{{ backup.enabled | default(backup_enabled) | default(false) | bool }}"
+
+- name: Resolve landing_enabled from stack.yaml
+  ansible.builtin.set_fact:
+    landing_enabled: "{{ services.landing.enabled | default(landing_enabled) | default(true) | bool }}"
+  tags: [deploy]
     backup_target: "{{ backup.target | default(backup_target) | default('local') }}"
     backup_schedule: "{{ backup.schedule | default(backup_schedule) | default('0 3 * * *') }}"
   tags: [deploy]
@@ -212,6 +217,7 @@
   tags: [deploy]
 
 # === Landing Page (rendered from scanned labels + frame services) ===
+# Skipped on single-app hosts (services.landing.enabled: false in stack.yaml).
 - name: Create landing page directory
   ansible.builtin.file:
     path: "{{ drayve_deploy_dir }}/landing"
@@ -219,6 +225,7 @@
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
     mode: "0755"
+  when: landing_enabled
   tags: [deploy]
 
 - name: Deploy landing page
@@ -228,6 +235,14 @@
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
     mode: "0644"
+  when: landing_enabled
+  tags: [deploy]
+
+- name: Remove landing page directory when disabled
+  ansible.builtin.file:
+    path: "{{ drayve_deploy_dir }}/landing"
+    state: absent
+  when: not landing_enabled
   tags: [deploy]
 
 - name: Deploy Traefik static config

@@ -45,6 +45,13 @@ drayve_domain: ""
 # Set in stack.yaml: stack.acme_email
 acme_email: ""
 
+# === Landing ===
+# When true (default), drayve runs a landing-page nginx on the apex domain
+# that lists all configured apps grouped by category. Set to false in
+# stack.yaml (services.landing.enabled: false) for single-app hosts where
+# the app itself owns the apex route.
+landing_enabled: true
+
 # === Auth ===
 auth_provider: basic
 
