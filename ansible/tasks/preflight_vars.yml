@@ -1,0 +1,36 @@
+---
+# Drayve preflight — validate that critical deployment variables are set
+# before any role runs. Included from deploy.yml, backup.yml, burn.yml.
+#
+# Catches the "kryptische Variable-Resolution-Meldung"-class of failures
+# (typically: group_vars/all/vars.yml not loaded due to inventory layout).
+
+- name: Drayve preflight — required deployment variables
+  ansible.builtin.assert:
+    that:
+      - drayve_domain is defined and (drayve_domain | length > 0)
+      - drayve_root is defined and (drayve_root | length > 0)
+      - ops_secrets_root is defined and (ops_secrets_root | length > 0)
+      - drayve_user is defined and (drayve_user | length > 0)
+    fail_msg: |
+      Drayve preflight: required deployment variables are missing or empty.
+
+      Current values:
+        drayve_domain    = {{ drayve_domain | default('<UNDEFINED>') }}
+        drayve_root      = {{ drayve_root | default('<UNDEFINED>') }}
+        ops_secrets_root = {{ ops_secrets_root | default('<UNDEFINED>') }}
+        drayve_user      = {{ drayve_user | default('<UNDEFINED>') }}
+
+      Most likely cause: ansible/inventory/group_vars/all/vars.yml is not
+      being loaded. Check that your hosts.yaml file lives at the inventory
+      root and that the inventory layout is one of:
+
+        <site>/hosts.yaml                 (single-file)
+        <site>/inventory/hosts.yaml       (with adjacent group_vars/)
+
+      See docs/quickstart.md for the expected layout, or pass missing
+      variables explicitly with -e drayve_domain=...
+
+    success_msg: "Drayve preflight: required variables present."
+  run_once: true
+  tags: [always]

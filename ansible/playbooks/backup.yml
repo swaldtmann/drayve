@@ -9,5 +9,9 @@
   hosts: drayve
   become: true
 
+  pre_tasks:
+    - name: Drayve preflight — required deployment variables
+      ansible.builtin.import_tasks: ../tasks/preflight_vars.yml
+
   roles:
     - backup

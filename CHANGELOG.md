@@ -11,6 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `make test-syntax-provision` — Ansible syntax-check for `provision.yml`
   with required stub vars (`drayve_name`, `domain`, `provider_type=manual`).
   Closes the test gap noted in v0.3.1 hotfix discussion.
+- **Preflight variable validation** (`ansible/tasks/preflight_vars.yml`) —
+  imported as the first task of `deploy.yml` and `backup.yml`. Asserts
+  that `drayve_domain`, `drayve_root`, `ops_secrets_root`, and
+  `drayve_user` are defined and non-empty before any role runs. On
+  failure, prints current values plus a hint about inventory layout and
+  `docs/quickstart.md`. Replaces the late, cryptic variable-resolution
+  errors that surfaced when `group_vars/all/vars.yml` was not loaded.
 
 ### Fixed
 - `make test-syntax` no longer swallows ansible-playbook errors. The

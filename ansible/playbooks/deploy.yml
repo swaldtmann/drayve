@@ -13,6 +13,9 @@
   gather_facts: false
 
   tasks:
+    - name: Drayve preflight — required deployment variables
+      ansible.builtin.import_tasks: ../tasks/preflight_vars.yml
+
     - name: Check that the drayve user exists on the target
       ansible.builtin.command:
         cmd: "getent passwd {{ drayve_user | default('drayve') }}"
