@@ -38,13 +38,13 @@
 - name: Resolve backup_enabled from stack.yaml
   ansible.builtin.set_fact:
     backup_enabled: "{{ backup.enabled | default(backup_enabled) | default(false) | bool }}"
+    backup_target: "{{ backup.target | default(backup_target) | default('local') }}"
+    backup_schedule: "{{ backup.schedule | default(backup_schedule) | default('0 3 * * *') }}"
+  tags: [deploy]
 
 - name: Resolve landing_enabled from stack.yaml
   ansible.builtin.set_fact:
     landing_enabled: "{{ services.landing.enabled | default(landing_enabled) | default(true) | bool }}"
-  tags: [deploy]
-    backup_target: "{{ backup.target | default(backup_target) | default('local') }}"
-    backup_schedule: "{{ backup.schedule | default(backup_schedule) | default('0 3 * * *') }}"
   tags: [deploy]
 
 - name: Resolve acme_email from stack.yaml

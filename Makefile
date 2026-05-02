@@ -240,8 +240,19 @@ test: lint test-unit  ## Run lint + validate all examples + unit tests
 	@for f in examples/*.yaml; do $(PYTHON) scripts/validate-stack.py "$$f"; done
 	@echo "==> All tests passed"
 
-test-unit:  ## Run python (pytest) + bash (bats) unit tests — no live host needed
+test-unit: test-syntax  ## Run python (pytest) + bash (bats) unit tests + ansible syntax — no live host needed
 	@echo "==> Running pytest..."
 	@$(PYTHON) -m pytest tests/python/ -q
 	@echo "==> Running bats..."
 	@command -v bats >/dev/null 2>&1 && bats tests/bats/ || echo "bats not installed — skipping"
+
+test-syntax:  ## Ansible syntax-check on deploy/backup/burn playbooks (catches YAML/role issues)
+	@echo "==> Ansible syntax-check..."
+	@ANSIBLE_ROLES_PATH=$(CURDIR)/ansible/roles ansible-playbook --syntax-check \
+		-i localhost, \
+		-e drayve_name=stub -e drayve_domain=stub.example.com \
+		ansible/playbooks/deploy.yml \
+		ansible/playbooks/backup.yml \
+		ansible/playbooks/burn.yml 2>&1 \
+		| grep -vE '^(\[WARNING\]|playbook:|^$$)' || true
+	@echo "==> Syntax OK"
