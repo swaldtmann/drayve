@@ -246,13 +246,24 @@ test-unit: test-syntax  ## Run python (pytest) + bash (bats) unit tests + ansibl
 	@echo "==> Running bats..."
 	@command -v bats >/dev/null 2>&1 && bats tests/bats/ || echo "bats not installed — skipping"
 
-test-syntax:  ## Ansible syntax-check on deploy/backup/burn playbooks (catches YAML/role issues)
-	@echo "==> Ansible syntax-check..."
-	@ANSIBLE_ROLES_PATH=$(CURDIR)/ansible/roles ansible-playbook --syntax-check \
+test-syntax: test-syntax-core test-syntax-provision  ## Ansible syntax-check on all playbooks
+
+test-syntax-core:  ## Ansible syntax-check on deploy/backup/burn playbooks
+	@echo "==> Ansible syntax-check (deploy/backup/burn)..."
+	@set -o pipefail && ANSIBLE_ROLES_PATH=$(CURDIR)/ansible/roles ansible-playbook --syntax-check \
 		-i localhost, \
 		-e drayve_name=stub -e drayve_domain=stub.example.com \
 		ansible/playbooks/deploy.yml \
 		ansible/playbooks/backup.yml \
 		ansible/playbooks/burn.yml 2>&1 \
-		| grep -vE '^(\[WARNING\]|playbook:|^$$)' || true
-	@echo "==> Syntax OK"
+		| (grep -vE '^(\[WARNING\]|playbook:|^$$)' || true)
+	@echo "==> Core syntax OK"
+
+test-syntax-provision:  ## Ansible syntax-check on provision.yml (separate vars)
+	@echo "==> Ansible syntax-check (provision)..."
+	@set -o pipefail && ANSIBLE_ROLES_PATH=$(CURDIR)/ansible/roles ansible-playbook --syntax-check \
+		-i localhost, \
+		-e drayve_name=stub -e domain=stub.example.com -e provider_type=manual \
+		ansible/playbooks/provision.yml 2>&1 \
+		| (grep -vE '^(\[WARNING\]|playbook:|^$$)' || true)
+	@echo "==> Provision syntax OK"

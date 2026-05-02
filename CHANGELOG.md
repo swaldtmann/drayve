@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- `make test-syntax-provision` — Ansible syntax-check for `provision.yml`
+  with required stub vars (`drayve_name`, `domain`, `provider_type=manual`).
+  Closes the test gap noted in v0.3.1 hotfix discussion.
+
+### Fixed
+- `make test-syntax` no longer swallows ansible-playbook errors. The
+  previous pipe ended with `... | grep -vE '...' || true`, which made the
+  whole pipeline exit 0 even when `--syntax-check` failed. Replaced with
+  `set -o pipefail && ... | (grep -vE '...' || true)`.
+
 ## [0.3.0] - 2026-05-02 — single-app hardenings + DNS provider choice
 
 A consolidated harvest of frictions surfaced while bringing up Mealie on
