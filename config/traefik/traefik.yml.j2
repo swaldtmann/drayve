@@ -50,9 +50,9 @@ certificatesResolvers:
       email: {{ acme_email }}
       storage: /certs/acme-dns.json
       dnsChallenge:
-        provider: hetzner
+        provider: {{ acme_dns_provider | default('hetzner') }}
         propagation:
-          delayBeforeChecks: 30
+          delayBeforeChecks: {{ acme_dns_propagation_delay | default(30) }}
 
 providers:
   docker:

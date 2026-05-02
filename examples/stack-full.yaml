@@ -7,6 +7,13 @@ stack:
   name: production
   domain: ops.example.com
   acme_email: admin@example.com
+  # ACME DNS-01 challenge — defaults to hetzner.
+  # Override when DNS lives elsewhere (cloudflare, netcup, route53, gcloud, ...).
+  # acme_dns_provider: cloudflare
+  # acme_dns_propagation_delay: 60        # netcup typically needs ~300
+  # acme_dns_env_vars:                     # which env vars traefik should see
+  #   - CF_DNS_API_TOKEN                   # values live in env.override
+  # See docs/dns-providers.md for the per-provider env-var list.
 
 provider:
   type: hetzner

@@ -5,6 +5,33 @@ traefik_certs_dir: "{{ drayve_deploy_dir }}/traefik/certs"
 
 traefik_image: traefik:v3.6
 
+# ACME DNS-01 challenge — provider for the letsencrypt-dns resolver.
+# Any provider supported by Traefik / lego is allowed (hetzner, cloudflare,
+# netcup, route53, gcloud, ...). Each provider expects its own credential
+# environment variables on the traefik container — see
+# https://doc.traefik.io/traefik/https/acme/#providers.
+# Override per host via stack.acme_dns_provider.
+acme_dns_provider: hetzner
+
+# Seconds Traefik waits before checking DNS propagation. Some providers
+# (netcup, godaddy, ...) need substantially longer than the default 30s.
+acme_dns_propagation_delay: 30
+
+# Environment variables passed through to the traefik container so the
+# selected DNS provider can authenticate. The values themselves live in
+# env.override on the host (sops-encrypted or plaintext) — this list only
+# names which variables to forward. Override per host via
+# stack.acme_dns_env_vars when switching providers.
+# Examples:
+#   hetzner:    [HETZNER_API_TOKEN]
+#   cloudflare: [CF_DNS_API_TOKEN]              # or CF_API_EMAIL + CF_API_KEY
+#   netcup:     [NETCUP_CUSTOMER_NUMBER, NETCUP_API_KEY, NETCUP_API_PASSWORD]
+#   route53:    [AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION]
+#   gcloud:     [GCE_PROJECT, GCE_SERVICE_ACCOUNT_FILE]
+# See https://doc.traefik.io/traefik/https/acme/#providers for the full list.
+acme_dns_env_vars:
+  - HETZNER_API_TOKEN
+
 # CrowdSec whitelist — override per host
 crowdsec_whitelist_ips:
   - "127.0.0.1"

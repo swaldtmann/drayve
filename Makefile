@@ -235,7 +235,13 @@ auth-sync: _require-name _require-stack _require-inventory  ## Sync Authentik pr
 dashboards: _require-name _require-stack _require-inventory  ## Deploy only dashboards + datasources (NAME=)
 	$(ANSIBLE) playbooks/deploy.yml -l $(NAME) -e @../$(STACK_CONFIG) --tags dashboards
 
-test: lint  ## Run lint + validate all examples
+test: lint test-unit  ## Run lint + validate all examples + unit tests
 	@echo "==> Validating examples..."
 	@for f in examples/*.yaml; do $(PYTHON) scripts/validate-stack.py "$$f"; done
 	@echo "==> All tests passed"
+
+test-unit:  ## Run python (pytest) + bash (bats) unit tests — no live host needed
+	@echo "==> Running pytest..."
+	@$(PYTHON) -m pytest tests/python/ -q
+	@echo "==> Running bats..."
+	@command -v bats >/dev/null 2>&1 && bats tests/bats/ || echo "bats not installed — skipping"

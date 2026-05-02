@@ -2,6 +2,9 @@
 - name: Resolve stack.yaml values for traefik
   ansible.builtin.set_fact:
     acme_email: "{{ stack.acme_email | default(acme_email) | default('') }}"
+    acme_dns_provider: "{{ stack.acme_dns_provider | default(acme_dns_provider) | default('hetzner') }}"
+    acme_dns_propagation_delay: "{{ stack.acme_dns_propagation_delay | default(acme_dns_propagation_delay) | default(30) | int }}"
+    acme_dns_env_vars: "{{ stack.acme_dns_env_vars | default(acme_dns_env_vars) | default(['HETZNER_API_TOKEN']) }}"
     auth_provider: "{{ auth.provider | default(auth_provider) | default('basic') }}"
     crowdsec_enabled: "{{ security.crowdsec | default(crowdsec_enabled) | default(true) | bool }}"
   tags: [traefik]

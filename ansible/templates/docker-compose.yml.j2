@@ -12,7 +12,9 @@ services:
       - "80:80"
       - "443:443"
     environment:
-      - HETZNER_API_TOKEN=${HETZNER_API_TOKEN:-}
+{% for var in acme_dns_env_vars | default(['HETZNER_API_TOKEN']) %}
+      - {{ var }}=${{ '{' }}{{ var }}:-}
+{% endfor %}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./traefik/config/traefik.yml:/etc/traefik/traefik.yml:ro
