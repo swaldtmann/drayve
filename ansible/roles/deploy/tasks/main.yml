@@ -164,6 +164,43 @@
   when: not compose_override.stat.exists
   tags: [deploy]
 
+# === Multinet label fix (W-112) ===
+# Drayve's main compose project name is "drayve" → default network "drayve_default".
+# Services in compose.override.yml that join more than one network and have
+# traefik routing labels need an explicit traefik.docker.network label so
+# Traefik does not pick a random backend IP. Inject it automatically.
+- name: Ensure tools directory
+  ansible.builtin.file:
+    path: "{{ drayve_deploy_dir }}/.tools"
+    state: directory
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0755"
+  when: compose_override.stat.exists
+  tags: [deploy]
+
+- name: Deploy multinet label fixer
+  ansible.builtin.copy:
+    src: "{{ ops_deploy_root }}/scripts/multinet-label-fix.py"
+    dest: "{{ drayve_deploy_dir }}/.tools/multinet-label-fix.py"
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0755"
+  when: compose_override.stat.exists
+  tags: [deploy]
+
+- name: Apply multinet label fix to compose override
+  ansible.builtin.command:
+    cmd: >-
+      python3 {{ drayve_deploy_dir }}/.tools/multinet-label-fix.py
+      --primary {{ multinet_primary_network | default('drayve_default') }}
+      --write
+      {{ drayve_deploy_dir }}/docker-compose.override.yml
+  register: multinet_fix
+  changed_when: multinet_fix.stderr is search('injecting')
+  when: compose_override.stat.exists
+  tags: [deploy]
+
 - name: Template .env
   ansible.builtin.template:
     src: "{{ ops_deploy_root }}/ansible/templates/env.j2"

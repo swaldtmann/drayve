@@ -189,8 +189,36 @@ make provision NAME=recipes
 
 That's it. No landing page, no second domain, one app on the apex.
 
+## Multi-network apps and the Traefik routing trap
+
+If your override defines a service that joins more than one Docker
+network — for example, app + isolated DB net — and you let Traefik
+route to it, Traefik's docker provider picks one of the backend IPs at
+random. When it picks an IP on the internal-only net, requests hang at
+TCP and you get a "504 gateway timeout while the container is healthy"
+mystery.
+
+Drayve handles this for you. During deploy, drayve scans your
+`compose.override.yml` and, for any service that joins ≥2 networks and
+has `traefik.enable=true`, injects:
+
+```yaml
+labels:
+  - "traefik.docker.network=drayve_default"
+```
+
+`drayve_default` is the implicit network of the main drayve stack — the
+network Traefik itself runs on. If your topology differs (e.g. you
+bring your own external proxy network), set
+`multinet_primary_network: my_net` in your `stack.yaml` and the
+injection will use that name instead.
+
+If you want full control, set the label yourself in your override —
+drayve never overwrites a label the user has already set.
+
 ## Related
 
 - [Quickstart](quickstart.md) — the multi-app default flow.
 - [Secrets](secrets.md) — `secrets.yml` vs `env.override`.
 - [Architecture](architecture.md) — why apex-routing works the way it does.
+- [DNS providers](dns-providers.md) — switching the ACME DNS-01 provider.
