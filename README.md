@@ -90,6 +90,51 @@ make test-role NAME=common         Test a single role (Molecule + Hetzner)
 make test-integration              Full stack test (Molecule + Hetzner)
 ```
 
+## Writing a consumer repo
+
+A consumer (host repo) keeps its own `hosts.yaml`, `stack.yaml`, secrets — and a small `Makefile` that vendors drayve and includes the shared targets:
+
+```make
+SHELL := /bin/bash
+.DEFAULT_GOAL := help
+
+NAME        := my-host           # required: inventory group + snapshot host
+DRAYVE_REF  ?= v0.4.0            # tag/branch in drayve to vendor
+DRAYVE_REPO ?= https://codeberg.org/StephanWaldtmann/drayve.git
+DRAYVE_DIR  := vendor/drayve
+
+# Optional: override paths/flags before the include
+# SECRETS_FILE := deploy/my-host/secrets.yml
+# ENV_FILE     := deploy/my-host/env.override
+# AGE_KEY_LINK := 1                # opt-in: symlink deploy/.age-key.txt
+
+vendor:  ## Clone or update vendored drayve at DRAYVE_REF
+	@if [ ! -d $(DRAYVE_DIR)/.git ]; then \
+		git clone $(DRAYVE_REPO) $(DRAYVE_DIR); \
+	fi
+	@git -C $(DRAYVE_DIR) fetch --tags --quiet
+	@git -C $(DRAYVE_DIR) checkout --quiet $(DRAYVE_REF)
+	@ln -sfn $(DRAYVE_DIR)/ansible/inventory/group_vars group_vars
+
+.PHONY: vendor
+
+-include $(DRAYVE_DIR)/ansible/consumer.mk
+```
+
+After `make vendor`, the include picks up `ansible/consumer.mk` from the vendored copy and provides: `help`, `pre-snapshot`, `deploy-prod`, `deploy-check`, `secrets-edit`, `secrets-edit-env`, `ping`, `age-key-link`. Run `make help` to see the full list.
+
+Variant points (set before the include):
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `NAME` | *required* | inventory group + snapshot host |
+| `SECRETS_FILE` | `secrets.yml` | sops-managed secrets |
+| `ENV_FILE` | `env.override` | sops-managed env file (dotenv) |
+| `SOPS_AGE_KEY_FILE` | `~/.config/sops/age/drayve-$(NAME).txt` | private age key |
+| `SNAPSHOT_HOST` | `$(NAME)` | hcloud snapshot target |
+| `AGE_KEY_LINK` | empty | `1` adds `age-key-link` to deploy prereqs |
+| `PROD_SNAPSHOT` | `tools/prod-snapshot` path | pre-deploy snapshot wrapper |
+
 ## Documentation
 
 - **[Quickstart](docs/quickstart.md)** — from zero to running stack in under 10 minutes
