@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-05-06
+
 ### Added
 - `make test-syntax-provision` — Ansible syntax-check for `provision.yml`
   with required stub vars (`drayve_name`, `domain`, `provider_type=manual`).
@@ -17,7 +19,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `drayve_user` are defined and non-empty before any role runs. On
   failure, prints current values plus a hint about inventory layout and
   `docs/quickstart.md`. Replaces the late, cryptic variable-resolution
-  errors that surfaced when `group_vars/all/vars.yml` was not loaded.
+  errors that surfaced when `group_vars/all/vars.yml` was not loaded
+  (W-115).
+- **Bouncer-watchdog gating regression test** —
+  `tests/python/test_bouncer_watchdog_gating.py` pins the gating
+  conditions so regressions in the systemd-timer scaffolding are caught
+  at unit-test speed (W-119).
+- **`ansible/consumer.mk`** — shared Makefile snippet for downstream
+  consumer repos (drayve-prod-genua, drayve-rezepte). Provides
+  `vendor`, `deploy`, `deploy-prod`, `provision`, `validate`, `status`,
+  `logs`, `backup`, `burn` targets plus required-var asserts as a
+  single `include`. Replaces ~35–36 lines of drift-prone boilerplate
+  per consumer; both consumers switched in lockstep with this release
+  (W-126).
 
 ### Fixed
 - `make test-syntax` no longer swallows ansible-playbook errors. The
