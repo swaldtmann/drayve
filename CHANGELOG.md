@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-05-06
+
+### Fixed
+- **secrets role: sops decrypt now runs in `--check` mode**
+  (`ansible/roles/secrets/tasks/main.yml`). The decrypt command task was
+  silently skipped under `ansible-playbook --check`, leaving
+  `host_secrets` unset; the plaintext-fallback `include_vars` then loaded
+  the still-encrypted YAML and produced a `host_secrets` dict without any
+  of the real secret keys. With v0.4.0's new `lldap_jwt_secret`
+  length-assertion this surfaced as a `deploy-check` failure on every
+  sops-mode host. Fix: `check_mode: false` on the read-only decrypt
+  command. dry-run results are now meaningful again.
+
 ## [0.4.0] - 2026-05-06
 
 ### Added
