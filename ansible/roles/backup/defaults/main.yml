@@ -1,10 +1,24 @@
 ---
 backup_enabled: false
-backup_target: local  # local | sftp
+backup_target: local  # local | sftp | kedge
 backup_schedule: "0 3 * * *"  # 03:00 daily
+backup_prune_schedule: "30 4 * * 0"  # Sun 04:30 weekly (kedge target)
 backup_retain_daily: 7
 backup_retain_weekly: 4
 backup_retain_monthly: 6
 backup_local_repo: /opt/drayve/backups
 backup_sftp_host: ""
 backup_sftp_path: ""
+
+# kedge target (backup_target: kedge) — delegates to kedge CLI
+# https://codeberg.org/StephanWaldtmann/kedge
+backup_kedge_repo: "https://codeberg.org/StephanWaldtmann/kedge.git"
+backup_kedge_version: "v0.3.1"
+backup_kedge_install_dir: /opt/kedge
+backup_kedge_env_file: /root/.kedge.env
+backup_kedge_log_file: /var/log/kedge.log
+backup_kedge_stack_dir: "{{ drayve_deploy_dir }}"
+backup_kedge_restic_repository: ""  # required when target=kedge, e.g. sftp:u1234@u1234.your-storagebox.de:/genua
+backup_kedge_stop_stack: true
+backup_kedge_exclude_mounts: ""  # space-separated paths, see kedge BACKUP_EXCLUDE_VOLUMES
+backup_kedge_healthcheck_url: ""  # optional Healthchecks.io / Uptime Kuma URL

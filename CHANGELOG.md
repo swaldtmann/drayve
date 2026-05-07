@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-05-07
+
+### Added
+- **`backup.target: kedge`** — backup role can now delegate to the
+  [kedge](https://codeberg.org/StephanWaldtmann/kedge) CLI instead of
+  running its in-role restic wrapper. When selected, the role:
+  - installs `restic`, `jq`, `rsync`, `git`,
+  - clones `kedge` to `backup_kedge_install_dir` (default `/opt/kedge`)
+    pinned to `backup_kedge_version` (default `v0.3.1`),
+  - symlinks the CLI to `/usr/local/bin/kedge`,
+  - renders `/root/.kedge.env` from `host_secrets`
+    (`templates/.kedge.env.j2`, mode 0600, `no_log: true`),
+  - installs two idempotent cron entries: daily `kedge backup`
+    (`backup_schedule`) and weekly `kedge prune`
+    (`backup_prune_schedule`, default `30 4 * * 0`),
+  - removes the legacy `drayve-backup` cron entry to avoid double-runs.
+- New role defaults: `backup_kedge_repo`, `backup_kedge_version`,
+  `backup_kedge_install_dir`, `backup_kedge_env_file`,
+  `backup_kedge_log_file`, `backup_kedge_stack_dir`,
+  `backup_kedge_restic_repository`, `backup_kedge_stop_stack`,
+  `backup_kedge_exclude_mounts`, `backup_kedge_healthcheck_url`,
+  `backup_prune_schedule`.
+- New required `host_secrets` keys when `backup.target: kedge`:
+  `backup_restic_password` (already used by legacy targets) and
+  `backup_kedge_restic_repository` (or set as a stack var).
+- `docs/backup-with-kedge.md` — usage and migration notes.
+
+### Changed
+- Backup role splits cron deployment per target. The legacy
+  `local`/`sftp` cron job (`drayve-backup`) is unchanged; the kedge
+  target installs `drayve-kedge-backup` + `drayve-kedge-prune` instead.
+- Restic install task gated to `local`/`sftp`; the kedge dependency
+  task installs the same plus `jq`, `rsync`, `git`.
+
+### Deprecated
+- `backup.target: local` and `backup.target: sftp` — the in-role restic
+  wrapper. No removal in 0.5.x; `kedge` is the recommended target for
+  new deployments. Migration: see `docs/backup-with-kedge.md`.
+
 ## [0.4.1] - 2026-05-06
 
 ### Fixed

@@ -53,6 +53,8 @@ authentik_oidc_grafana_secret: ""
 
 # --- Backup ---
 backup_restic_password: ""
+# Required when backup.target: kedge — restic repository URI
+backup_kedge_restic_repository: ""
 EOF
 
 echo "==> Created $target"

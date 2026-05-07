@@ -41,8 +41,13 @@ secrets:
 
 backup:
   enabled: true
-  schedule: "0 3 * * *"
-  target: storagebox
+  target: kedge                  # kedge | local | sftp (kedge recommended)
+  schedule: "0 3 * * *"          # daily backup
+  prune_schedule: "30 4 * * 0"   # weekly prune (Sundays 04:30, kedge target only)
+  # kedge target — restic repository is provided via host_secrets
+  # (sops) as `backup_kedge_restic_repository`, e.g.:
+  #   sftp:u123456@u123456.your-storagebox.de:/genua
+  # The encryption password lives in `host_secrets.backup_restic_password`.
 
 # Apps shown on the landing page (from compose.override.yml services)
 # apps:

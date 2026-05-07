@@ -58,6 +58,11 @@ authentik_oidc_grafana_secret: "$(_rand 32)"
 
 # --- Backup ---
 backup_restic_password: "$(_rand 32)"
+# Required when backup.target: kedge — set to your restic repository URI, e.g.:
+#   sftp:u123456@u123456.your-storagebox.de:/$name
+#   /opt/drayve/backups (local)
+#   s3:s3.amazonaws.com/bucket/$name
+backup_kedge_restic_repository: ""
 EOF
 
 # --- LLDAP user passwords (from stack.yaml lldap_users[].password_var) ---
