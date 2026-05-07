@@ -13,7 +13,7 @@ ENUMS = {
     "auth.provider": ["none", "basic", "authelia", "authentik"],
     "monitoring.profile": ["full", "light", "none"],
     "secrets.mode": ["quickstart", "sops"],
-    "backup.target": ["storagebox", "s3", "local", "ssh"],
+    "backup.target": ["kedge", "local", "sftp"],
 }
 
 NAME_PATTERN = re.compile(r"^[a-z][a-z0-9-]*$")
