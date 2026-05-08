@@ -275,6 +275,8 @@
     cmd: python3 {{ drayve_deploy_dir }}/label-scanner.py {{ drayve_deploy_dir }}
   register: label_scanner_output
   changed_when: false
+  check_mode: false  # Read-only scan; must run in --check too so the
+                     # downstream from_json parse has real input.
   tags: [deploy]
 
 - name: Parse label-scanner results
