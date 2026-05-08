@@ -71,12 +71,22 @@ services:
     container_name: lldap
     restart: unless-stopped
     mem_limit: {{ mem_lldap }}
+    # ENV is the single source of truth for lldap config — all values lldap
+    # exposes are LLDAP_*-overridable per upstream contract
+    # (lldap_config.docker_template.toml header). Anything missing here falls
+    # through to the docker-image default. Consumers can extend or override
+    # via deploy/<host>/env.override.
     environment:
       - LLDAP_JWT_SECRET=${LLDAP_JWT_SECRET}
       - LLDAP_LDAP_USER_PASS=${LLDAP_ADMIN_PASSWORD}
       - LLDAP_LDAP_BASE_DN={{ lldap_base_dn }}
-      - LLDAP_DATABASE_URL=sqlite:///data/lldap.db?mode=rwc
       - LLDAP_LDAP_USER_DN=admin
+      - LLDAP_LDAP_USER_EMAIL={{ lldap_admin_email }}
+      - LLDAP_DATABASE_URL=sqlite:///data/lldap.db?mode=rwc
+      # Public URL for password-reset email links. Without this, lldap emits
+      # links to http://localhost (default) and reset mails are unusable.
+      - LLDAP_HTTP_URL=https://ldap.{{ drayve_domain }}
+      - LLDAP_VERBOSE={{ 'true' if lldap_verbose | default(false) | bool else 'false' }}
       # Per-install seed (lldap >= v0.6 ambiguous-source check #778):
       # without this override, lldap uses the docker template default
       # 'RanD0m STR1ng' — shared across all installs, breaking pw-hash isolation.

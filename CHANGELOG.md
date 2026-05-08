@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **lldap ENV-coverage** — drayve compose env now drives the lldap
+  config knobs that previously fell through to the docker-image default
+  (`LLDAP_LDAP_USER_EMAIL`, `LLDAP_HTTP_URL`, `LLDAP_VERBOSE`). Combined
+  with the existing JWT/key-seed/key-file settings, the env-block is now
+  the single source of truth for everything drayve manages.
+- `LLDAP_HTTP_URL=https://ldap.<drayve_domain>` makes password-reset
+  email links work — the docker default `http://localhost` is unusable
+  in production.
+- `lldap_verbose` (default `false`) toggles `LLDAP_VERBOSE` for
+  on-demand debug logging without an image switch.
+- Consumers can extend / override any other `LLDAP_*` knob via
+  `deploy/<host>/env.override` per upstream contract
+  (lldap_config.docker_template.toml: *"All values can be overridden
+  through environment variables"*).
+
 ### Changed
 - **Kedge cron now lives in `/etc/cron.d/kedge-<stack_name>`** instead of
   the root crontab (Ansible `cron` module). Single file holds both the
