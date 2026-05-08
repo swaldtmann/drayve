@@ -15,6 +15,9 @@
 #       fi
 #       @git -C $(DRAYVE_DIR) fetch --tags --quiet
 #       @git -C $(DRAYVE_DIR) checkout --quiet $(DRAYVE_REF)
+#       @if git -C $(DRAYVE_DIR) show-ref --verify --quiet refs/remotes/origin/$(DRAYVE_REF); then \
+#           git -C $(DRAYVE_DIR) reset --hard --quiet origin/$(DRAYVE_REF); \
+#       fi
 #       @ln -sfn $(DRAYVE_DIR)/ansible/inventory/group_vars group_vars
 #
 #   -include $(DRAYVE_DIR)/ansible/consumer.mk
