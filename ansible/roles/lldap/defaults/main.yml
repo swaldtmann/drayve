@@ -5,3 +5,9 @@ lldap_port: 3890
 lldap_http_port: 17170
 lldap_admin_email: "admin@{{ drayve_domain | default('localhost') }}"
 lldap_users: []
+
+# lldap config knobs drayve exposes via compose env (single source of
+# truth). All other lldap_config.toml fields fall through to the
+# upstream docker template default. Consumers extend via env.override
+# in deploy/<host>/.
+lldap_verbose: false
