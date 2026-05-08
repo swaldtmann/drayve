@@ -299,37 +299,69 @@ def test_kedge_env_template_is_no_log():
     pytest.fail("'Deploy kedge environment file' task not found")
 
 
-def test_kedge_cron_sources_env_file():
-    """Cron jobs must source the env file before invoking kedge."""
-    tasks = _load_tasks()
-    cron_names = ("Deploy kedge backup cron (daily)",
-                  "Deploy kedge prune cron (weekly)")
-    found = 0
-    for t in tasks:
-        if (t.get("name") or "") in cron_names:
-            job = t.get("ansible.builtin.cron", {}).get("job", "")
-            assert "/root/.kedge.env" in job or "{{ backup_kedge_env_file }}" in job, (
-                f"cron job does not source env file: {job!r}"
-            )
-            assert "/usr/local/bin/kedge" in job, (
-                f"cron job does not invoke symlinked kedge CLI: {job!r}"
-            )
-            found += 1
-    assert found == 2, f"expected 2 kedge cron tasks, found {found}"
+def test_kedge_cron_template_sources_env_file():
+    """The /etc/cron.d/ template must source the env file and invoke the
+    symlinked kedge CLI for both backup and prune lines."""
+    repo_root = Path(__file__).resolve().parents[2]
+    tpl = (repo_root / "ansible/roles/backup/templates/kedge-cron.j2").read_text()
+    assert "{{ backup_kedge_env_file }}" in tpl, "template must reference env file var"
+    assert "/usr/local/bin/kedge backup" in tpl, "template must invoke kedge backup"
+    assert "/usr/local/bin/kedge prune" in tpl, "template must invoke kedge prune"
+    # cron.d format requires a user column
+    assert " root " in tpl, "cron.d entries must specify the user column (root)"
 
 
-def test_legacy_drayve_backup_cron_removed_for_kedge():
-    """Migration path: when target switches to kedge, the old cron must go."""
+def test_kedge_cron_deployed_to_etc_crond():
+    """Cron lives at /etc/cron.d/kedge-<stack_name> via template — NOT
+    the Ansible cron module / root crontab."""
     tasks = _load_tasks()
     for t in tasks:
-        if (t.get("name") or "") == "Remove legacy drayve-backup cron entry (kedge target)":
-            cron = t.get("ansible.builtin.cron", {})
-            assert cron.get("name") == "drayve-backup"
-            assert cron.get("state") == "absent"
+        if (t.get("name") or "") == "Deploy kedge cron file":
+            tpl = t.get("ansible.builtin.template", {})
+            assert tpl.get("src") == "kedge-cron.j2"
+            assert "/etc/cron.d/kedge-" in tpl.get("dest", "")
+            assert "{{ stack_name }}" in tpl.get("dest", "")
+            assert tpl.get("mode") == "0644"
             whens = " ".join(_task_when(t))
             assert 'backup_target == "kedge"' in whens
             return
-    pytest.fail("legacy-cron-removal task not found")
+    pytest.fail("kedge cron-file template task not found")
+
+
+def test_legacy_root_crontab_entries_removed_for_kedge():
+    """Migration: when target=kedge, sweep old root-crontab entries
+    (Ansible-cron-module era) so they don't double-fire alongside the
+    new /etc/cron.d/ file."""
+    tasks = _load_tasks()
+    for t in tasks:
+        if (t.get("name") or "").startswith("Remove legacy root-crontab"):
+            cron = t.get("ansible.builtin.cron", {})
+            assert cron.get("state") == "absent"
+            assert cron.get("user") == "root"
+            loop = t.get("loop") or []
+            assert "drayve-backup" in loop
+            assert "drayve-kedge-backup" in loop
+            assert "drayve-kedge-prune" in loop
+            whens = " ".join(_task_when(t))
+            assert 'backup_target == "kedge"' in whens
+            return
+    pytest.fail("legacy root-crontab cleanup task not found")
+
+
+def test_stack_name_fact_resolved():
+    """A canonical stack_name fact must be set early; the cron-file
+    template references it for /etc/cron.d/kedge-<stack_name>."""
+    tasks = _load_tasks()
+    for t in tasks:
+        if (t.get("name") or "") == "Resolve backup settings from stack.yaml":
+            facts = t.get("ansible.builtin.set_fact", {})
+            assert "stack_name" in facts, "set_fact must define stack_name"
+            expr = facts["stack_name"]
+            assert "stack.name" in expr, "stack_name must prefer stack.name"
+            assert "drayve_name" in expr, "stack_name must fall back to drayve_name"
+            assert "inventory_hostname" in expr, "stack_name must finally fall back to inventory_hostname"
+            return
+    pytest.fail("Resolve task with stack_name fact not found")
 
 
 def test_assert_blocks_missing_secrets():
