@@ -75,6 +75,8 @@
     auth_lldap: "{{ auth.lldap | default(auth_lldap) | default(false) | bool }}"
     lldap_base_dn: "{{ auth.lldap_base_dn | default(lldap_base_dn) | default('DC=drayve,DC=local') }}"
     lldap_users: "{{ auth.lldap_users | default(lldap_users) | default([]) }}"
+    lldap_admin_email: "{{ lldap_admin_email | default('admin@' ~ drayve_domain) }}"
+    lldap_verbose: "{{ lldap_verbose | default(false) | bool }}"
   when: auth_provider == 'authelia'
   tags: [deploy]
 
