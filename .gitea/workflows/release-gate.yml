@@ -53,7 +53,7 @@ jobs:
       - name: Install dependencies
         run: |
           cd $WORKDIR
-          pip install -q -r requirements.txt
+          python3 -m pip install -q --break-system-packages -r requirements.txt
 
       - name: Run molecule scenario
         env:
