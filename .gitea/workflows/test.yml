@@ -19,7 +19,7 @@ jobs:
           git clone --depth 1 -b ${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}} https://codeberg.org/${GITHUB_REPOSITORY}.git $WORKDIR
 
       - name: Install dependencies
-        run: cd $WORKDIR && pip install -q pyyaml ansible-lint
+        run: cd $WORKDIR && pip install -q pyyaml ansible-lint pytest jinja2
 
       - name: Ansible Lint
         run: cd $WORKDIR/ansible && ansible-lint playbooks/ roles/ 2>&1 | grep -v "^WARNING"
@@ -48,6 +48,9 @@ jobs:
 
       - name: Validate examples
         run: cd $WORKDIR && for f in examples/*.yaml; do python3 scripts/validate-stack.py "$f"; done
+
+      - name: Pytest unit tests (template + role contracts)
+        run: cd $WORKDIR && python3 -m pytest tests/python/ -v
 
       - name: Cleanup
         if: always()
