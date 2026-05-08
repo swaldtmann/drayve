@@ -20,6 +20,9 @@ on:
 
 jobs:
   molecule:
+    # Skip cells whose scenario doesn't match the workflow_dispatch input.
+    # On tag-push there is no inputs.scenario — all 9 cells run.
+    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.scenario == '' || github.event.inputs.scenario == matrix.scenario }}
     runs-on: codeberg-small
     env:
       WORKDIR: /home/forgejo-runner/ci-drayve-${{ github.run_id }}-${{ matrix.scenario }}
@@ -43,12 +46,6 @@ jobs:
         run: |
           rm -rf $WORKDIR
           git clone --depth 1 -b ${GITHUB_REF_NAME} https://codeberg.org/${GITHUB_REPOSITORY}.git $WORKDIR
-
-      - name: Skip filter (workflow_dispatch single-scenario mode)
-        if: ${{ github.event.inputs.scenario != '' && github.event.inputs.scenario != matrix.scenario }}
-        run: |
-          echo "Skipping ${{ matrix.scenario }} — workflow_dispatch targets ${{ github.event.inputs.scenario }}."
-          exit 0
 
       - name: Install dependencies
         run: |
