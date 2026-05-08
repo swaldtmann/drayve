@@ -21,6 +21,25 @@
       that is identical across installations.
   tags: [lldap, secrets]
 
+# lldap >= v0.6 (#778): if key_seed and a server_key file both exist,
+# the container bails on restart with "ambiguous, aborting".
+# drayve compose-template sets LLDAP_KEY_FILE="" to disable the file
+# source, so key_seed becomes the single source of truth. Without a
+# per-install seed, all installs share the docker default 'RanD0m STR1ng'.
+- name: Assert lldap_key_seed is set
+  ansible.builtin.assert:
+    that:
+      - lldap_key_seed is defined
+      - lldap_key_seed | length >= 12
+    fail_msg: >-
+      lldap_key_seed is empty or too short. Generate via
+      `scripts/secrets-generate.sh` or set host_secrets.lldap_key_seed
+      in deploy/{{ inventory_hostname }}/secrets.yml (min. 12 chars,
+      32 recommended). Without a per-install seed, drayve installs share
+      the lldap docker-template default "RanD0m STR1ng" and pw-hash
+      isolation across installs is broken.
+  tags: [lldap, secrets]
+
 - name: Create lldap data directory
   ansible.builtin.file:
     path: "{{ lldap_data_dir }}"

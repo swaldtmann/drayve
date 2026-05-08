@@ -77,6 +77,14 @@ services:
       - LLDAP_LDAP_BASE_DN={{ lldap_base_dn }}
       - LLDAP_DATABASE_URL=sqlite:///data/lldap.db?mode=rwc
       - LLDAP_LDAP_USER_DN=admin
+      # Per-install seed (lldap >= v0.6 ambiguous-source check #778):
+      # without this override, lldap uses the docker template default
+      # 'RanD0m STR1ng' — shared across all installs, breaking pw-hash isolation.
+      - LLDAP_KEY_SEED=${LLDAP_KEY_SEED}
+      # Empty key_file forces lldap to derive the private key deterministically
+      # from key_seed only, avoiding the v0.6 'key_seed AND server_key file
+      # exist, ambiguous' bail on container restart.
+      - LLDAP_KEY_FILE=
     volumes:
       - lldap_data:/data
     healthcheck:

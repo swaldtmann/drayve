@@ -40,6 +40,10 @@ crowdsec_lapi_key: "$(_rand 32)"
 # --- LLDAP ---
 lldap_jwt_secret: "$(_rand 48)"
 lldap_admin_password: "$(_rand 20)"
+# Per-install seed for lldap private key (#778, v0.6+).
+# Without it, all drayve installs share the docker-template default
+# "RanD0m STR1ng" — pw-hash isolation across installs is broken.
+lldap_key_seed: "$(_rand 32)"
 
 # --- Authelia ---
 authelia_jwt_secret: "$(_rand 48)"
