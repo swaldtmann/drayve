@@ -18,12 +18,11 @@ on:
         required: false
         default: ""
 
-env:
-  WORKDIR: /home/forgejo-runner/ci-drayve-${{ github.run_id }}-${{ matrix.scenario }}
-
 jobs:
   molecule:
     runs-on: codeberg-small
+    env:
+      WORKDIR: /home/forgejo-runner/ci-drayve-${{ github.run_id }}-${{ matrix.scenario }}
     strategy:
       fail-fast: false
       max-parallel: 1
