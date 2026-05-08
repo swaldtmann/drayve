@@ -1,0 +1,67 @@
+name: Release Gate (molecule on hcloud)
+
+# Real-VM molecule scenarios. Triggers only on tag-push (v*) — too costly per
+# PR (~0.05 EUR per scenario × 9 scenarios + wall-clock ~10 min). Manually
+# triggerable via workflow_dispatch.
+#
+# Requires repository secret HCLOUD_TOKEN with project-write rights for the
+# hcloud project that hosts the test boxes.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: "molecule scenario to run (single, leave empty for all)"
+        required: false
+        default: ""
+
+env:
+  WORKDIR: /home/forgejo-runner/ci-drayve-${{ github.run_id }}-${{ matrix.scenario }}
+
+jobs:
+  molecule:
+    runs-on: codeberg-small
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario:
+          - basic
+          - auth-none
+          - authelia
+          - authentik
+          - authentik-ldap
+          - light
+          - sops
+          - backup
+          - integration
+
+    steps:
+      - name: Checkout
+        run: |
+          rm -rf $WORKDIR
+          git clone --depth 1 -b ${GITHUB_REF_NAME} https://codeberg.org/${GITHUB_REPOSITORY}.git $WORKDIR
+
+      - name: Skip filter (workflow_dispatch single-scenario mode)
+        if: ${{ github.event.inputs.scenario != '' && github.event.inputs.scenario != matrix.scenario }}
+        run: |
+          echo "Skipping ${{ matrix.scenario }} — workflow_dispatch targets ${{ github.event.inputs.scenario }}."
+          exit 0
+
+      - name: Install dependencies
+        run: |
+          cd $WORKDIR
+          pip install -q -r requirements.txt
+
+      - name: Run molecule scenario
+        env:
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+        run: |
+          cd $WORKDIR
+          molecule test -s ${{ matrix.scenario }}
+
+      - name: Cleanup workspace
+        if: always()
+        run: rm -rf $WORKDIR
