@@ -1,0 +1,10 @@
+# {{ ansible_managed }}
+# Stack: {{ stack_name }}
+# Generator: drayve role 'backup' (target: kedge), template
+# roles/backup/templates/kedge-cron.j2.
+# Both jobs source {{ backup_kedge_env_file }} for RESTIC_REPOSITORY,
+# RESTIC_PASSWORD, BACKUP_KEEP_*, etc.
+MAILTO=""
+SHELL=/bin/bash
+{{ backup_schedule }} root set -a; . {{ backup_kedge_env_file }}; set +a; /usr/local/bin/kedge backup >> {{ backup_kedge_log_file }} 2>&1
+{{ backup_prune_schedule }} root set -a; . {{ backup_kedge_env_file }}; set +a; /usr/local/bin/kedge prune >> {{ backup_kedge_log_file }} 2>&1

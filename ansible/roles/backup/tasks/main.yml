@@ -7,6 +7,10 @@
     backup_target: "{{ backup.target | default(backup_target) | default('local') }}"
     backup_schedule: "{{ backup.schedule | default(backup_schedule) | default('0 3 * * *') }}"
     backup_prune_schedule: "{{ backup.prune_schedule | default(backup_prune_schedule) | default('30 4 * * 0') }}"
+    # Resolve canonical stack identifier for derived artefact names
+    # (e.g. /etc/cron.d/kedge-<stack_name>). Order: stack.name from
+    # stack.yaml, then drayve_name CLI var, then inventory hostname.
+    stack_name: "{{ stack.name | default(drayve_name) | default(inventory_hostname) }}"
   tags: [backup]
 
 - name: Skip backup (disabled)
@@ -178,41 +182,31 @@
     - backup_target == "kedge"
   tags: [backup]
 
-- name: Remove legacy drayve-backup cron entry (kedge target)
+# Cron is deployed as a single /etc/cron.d/kedge-<stack_name> file holding
+# both the backup and prune entries — visible to ls /etc/cron.d/, debuggable
+# without crontab -l, atomically versionable. See ADR / role README for the
+# rationale (chosen over the Ansible cron module / root crontab).
+- name: Remove legacy root-crontab entries (drayve-backup, drayve-kedge-*)
   ansible.builtin.cron:
-    name: "drayve-backup"
+    name: "{{ item }}"
     state: absent
     user: root
+  loop:
+    - drayve-backup
+    - drayve-kedge-backup
+    - drayve-kedge-prune
   when:
     - backup_enabled | bool
     - backup_target == "kedge"
   tags: [backup]
 
-- name: Deploy kedge backup cron (daily)
-  ansible.builtin.cron:
-    name: "drayve-kedge-backup"
-    minute: "{{ backup_schedule.split(' ')[0] }}"
-    hour: "{{ backup_schedule.split(' ')[1] }}"
-    day: "{{ backup_schedule.split(' ')[2] }}"
-    month: "{{ backup_schedule.split(' ')[3] }}"
-    weekday: "{{ backup_schedule.split(' ')[4] }}"
-    job: "set -a; . {{ backup_kedge_env_file }}; set +a; /usr/local/bin/kedge backup >> {{ backup_kedge_log_file }} 2>&1"
-    user: root
-  when:
-    - backup_enabled | bool
-    - backup_target == "kedge"
-  tags: [backup]
-
-- name: Deploy kedge prune cron (weekly)
-  ansible.builtin.cron:
-    name: "drayve-kedge-prune"
-    minute: "{{ backup_prune_schedule.split(' ')[0] }}"
-    hour: "{{ backup_prune_schedule.split(' ')[1] }}"
-    day: "{{ backup_prune_schedule.split(' ')[2] }}"
-    month: "{{ backup_prune_schedule.split(' ')[3] }}"
-    weekday: "{{ backup_prune_schedule.split(' ')[4] }}"
-    job: "set -a; . {{ backup_kedge_env_file }}; set +a; /usr/local/bin/kedge prune >> {{ backup_kedge_log_file }} 2>&1"
-    user: root
+- name: Deploy kedge cron file
+  ansible.builtin.template:
+    src: kedge-cron.j2
+    dest: "/etc/cron.d/kedge-{{ stack_name }}"
+    owner: root
+    group: root
+    mode: "0644"
   when:
     - backup_enabled | bool
     - backup_target == "kedge"
