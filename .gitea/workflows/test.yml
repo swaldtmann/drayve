@@ -19,7 +19,10 @@ jobs:
           git clone --depth 1 -b ${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}} https://codeberg.org/${GITHUB_REPOSITORY}.git $WORKDIR
 
       - name: Install dependencies
-        run: cd $WORKDIR && python3 -m pip install -q --break-system-packages pyyaml ansible-lint pytest jinja2
+        run: |
+          cd $WORKDIR
+          python3 -m pip install -q --break-system-packages pyyaml ansible-lint pytest jinja2
+          ansible-galaxy collection install -r ansible/requirements.yml
 
       - name: Ansible Lint
         run: cd $WORKDIR/ansible && ansible-lint playbooks/ roles/ 2>&1 | grep -v "^WARNING"
