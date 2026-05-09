@@ -15,7 +15,7 @@ on:
 
 jobs:
   molecule:
-    runs-on: codeberg-small
+    runs-on: codeberg-medium
     env:
       WORKDIR: /home/forgejo-runner/ci-drayve-${{ github.run_id }}-${{ matrix.scenario }}
     strategy:
