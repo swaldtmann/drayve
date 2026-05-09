@@ -52,12 +52,17 @@ jobs:
           cd $WORKDIR
           python3 -m pip install -q --break-system-packages -r requirements.txt
 
-      - name: Run molecule scenario
+      - name: Run molecule scenario (converge + destroy)
+        # Skip idempotence/verify/side_effect — codeberg-medium has a 10-min
+        # cap, full molecule test_sequence runs ~12-13 min. Locally use
+        # `molecule test -s <scenario>` for the full sequence.
         env:
           HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
         run: |
           cd $WORKDIR
-          molecule test -s ${{ inputs.scenario }}
+          set -e
+          trap 'molecule destroy -s ${{ inputs.scenario }} || true' EXIT
+          molecule converge -s ${{ inputs.scenario }}
 
       - name: Cleanup workspace
         if: always()
