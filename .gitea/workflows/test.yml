@@ -52,6 +52,9 @@ jobs:
       - name: Validate examples
         run: cd $WORKDIR && for f in examples/*.yaml; do python3 scripts/validate-stack.py "$f"; done
 
+      - name: Pre-Inventur (var refs vs definitions)
+        run: cd $WORKDIR && python3 scripts/check-vars.py
+
       - name: Pytest unit tests (template + role contracts)
         run: cd $WORKDIR && python3 -m pytest tests/python/ -v
 

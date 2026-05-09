@@ -1,0 +1,41 @@
+# Whitelist fuer scripts/check-vars.py.
+# Vars die legitim referenziert werden, aber nicht in roles/defaults oder
+# group_vars stehen — z.B. weil sie via -e CLI-Override, vars_files
+# (stack.yaml) oder include_vars (secrets.yml/sops) geladen werden.
+#
+# Eine Var pro Zeile, # = Kommentar.
+
+# CLI-Overrides (via consumer.mk: ansible-playbook ... -e drayve_name=NAME)
+drayve_name
+domain
+target
+
+# stack.yaml top-level keys (via vars_files in consumer.mk)
+provider
+auth
+monitoring
+secrets
+backup
+security
+services
+stack
+site
+deploy_ref
+drayve_version
+
+# secrets.yml (via include_vars/sops, role-internal)
+authelia_ldap_password
+authelia_oidc_grafana_secret
+authentik_bootstrap_token
+authentik_oidc_grafana_secret
+ldap_bind_password
+lldap_admin_password
+backup_restic_password
+auth_basic_password
+grafana_admin_pass
+crowdsec_bouncer_key
+crowdsec_lapi_key
+
+# Stack-derived (lookup in tasks)
+multinet_primary_network
+stack_name
