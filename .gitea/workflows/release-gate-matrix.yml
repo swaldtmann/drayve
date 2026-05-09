@@ -1,28 +1,20 @@
-name: Release Gate (molecule on hcloud)
+name: Release Gate — Matrix (tag-push)
 
-# Real-VM molecule scenarios. Triggers only on tag-push (v*) — too costly per
-# PR (~0.05 EUR per scenario × 9 scenarios + wall-clock ~10 min). Manually
-# triggerable via workflow_dispatch.
+# Real-VM molecule scenarios on tag-push (v*). All 9 scenarios run.
+# Cost: ~0.05 EUR × 9 + wall-clock ~10 min/scenario.
+#
+# For single-scenario manual runs use release-gate-single.yml (workflow_dispatch).
 #
 # Requires repository secret HCLOUD_TOKEN with project-write rights for the
-# hcloud project that hosts the test boxes.
+# hcloud project that hosts the test boxes (greenfields).
 
 on:
   push:
     tags:
       - "v*"
-  workflow_dispatch:
-    inputs:
-      scenario:
-        description: "molecule scenario to run (single, leave empty for all)"
-        required: false
-        default: ""
 
 jobs:
   molecule:
-    # Skip cells whose scenario doesn't match the workflow_dispatch input.
-    # On tag-push there is no inputs.scenario — all 9 cells run.
-    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.scenario == '' || github.event.inputs.scenario == matrix.scenario }}
     runs-on: codeberg-small
     env:
       WORKDIR: /home/forgejo-runner/ci-drayve-${{ github.run_id }}-${{ matrix.scenario }}

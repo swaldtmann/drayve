@@ -1,0 +1,57 @@
+name: Release Gate — Single (manual)
+
+# Manual single-scenario run via workflow_dispatch. One job, no matrix
+# (Forgejo's matrix-context is not available in job-level `if`, and dynamic
+# matrices are evaluated statically — see CodebergF runner #525).
+#
+# Pick one of: basic | auth-none | authelia | authentik | authentik-ldap
+#              | light | sops | backup | integration
+#
+# For a full gate (all 9 scenarios) push a v* tag — see release-gate-matrix.yml.
+
+on:
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: "molecule scenario to run"
+        required: true
+        default: "basic"
+        type: choice
+        options:
+          - basic
+          - auth-none
+          - authelia
+          - authentik
+          - authentik-ldap
+          - light
+          - sops
+          - backup
+          - integration
+
+jobs:
+  molecule:
+    runs-on: codeberg-small
+    env:
+      WORKDIR: /home/forgejo-runner/ci-drayve-${{ github.run_id }}-${{ inputs.scenario }}
+
+    steps:
+      - name: Checkout
+        run: |
+          rm -rf $WORKDIR
+          git clone --depth 1 -b ${GITHUB_REF_NAME} https://codeberg.org/${GITHUB_REPOSITORY}.git $WORKDIR
+
+      - name: Install dependencies
+        run: |
+          cd $WORKDIR
+          python3 -m pip install -q --break-system-packages -r requirements.txt
+
+      - name: Run molecule scenario
+        env:
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+        run: |
+          cd $WORKDIR
+          molecule test -s ${{ inputs.scenario }}
+
+      - name: Cleanup workspace
+        if: always()
+        run: rm -rf $WORKDIR
