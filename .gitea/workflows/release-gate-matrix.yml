@@ -34,6 +34,13 @@ jobs:
           - integration
 
     steps:
+      - name: Generate ephemeral SSH key
+        # roles/common provisions authorized_keys via lookup('file', '~/.ssh/id_ed25519.pub').
+        # Runner containers don't ship one — generate a throwaway pair per run.
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N "" -C "drayve-ci-${{ github.run_id }}-${{ matrix.scenario }}"
+
       - name: Checkout
         run: |
           rm -rf $WORKDIR
