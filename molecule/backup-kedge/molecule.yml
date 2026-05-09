@@ -1,0 +1,92 @@
+---
+# Test: backup role with kedge target — git-clone + symlink + .kedge.env
+# + /etc/cron.d/kedge-<stack> + legacy crontab cleanup.
+driver:
+  name: molecule_hetznercloud
+platforms:
+  - name: test-backup-kedge
+    image: ubuntu-24.04
+    server_type: cx23
+    location: nbg1
+provisioner:
+  name: ansible
+  playbooks:
+    converge: converge.yml
+  env:
+    ANSIBLE_ROLES_PATH: "../../ansible/roles"
+  inventory:
+    group_vars:
+      all:
+        drayve_root: /opt/drayve
+        drayve_deploy_dir: /opt/drayve/deploy/stack
+        drayve_config_dir: /opt/drayve/config
+        drayve_user: drayve
+        drayve_uid: 1000
+        drayve_group: drayve
+        drayve_domain: test.drayve.local
+        drayve_hostname: test-backup-kedge
+        swap_size_mb: 1024
+        swap_file: /swapfile
+        common_packages:
+          - curl
+          - jq
+          - rsync
+          - git
+          - ufw
+          - python3-pip
+          - acl
+        ufw_allowed_ports:
+          - { port: "22", proto: "tcp" }
+          - { port: "80", proto: "tcp" }
+          - { port: "443", proto: "tcp" }
+        ssh_password_auth: "no"
+        ssh_root_login: "prohibit-password"
+        # Auth: basic (minimal, focus is backup)
+        auth_provider: basic
+        auth_lldap: false
+        # Monitoring: light (keep box small)
+        monitoring_profile: light
+        # Security
+        crowdsec_enabled: true
+        # ACME
+        acme_email: test@example.com
+        # Backup: enabled, kedge target
+        backup_enabled: true
+        backup_target: kedge
+        backup_schedule: "0 3 * * *"
+        backup_prune_schedule: "30 4 * * 0"
+        backup_restic_password: test-restic-password-32chars-long
+        # Local restic-repo for the kedge run (no SFTP in CI).
+        backup_kedge_restic_repository: /var/lib/restic-test/repo
+        backup_kedge_version: v0.3.2
+        # Use stable stack name in derived artefacts (cron file).
+        stack:
+          name: test-backup-kedge
+        # Secrets (test values)
+        hetzner_api_token: ""
+        grafana_admin_password: test-grafana-pw
+        crowdsec_bouncer_key: test-bouncer-key
+        crowdsec_lapi_key: test-lapi-key
+        auth_basic_user: admin
+        auth_basic_password: test-basic-pw
+        # Images
+        node_exporter_image: prom/node-exporter:v1.10.2
+        cadvisor_image: ghcr.io/google/cadvisor:0.56.2
+        loki_image: grafana/loki:3.3.2
+        promtail_image: grafana/promtail:3.3.2
+        grafana_image: grafana/grafana:12.3.6
+        prometheus_image: prom/prometheus:v3.4.0
+        # Memory limits
+        # --- Docker registry mirror (avoid rate limits) ---
+        docker_registry_mirrors:
+          - "http://192.0.2.10:5000"
+        mem_traefik: 256m
+        mem_crowdsec: 512m
+        mem_prometheus: 512m
+        mem_grafana: 256m
+        mem_node_exporter: 32m
+        mem_cadvisor: 64m
+        mem_loki: 512m
+        mem_promtail: 64m
+verifier:
+  name: testinfra

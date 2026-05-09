@@ -5,7 +5,7 @@ name: Release Gate — Single (manual)
 # matrices are evaluated statically — see CodebergF runner #525).
 #
 # Pick one of: basic | auth-none | authelia | authentik | authentik-ldap
-#              | light | sops | backup | integration
+#              | light | sops | backup | backup-kedge | integration
 #
 # For a full gate (all 9 scenarios) push a v* tag — see release-gate-matrix.yml.
 
@@ -26,6 +26,7 @@ on:
           - light
           - sops
           - backup
+          - backup-kedge
           - integration
 
 jobs:
