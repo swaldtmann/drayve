@@ -15,9 +15,11 @@ on:
 
 jobs:
   molecule:
-    runs-on: codeberg-medium
+    runs-on: self-hosted
+    container:
+      image: catthehacker/ubuntu:act-24.04
     env:
-      WORKDIR: /home/forgejo-runner/ci-drayve-${{ github.run_id }}-${{ matrix.scenario }}
+      WORKDIR: /tmp/ci-drayve-${{ github.run_id }}-${{ matrix.scenario }}
     strategy:
       fail-fast: false
       max-parallel: 1
@@ -44,17 +46,15 @@ jobs:
         run: |
           cd $WORKDIR
           python3 -m pip install -q --break-system-packages -r requirements.txt
+          ansible-galaxy collection install -r ansible/requirements.yml
 
-      - name: Run molecule scenario (converge + destroy)
-        # Skip idempotence/verify/side_effect — codeberg-medium has a 10-min
-        # cap. Locally use `molecule test -s <scenario>` for full sequence.
+      - name: Run full molecule test_sequence
+        # self-hosted Runner hat keinen 10-min-Cap → full test_sequence.
         env:
           HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
         run: |
           cd $WORKDIR
-          set -e
-          trap 'molecule destroy -s ${{ matrix.scenario }} || true' EXIT
-          molecule converge -s ${{ matrix.scenario }}
+          molecule test -s ${{ matrix.scenario }}
 
       - name: Cleanup workspace
         if: always()
