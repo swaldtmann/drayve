@@ -5,6 +5,7 @@
   become: true
   vars:
     ops_repo_root: "{{ playbook_dir | regex_replace('/molecule/basic$', '') }}"
+    ops_secrets_root: "{{ ops_repo_root }}"
   roles:
     - role: common
     - role: docker
