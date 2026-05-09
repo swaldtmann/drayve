@@ -10,3 +10,9 @@ common_packages:
 
 swap_size_mb: 2048
 swap_file: /swapfile
+
+# Public SSH key fuer drayve_user authorized_keys.
+# Default versucht ~/.ssh/id_ed25519.pub des Ansible-Controllers; fehlt der
+# Schluessel (z.B. in CI ohne Key), wird der authorized_key-Task skipped.
+# Override via stack.yaml oder -e drayve_ssh_authorized_key=...
+drayve_ssh_authorized_key: "{{ lookup('file', '~/.ssh/id_ed25519.pub', errors='ignore') | default('', true) }}"

@@ -1,4 +1,22 @@
 ---
+# === Defaults fuer ops_*-Roots ===
+# Greifen wenn von aussen nichts gesetzt ist (Molecule-Tests). Prod-Pfad
+# ueberschreibt via consumer.mk -e ops_secrets_root=...
+- name: Set ops_repo_root default
+  ansible.builtin.set_fact:
+    ops_repo_root: "{{ ops_repo_root | default(playbook_dir | regex_replace('/(ansible(/playbooks)?|molecule/[^/]+)$', ''), true) }}"
+  tags: [always]
+
+- name: Set ops_secrets_root default
+  ansible.builtin.set_fact:
+    ops_secrets_root: "{{ ops_secrets_root | default(ops_repo_root, true) }}"
+  tags: [always]
+
+- name: Set ops_deploy_root default
+  ansible.builtin.set_fact:
+    ops_deploy_root: "{{ ops_deploy_root | default(ops_repo_root, true) }}"
+  tags: [always]
+
 # === Packages ===
 - name: Install common packages
   ansible.builtin.apt:
@@ -104,8 +122,9 @@
 - name: Set up SSH authorized keys
   ansible.posix.authorized_key:
     user: "{{ drayve_user }}"
-    key: "{{ lookup('file', '~/.ssh/id_ed25519.pub') }}"
+    key: "{{ drayve_ssh_authorized_key }}"
     state: present
+  when: drayve_ssh_authorized_key | length > 0
   tags: [users]
 
 # === Base directories ===

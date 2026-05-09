@@ -3,10 +3,6 @@
 - name: Authentik + LDAP Source integration test
   hosts: all
   become: true
-  vars:
-    ops_repo_root: "{{ playbook_dir | regex_replace('/molecule/authentik-ldap$', '') }}"
-    ops_secrets_root: "{{ ops_repo_root }}"
-    ops_deploy_root: "{{ ops_repo_root }}"
   roles:
     - role: common
     - role: docker
