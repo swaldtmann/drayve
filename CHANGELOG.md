@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **`make deploy-check-fast`** (W-131) — fast static validation of
+  `stack.yaml` and host secrets without touching the target host.
+  Runs `playbooks/validate.yml` locally and asserts: preflight vars,
+  `apps[].category`, `host_secrets.lldap_jwt_secret`/`lldap_key_seed`
+  when `auth.lldap` is enabled, and kedge backup prerequisites when
+  `backup.target=kedge`. Replaces the routine "did I break the
+  config?" use of `deploy-check` while the deep dry-run remains
+  structurally broken in v0.4.x.
 - **lldap ENV-coverage** — drayve compose env now drives the lldap
   config knobs that previously fell through to the docker-image default
   (`LLDAP_LDAP_USER_EMAIL`, `LLDAP_HTTP_URL`, `LLDAP_VERBOSE`). Combined

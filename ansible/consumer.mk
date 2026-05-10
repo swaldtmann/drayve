@@ -75,8 +75,11 @@ deploy-prod: $(DEPLOY_DEPS)  ## Deploy DRAYVE_REF to host (CONFIRM=y to skip pro
 	@[ "$(CONFIRM)" = "y" ] || { printf "Deploy $(DRAYVE_REF) to $(NAME) PRODUCTION? [y/N] "; read ans; [ "$$ans" = "y" ] || exit 1; }
 	$(ANSIBLE) playbooks/deploy.yml -l $(NAME) -e deploy_ref=$(DRAYVE_REF) -e ops_secrets_root=$(CURDIR) -e @$(CURDIR)/stack.yaml
 
-deploy-check: $(CHECK_DEPS)  ## Dry-run: ansible --check against host
+deploy-check: $(CHECK_DEPS)  ## Deep dry-run: deploy.yml --check (KNOWN-BROKEN in v0.4.x, prefer deploy-check-fast — W-131)
 	$(ANSIBLE) playbooks/deploy.yml -l $(NAME) -e deploy_ref=$(DRAYVE_REF) -e ops_secrets_root=$(CURDIR) -e @$(CURDIR)/stack.yaml --check
+
+deploy-check-fast: $(CHECK_DEPS)  ## Fast static validation: stack.yaml + secrets, no host contact (W-131)
+	$(ANSIBLE) playbooks/validate.yml -l $(NAME) -e deploy_ref=$(DRAYVE_REF) -e ops_secrets_root=$(CURDIR) -e @$(CURDIR)/stack.yaml
 
 secrets-edit:  ## Edit SECRETS_FILE via sops
 	sops $(SECRETS_FILE)
@@ -87,4 +90,4 @@ secrets-edit-env:  ## Edit ENV_FILE via sops (dotenv-Typ explizit)
 ping:  ## Ansible ping target host
 	@cd $(DRAYVE_DIR)/ansible && ansible -i $(CURDIR)/hosts.yaml -m ping $(NAME)
 
-.PHONY: help age-key-link pre-snapshot deploy-prod deploy-check secrets-edit secrets-edit-env ping
+.PHONY: help age-key-link pre-snapshot deploy-prod deploy-check deploy-check-fast secrets-edit secrets-edit-env ping

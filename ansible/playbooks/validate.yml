@@ -1,0 +1,152 @@
+---
+# Drayve fast validation — static checks for stack.yaml + secrets.
+#
+# Verifies that a deploy is "configurationally sound" without touching the
+# target host. Replaces `make deploy-check` for the routine "did I break the
+# config?" question. The deep dry-run (deploy.yml --check) is structurally
+# broken in v0.4.x because command/shell tasks without `check_mode: false`
+# are skipped, and downstream from_json/until/assert logic blows up on the
+# resulting empty values.
+#
+# Scope:
+#   - preflight_vars (vars loaded, deploy_user, drayve_root, ops_secrets_root)
+#   - stack.yaml semantics (apps[].category, auth/backup combinations)
+#   - secrets file present + decryptable + required keys for active modules
+#
+# Out of scope (see deploy-prod + e2e-smoke):
+#   - container health, network reachability, certificate state
+#   - render-diff against host filesystem
+#
+# Usage (via consumer.mk):
+#   make deploy-check-fast
+#
+# Direct:
+#   cd ansible && ansible-playbook -i <inv> playbooks/validate.yml \
+#     -l <host> -e ops_secrets_root=<repo> -e @<repo>/stack.yaml
+
+- name: Drayve validate — fast static check
+  hosts: "{{ target | default('drayve') }}"
+  connection: local
+  gather_facts: false
+  become: false
+
+  tasks:
+    - name: Preflight required deployment variables
+      ansible.builtin.import_tasks: ../tasks/preflight_vars.yml
+
+    # ---------- stack.yaml semantics ----------
+
+    - name: Resolve apps from stack.yaml
+      ansible.builtin.set_fact:
+        _apps: "{{ apps | default([]) }}"
+
+    - name: Validate apps[].category is set on every app
+      ansible.builtin.assert:
+        that:
+          - _apps | rejectattr('category', 'defined') | list | length == 0
+        fail_msg: |
+          stack.yaml: every entry under `apps:` must declare a `category` field.
+          Missing on: {{ _apps | rejectattr('category', 'defined') | map(attribute='name') | list }}
+        success_msg: "apps[].category present on all {{ _apps | length }} app(s)"
+      when: _apps | length > 0
+
+    - name: Resolve auth profile from stack.yaml
+      ansible.builtin.set_fact:
+        _auth_provider: "{{ auth.provider | default('basic') }}"
+        _auth_lldap: "{{ auth.lldap | default(false) | bool }}"
+
+    - name: Resolve backup profile from stack.yaml
+      ansible.builtin.set_fact:
+        _backup_enabled: "{{ backup.enabled | default(false) | bool }}"
+        _backup_target: "{{ backup.target | default('local') }}"
+
+    # ---------- secrets file ----------
+
+    - name: Stat host secrets file
+      ansible.builtin.stat:
+        path: "{{ ops_secrets_root }}/deploy/{{ inventory_hostname }}/secrets.yml"
+      register: _secrets_stat
+
+    - name: Decrypt SOPS secrets (read-only, local)
+      ansible.builtin.command:
+        cmd: "sops -d {{ ops_secrets_root }}/deploy/{{ inventory_hostname }}/secrets.yml"
+      environment:
+        SOPS_AGE_KEY_FILE: "{{ ops_secrets_root }}/deploy/.age-key.txt"
+      register: _sops_decrypt
+      changed_when: false
+      failed_when: false
+      no_log: true
+      when: _secrets_stat.stat.exists
+
+    - name: Load decrypted secrets into host_secrets (sops)
+      ansible.builtin.set_fact:
+        host_secrets: "{{ _sops_decrypt.stdout | from_yaml }}"
+      when:
+        - _secrets_stat.stat.exists
+        - _sops_decrypt.rc | default(1) == 0
+      no_log: true
+
+    - name: Load plaintext secrets into host_secrets (quickstart)
+      ansible.builtin.include_vars:
+        file: "{{ ops_secrets_root }}/deploy/{{ inventory_hostname }}/secrets.yml"
+        name: host_secrets
+      when:
+        - _secrets_stat.stat.exists
+        - _sops_decrypt.rc | default(1) != 0
+
+    - name: Default host_secrets to empty if no file present
+      ansible.builtin.set_fact:
+        host_secrets: {}
+      when: not _secrets_stat.stat.exists
+
+    # ---------- module-conditional secret asserts ----------
+
+    - name: Assert lldap_jwt_secret is set (auth.lldap enabled)
+      ansible.builtin.assert:
+        that:
+          - host_secrets.lldap_jwt_secret is defined
+          - host_secrets.lldap_jwt_secret | length >= 32
+        fail_msg: >-
+          host_secrets.lldap_jwt_secret missing or shorter than 32 chars.
+          Generate via scripts/secrets-generate.sh or set in
+          deploy/{{ inventory_hostname }}/secrets.yml. Empty/short JWT
+          secrets let LLDAP fall back to a deterministic key shared across
+          installations.
+      when: _auth_lldap
+
+    - name: Assert lldap_key_seed is set (auth.lldap enabled)
+      ansible.builtin.assert:
+        that:
+          - host_secrets.lldap_key_seed is defined
+          - host_secrets.lldap_key_seed | length >= 12
+        fail_msg: >-
+          host_secrets.lldap_key_seed missing or shorter than 12 chars.
+          Without a per-install seed, drayve installs share the lldap
+          docker-template default and pw-hash isolation is broken.
+      when: _auth_lldap
+
+    - name: Assert kedge backup prerequisites (backup.target=kedge)
+      ansible.builtin.assert:
+        that:
+          - host_secrets.backup_kedge_restic_repository is defined
+          - host_secrets.backup_kedge_restic_repository | length > 0
+          - host_secrets.backup_restic_password is defined
+          - host_secrets.backup_restic_password | length > 0
+        fail_msg: >-
+          backup.target=kedge requires host_secrets.backup_kedge_restic_repository
+          and host_secrets.backup_restic_password.
+      when:
+        - _backup_enabled
+        - _backup_target == "kedge"
+
+    - name: Validate summary
+      ansible.builtin.debug:
+        msg: |
+          Drayve validate — OK
+            host          = {{ inventory_hostname }}
+            domain        = {{ drayve_domain }}
+            auth          = {{ _auth_provider }}{% if _auth_lldap %} + lldap{% endif %}
+
+            backup        = {{ 'enabled (' ~ _backup_target ~ ')' if _backup_enabled else 'disabled' }}
+            apps          = {{ _apps | length }}
+            secrets file  = {{ 'present' if _secrets_stat.stat.exists else 'missing' }}

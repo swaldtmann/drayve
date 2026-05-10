@@ -248,14 +248,16 @@ test-unit: test-syntax  ## Run python (pytest) + bash (bats) unit tests + ansibl
 
 test-syntax: test-syntax-core test-syntax-provision  ## Ansible syntax-check on all playbooks
 
-test-syntax-core:  ## Ansible syntax-check on deploy/backup/burn playbooks
-	@echo "==> Ansible syntax-check (deploy/backup/burn)..."
+test-syntax-core:  ## Ansible syntax-check on deploy/backup/burn/validate playbooks
+	@echo "==> Ansible syntax-check (deploy/backup/burn/validate)..."
 	@set -o pipefail && ANSIBLE_ROLES_PATH=$(CURDIR)/ansible/roles ansible-playbook --syntax-check \
 		-i localhost, \
 		-e drayve_name=stub -e drayve_domain=stub.example.com \
+		-e drayve_root=/srv/drayve -e ops_secrets_root=/tmp -e drayve_user=drayve \
 		ansible/playbooks/deploy.yml \
 		ansible/playbooks/backup.yml \
-		ansible/playbooks/burn.yml 2>&1 \
+		ansible/playbooks/burn.yml \
+		ansible/playbooks/validate.yml 2>&1 \
 		| (grep -vE '^(\[WARNING\]|playbook:|^$$)' || true)
 	@echo "==> Core syntax OK"
 
