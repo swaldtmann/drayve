@@ -62,6 +62,34 @@ provisioner:
         authelia_ldap_password: test-authelia-ldap-pw
         authelia_oidc_hmac_secret: test-oidc-hmac-secret-min-32-characters
         authelia_oidc_grafana_secret: test-grafana-oidc-secret-32chars
+        # W-144: exercise the multi-client OIDC path. The forgejo client is
+        # declarative-only — no real Forgejo container is deployed here.
+        # Authelia must accept the config and serve /api/oidc/configuration.
+        authelia_oidc_forgejo_secret: test-forgejo-oidc-secret-32chars
+        auth:
+          provider: authelia
+          lldap: true
+          oidc_clients:
+            - id: grafana
+              name: Grafana
+              authorization_policy: one_factor
+              consent_mode: implicit
+              redirect_uris:
+                - "https://grafana.test.drayve.local/login/generic_oauth"
+              scopes: [openid, profile, email, groups]
+            - id: forgejo
+              name: Forgejo
+              authorization_policy: forgejo_access
+              consent_mode: implicit
+              redirect_uris:
+                - "https://git.test.drayve.local/user/oauth2/Authelia/callback"
+              scopes: [openid, profile, email, groups]
+          authorization_policies:
+            forgejo_access:
+              default_policy: deny
+              rules:
+                - policy: one_factor
+                  subject: ["group:forgejo_users"]
         lldap_jwt_secret: test-lldap-jwt-secret-min-32-chars
         # --- Monitoring ---
         monitoring_profile: full

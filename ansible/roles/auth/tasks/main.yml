@@ -8,6 +8,25 @@
     auth_lldap: "{{ auth.lldap | default(auth_lldap) | default(false) | bool }}"
   tags: [auth]
 
+# W-144: declarative OIDC clients. stack.yaml supplies a list of clients;
+# fallback is the legacy single Grafana client (back-compat for v0.1.x stacks).
+- name: Resolve authelia_oidc_clients from stack.yaml
+  ansible.builtin.set_fact:
+    authelia_oidc_clients: >-
+      {{ auth.oidc_clients
+         | default(authelia_oidc_clients | default(authelia_oidc_clients_default))
+      }}
+    authelia_oidc_authorization_policies: >-
+      {{ auth.authorization_policies
+         | default(authelia_oidc_authorization_policies | default({}))
+      }}
+    authelia_oidc_claims_policies: >-
+      {{ auth.claims_policies
+         | default(authelia_oidc_claims_policies | default({}))
+      }}
+  when: auth_provider == "authelia"
+  tags: [auth]
+
 - name: Auth provider none — no auth containers
   ansible.builtin.debug:
     msg: "Auth provider: none — skipping auth setup"

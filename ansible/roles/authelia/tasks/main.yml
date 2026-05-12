@@ -41,13 +41,51 @@
   no_log: true
   tags: [authelia]
 
-- name: Check for existing OIDC client secret hash
-  ansible.builtin.stat:
-    path: "{{ authelia_data_dir }}/.oidc_grafana_hash"
-  register: _oidc_hash_file
+# W-144: per-client OIDC secret + hash. One PBKDF2-SHA512 hash file per client
+# under <data>/.oidc_<id>_hash. Plain secret comes from host_secrets via the
+# convention `authelia_oidc_<id>_secret`. The legacy variable
+# `authelia_oidc_grafana_secret` keeps working through that convention.
+
+- name: Resolve per-client OIDC plain secrets
+  ansible.builtin.set_fact:
+    authelia_oidc_client_secrets: >-
+      {{ authelia_oidc_client_secrets | default({}) | combine({
+           item.id: (host_secrets | default({})).get(
+             'authelia_oidc_' ~ item.id ~ '_secret',
+             lookup('vars', 'authelia_oidc_' ~ item.id ~ '_secret', default='')
+           )
+         })
+      }}
+  loop: "{{ authelia_oidc_clients }}"
+  loop_control:
+    label: "{{ item.id }}"
+  no_log: true
   tags: [authelia]
 
-- name: Generate PBKDF2 hash for OIDC client secret
+- name: Fail when any OIDC client is missing a plain secret
+  ansible.builtin.assert:
+    that:
+      - authelia_oidc_client_secrets[item.id] | length > 0
+    fail_msg: >-
+      No plain OIDC secret found for client '{{ item.id }}'.
+      Set host_secrets.authelia_oidc_{{ item.id }}_secret in
+      deploy/{{ inventory_hostname }}/secrets.yml.
+  loop: "{{ authelia_oidc_clients }}"
+  loop_control:
+    label: "{{ item.id }}"
+  no_log: true
+  tags: [authelia]
+
+- name: Check for existing OIDC client secret hash file (per client)
+  ansible.builtin.stat:
+    path: "{{ authelia_data_dir }}/.oidc_{{ item.id }}_hash"
+  register: _oidc_hash_files
+  loop: "{{ authelia_oidc_clients }}"
+  loop_control:
+    label: "{{ item.id }}"
+  tags: [authelia]
+
+- name: Generate PBKDF2-SHA512 hash for OIDC client secret (per client)
   ansible.builtin.shell:
     cmd: |
       set -o pipefail
@@ -60,34 +98,58 @@
       print(f'$pbkdf2-sha512$310000${salt_b64}${dk_b64}')
       PYEOF
     executable: /bin/bash
-    stdin: "{{ authelia_oidc_grafana_secret }}"
+    stdin: "{{ authelia_oidc_client_secrets[item.item.id] }}"
   register: _oidc_hash_generated
   changed_when: false
   no_log: true
-  when: not _oidc_hash_file.stat.exists
+  when: not item.stat.exists
+  loop: "{{ _oidc_hash_files.results }}"
+  loop_control:
+    label: "{{ item.item.id }}"
   tags: [authelia]
 
-- name: Store OIDC client secret hash
+- name: Store OIDC client secret hash (per client)
   ansible.builtin.copy:
-    content: "{{ _oidc_hash_generated.stdout }}"
-    dest: "{{ authelia_data_dir }}/.oidc_grafana_hash"
+    content: "{{ item.stdout }}"
+    dest: "{{ authelia_data_dir }}/.oidc_{{ item.item.item.id }}_hash"
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
     mode: "0600"
-  when: not _oidc_hash_file.stat.exists
+  when: item.skipped is not defined
+  loop: "{{ _oidc_hash_generated.results }}"
+  loop_control:
+    label: "{{ item.item.item.id | default('skipped') }}"
   no_log: true
   tags: [authelia]
 
-- name: Read OIDC client secret hash
+- name: Read OIDC client secret hashes (per client)
   ansible.builtin.slurp:
-    src: "{{ authelia_data_dir }}/.oidc_grafana_hash"
-  register: _oidc_hash_raw
+    src: "{{ authelia_data_dir }}/.oidc_{{ item.id }}_hash"
+  register: _oidc_hash_raws
+  loop: "{{ authelia_oidc_clients }}"
+  loop_control:
+    label: "{{ item.id }}"
   no_log: true
   tags: [authelia]
 
-- name: Set OIDC client secret hash variable
+- name: Build OIDC client secret hash map
   ansible.builtin.set_fact:
-    authelia_oidc_grafana_secret_hash: "{{ _oidc_hash_raw.content | b64decode }}"
+    authelia_oidc_client_secret_hashes: >-
+      {{ authelia_oidc_client_secret_hashes | default({}) | combine({
+           item.item.id: item.content | b64decode
+         })
+      }}
+  loop: "{{ _oidc_hash_raws.results }}"
+  loop_control:
+    label: "{{ item.item.id }}"
+  no_log: true
+  tags: [authelia]
+
+# Backward-compat alias for any service still referencing the old per-client name.
+- name: Expose legacy authelia_oidc_grafana_secret_hash alias
+  ansible.builtin.set_fact:
+    authelia_oidc_grafana_secret_hash: "{{ authelia_oidc_client_secret_hashes['grafana'] }}"
+  when: "'grafana' in authelia_oidc_client_secret_hashes"
   no_log: true
   tags: [authelia]
 
