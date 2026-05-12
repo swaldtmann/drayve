@@ -78,6 +78,52 @@
       no_log: true
       when: _secrets_stat.stat.exists
 
+    - name: Peek first bytes of secrets file (detect SOPS-encrypted header)
+      ansible.builtin.slurp:
+        src: "{{ ops_secrets_root }}/deploy/{{ inventory_hostname }}/secrets.yml"
+      register: _secrets_head
+      when: _secrets_stat.stat.exists
+      no_log: true
+
+    - name: Resolve secrets-file shape (encrypted vs plaintext)
+      ansible.builtin.set_fact:
+        _secrets_is_encrypted: "{{ ((_secrets_head.content | b64decode) is search('(?m)^sops:')) }}"
+        _secrets_mode_declared: "{{ (secrets.mode | default('')) if (secrets is defined and secrets is mapping) else '' }}"
+      when: _secrets_stat.stat.exists
+
+    - name: Fail early — secrets.yml is SOPS-encrypted but `sops -d` failed (AFKI-W-124)
+      ansible.builtin.assert:
+        that:
+          - not (_secrets_is_encrypted and (_sops_decrypt.rc | default(1) != 0))
+        fail_msg: |
+          deploy/{{ inventory_hostname }}/secrets.yml is SOPS-encrypted, but
+          `sops -d` could not decrypt it (rc={{ _sops_decrypt.rc | default('?') }}).
+
+          Likely causes:
+            - SOPS_AGE_KEY_FILE not found at {{ ops_secrets_root }}/deploy/.age-key.txt
+            - Age recipient in the file does not match the key on this host
+            - sops binary missing on PATH
+
+          Fix one of:
+            - Place the matching age key at {{ ops_secrets_root }}/deploy/.age-key.txt
+            - Re-encrypt with the local recipient: sops --rotate -i deploy/{{ inventory_hostname }}/secrets.yml
+            - Decrypt the file to plaintext if you want quickstart mode:
+                sops -d -i deploy/{{ inventory_hostname }}/secrets.yml
+      when: _secrets_stat.stat.exists
+
+    - name: Fail early — stack.secrets.mode=quickstart but secrets.yml is SOPS-encrypted (AFKI-W-124)
+      ansible.builtin.assert:
+        that:
+          - not (_secrets_mode_declared == 'quickstart' and _secrets_is_encrypted)
+        fail_msg: |
+          stack.yaml declares secrets.mode: quickstart, but
+          deploy/{{ inventory_hostname }}/secrets.yml is SOPS-encrypted.
+
+          Pick one:
+            - Set secrets.mode: sops in stack.yaml (intended for encrypted files)
+            - Decrypt the file in place: sops -d -i deploy/{{ inventory_hostname }}/secrets.yml
+      when: _secrets_stat.stat.exists
+
     - name: Load decrypted secrets into host_secrets (sops)
       ansible.builtin.set_fact:
         host_secrets: "{{ _sops_decrypt.stdout | from_yaml }}"
