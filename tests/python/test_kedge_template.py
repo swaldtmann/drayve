@@ -18,7 +18,6 @@ from pathlib import Path
 
 import pytest
 import yaml
-from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ROLE_DIR = REPO_ROOT / "ansible" / "roles" / "backup"
@@ -60,26 +59,15 @@ def _base_ctx(**overrides: object) -> dict[str, object]:
     return ctx
 
 
-def _ansible_bool(value: object) -> bool:
-    """Mimic Ansible's ``| bool`` filter for plain-Jinja2 rendering."""
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, (int, float)):
-        return bool(value)
-    if isinstance(value, str):
-        return value.strip().lower() in {"1", "true", "yes", "y", "on"}
-    return bool(value)
-
-
-def _render(**overrides: object) -> str:
-    env = Environment(
-        loader=FileSystemLoader(TEMPLATE_DIR),
-        keep_trailing_newline=True,
-        undefined=StrictUndefined,
-    )
-    env.filters["bool"] = _ansible_bool
+@pytest.fixture
+def render(ansible_jinja_env):
+    env = ansible_jinja_env(TEMPLATE_DIR, strict=True)
     template = env.get_template(".kedge.env.j2")
-    return template.render(**_base_ctx(**overrides))
+
+    def _render(**overrides: object) -> str:
+        return template.render(**_base_ctx(**overrides))
+
+    return _render
 
 
 def _parse_env(rendered: str) -> dict[str, str]:
@@ -97,8 +85,8 @@ def _parse_env(rendered: str) -> dict[str, str]:
 
 # ---- 1) Defaults render the required key set, no optionals ----
 
-def test_defaults_render_required_keys_only():
-    rendered = _render()
+def test_defaults_render_required_keys_only(render):
+    rendered = render()
     parsed = _parse_env(rendered)
     assert set(parsed.keys()) == REQUIRED_KEYS, (
         f"unexpected keys: {set(parsed.keys()) ^ REQUIRED_KEYS}"
@@ -107,8 +95,8 @@ def test_defaults_render_required_keys_only():
 
 # ---- 2) Required values come through verbatim ----
 
-def test_required_values_passthrough():
-    rendered = _render()
+def test_required_values_passthrough(render):
+    rendered = render()
     parsed = _parse_env(rendered)
     assert parsed["STACK_DIR"] == "/opt/drayve/genua"
     assert parsed["RESTIC_REPOSITORY"].startswith("sftp:")
@@ -122,37 +110,37 @@ def test_required_values_passthrough():
 # ---- 3) Stop-stack flag renders as kedge-compatible bool ----
 
 @pytest.mark.parametrize("flag,expected", [(True, "true"), (False, "false")])
-def test_stop_stack_renders_as_lowercase_bool(flag: bool, expected: str):
-    rendered = _render(backup_kedge_stop_stack=flag)
+def test_stop_stack_renders_as_lowercase_bool(render, flag: bool, expected: str):
+    rendered = render(backup_kedge_stop_stack=flag)
     parsed = _parse_env(rendered)
     assert parsed["BACKUP_STOP_STACK"] == expected
 
 
 # ---- 4) Optional excludes only render when non-empty ----
 
-def test_excludes_empty_does_not_render():
-    rendered = _render(backup_kedge_exclude_mounts="")
+def test_excludes_empty_does_not_render(render):
+    rendered = render(backup_kedge_exclude_mounts="")
     parsed = _parse_env(rendered)
     assert "BACKUP_EXCLUDE_MOUNTS" not in parsed
 
 
-def test_excludes_set_renders_value():
-    rendered = _render(backup_kedge_exclude_mounts="/var/cache /tmp/large")
+def test_excludes_set_renders_value(render):
+    rendered = render(backup_kedge_exclude_mounts="/var/cache /tmp/large")
     parsed = _parse_env(rendered)
     assert parsed["BACKUP_EXCLUDE_MOUNTS"] == "/var/cache /tmp/large"
 
 
 # ---- 5) Optional healthcheck URL only renders when non-empty ----
 
-def test_healthcheck_empty_does_not_render():
-    rendered = _render(backup_kedge_healthcheck_url="")
+def test_healthcheck_empty_does_not_render(render):
+    rendered = render(backup_kedge_healthcheck_url="")
     parsed = _parse_env(rendered)
     assert "BACKUP_HEALTHCHECK_URL" not in parsed
 
 
-def test_healthcheck_set_renders_value():
+def test_healthcheck_set_renders_value(render):
     url = "https://hc-ping.com/abcd-1234"
-    rendered = _render(backup_kedge_healthcheck_url=url)
+    rendered = render(backup_kedge_healthcheck_url=url)
     parsed = _parse_env(rendered)
     assert parsed["BACKUP_HEALTHCHECK_URL"] == url
 
@@ -160,8 +148,8 @@ def test_healthcheck_set_renders_value():
 # ---- 6) Retention values pass numeric overrides ----
 
 @pytest.mark.parametrize("d,w,m", [(14, 8, 12), (3, 2, 1), (30, 12, 24)])
-def test_retention_overrides(d: int, w: int, m: int):
-    rendered = _render(
+def test_retention_overrides(render, d: int, w: int, m: int):
+    rendered = render(
         backup_retain_daily=d,
         backup_retain_weekly=w,
         backup_retain_monthly=m,
@@ -174,8 +162,8 @@ def test_retention_overrides(d: int, w: int, m: int):
 
 # ---- 7) Output stays shell-sourceable (no spaces in keys, simple values) ----
 
-def test_output_is_shell_sourceable_shape():
-    rendered = _render(
+def test_output_is_shell_sourceable_shape(render):
+    rendered = render(
         backup_kedge_exclude_mounts="/var/cache",
         backup_kedge_healthcheck_url="https://hc-ping.com/x",
     )
@@ -191,8 +179,8 @@ def test_output_is_shell_sourceable_shape():
 
 # ---- 8) Template carries the ansible_managed banner ----
 
-def test_template_has_managed_banner():
-    rendered = _render(ansible_managed="Ansible managed: 2026-05-07")
+def test_template_has_managed_banner(render):
+    rendered = render(ansible_managed="Ansible managed: 2026-05-07")
     assert "Ansible managed: 2026-05-07" in rendered
 
 
