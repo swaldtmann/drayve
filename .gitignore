@@ -5,6 +5,11 @@ __pycache__/
 .venv/
 venv/
 *.egg
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
 
 # Ansible
 ansible/roles/geerlingguy.*/
