@@ -57,15 +57,85 @@ identity_providers:
         algorithm: RS256
         key: |
           {{ authelia_jwks_pem | default('') | indent(10) }}
+{% set _oidc_clients = authelia_oidc_clients | default(authelia_oidc_clients_default | default([])) %}
+{% set _auth_policies = authelia_oidc_authorization_policies | default({}) %}
+{% set _claims_policies = authelia_oidc_claims_policies | default({}) %}
+{% if _auth_policies %}
+    authorization_policies:
+{%   for name, policy in _auth_policies.items() %}
+      {{ name }}:
+        default_policy: {{ policy.default_policy | default('deny') }}
+{%     if policy.rules is defined %}
+        rules:
+{%       for rule in policy.rules %}
+          - policy: {{ rule.policy }}
+{%         if rule.subject is defined %}
+            subject:
+{%           for s in rule.subject %}
+              - "{{ s }}"
+{%           endfor %}
+{%         endif %}
+{%         if rule.networks is defined %}
+            networks:
+{%           for n in rule.networks %}
+              - {{ n }}
+{%           endfor %}
+{%         endif %}
+{%       endfor %}
+{%     endif %}
+{%   endfor %}
+{% endif %}
+{% if _claims_policies %}
+    claims_policies:
+{%   for name, policy in _claims_policies.items() %}
+      {{ name }}:
+{%     if policy.id_token is defined %}
+        id_token:
+{%       for c in policy.id_token %}
+          - {{ c }}
+{%       endfor %}
+{%     endif %}
+{%     if policy.access_token is defined %}
+        access_token:
+{%       for c in policy.access_token %}
+          - {{ c }}
+{%       endfor %}
+{%     endif %}
+{%   endfor %}
+{% endif %}
     clients:
-      - client_id: grafana
-        client_name: Grafana
-        client_secret: '{{ authelia_oidc_grafana_secret_hash }}'
-        authorization_policy: one_factor
+{% for c in _oidc_clients %}
+      - client_id: {{ c.id }}
+        client_name: {{ c.name | default(c.id) }}
+        client_secret: '{{ (authelia_oidc_client_secret_hashes | default({}))[c.id] | default("") }}'
+        authorization_policy: {{ c.authorization_policy | default('one_factor') }}
+{%   if c.claims_policy is defined %}
+        claims_policy: {{ c.claims_policy }}
+{%   endif %}
+{%   if c.consent_mode is defined %}
+        consent_mode: {{ c.consent_mode }}
+{%   endif %}
         redirect_uris:
-          - "https://grafana.{{ drayve_domain }}/login/generic_oauth"
+{%   for uri in c.redirect_uris %}
+          - "{{ uri }}"
+{%   endfor %}
         scopes:
-          - openid
-          - profile
-          - email
-          - groups
+{%   for s in c.scopes | default(['openid', 'profile', 'email', 'groups']) %}
+          - {{ s }}
+{%   endfor %}
+{%   if c.grant_types is defined %}
+        grant_types:
+{%     for g in c.grant_types %}
+          - {{ g }}
+{%     endfor %}
+{%   endif %}
+{%   if c.response_types is defined %}
+        response_types:
+{%     for r in c.response_types %}
+          - {{ r }}
+{%     endfor %}
+{%   endif %}
+{%   if c.token_endpoint_auth_method is defined %}
+        token_endpoint_auth_method: {{ c.token_endpoint_auth_method }}
+{%   endif %}
+{% endfor %}

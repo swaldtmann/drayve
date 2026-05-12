@@ -51,6 +51,37 @@ def test_authelia_responds(host):
     assert "OK" in cmd.stdout or "ok" in cmd.stdout.lower()
 
 
+def test_authelia_oidc_well_known(host):
+    """W-144: OIDC discovery endpoint must list both registered clients.
+
+    A failing parse here means the multi-client template rendered invalid YAML
+    or Authelia rejected the config — exactly the Forgejo-mount-drift class of
+    silent failure this auftrag targets.
+    """
+    cmd = host.run(
+        "docker exec authelia wget -q -O- "
+        "http://localhost:9091/.well-known/openid-configuration"
+    )
+    assert cmd.rc == 0, f"OIDC discovery endpoint not reachable: {cmd.stderr}"
+    assert "issuer" in cmd.stdout
+
+
+def test_authelia_config_contains_both_clients(host):
+    """W-144: both clients should be rendered in the configuration."""
+    f = host.file("/opt/drayve/deploy/stack/authelia/configuration.yml")
+    assert f.exists
+    assert f.contains("client_id: grafana")
+    assert f.contains("client_id: forgejo")
+    assert f.contains("forgejo_access")
+
+
+def test_authelia_env_per_client_secrets(host):
+    """W-144: .env must carry the per-client OIDC secrets (incl. forgejo)."""
+    f = host.file("/opt/drayve/deploy/stack/.env")
+    assert f.contains("AUTHELIA_OIDC_GRAFANA_SECRET=")
+    assert f.contains("AUTHELIA_OIDC_FORGEJO_SECRET=")
+
+
 # === Authelia bind user in LLDAP ===
 
 def test_authelia_bind_user_exists(host):

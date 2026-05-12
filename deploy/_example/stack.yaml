@@ -18,6 +18,32 @@ auth:
   lldap: true                       # user directory (only with authelia)
   # lldap_base_dn: "DC=myorg,DC=local"  # optional, default: DC=drayve,DC=local
 
+  # Declarative OIDC clients (W-144). Omit to keep the legacy Grafana-only
+  # default. Each client needs a matching `authelia_oidc_<id>_secret` in
+  # deploy/<name>/secrets.yml. See docs/auth-oidc-clients.md for the full
+  # schema (authorization_policies / claims_policies / consent_mode etc.).
+  # oidc_clients:
+  #   - id: grafana
+  #     name: Grafana
+  #     authorization_policy: one_factor
+  #     consent_mode: implicit
+  #     redirect_uris:
+  #       - "https://grafana.example.com/login/generic_oauth"
+  #     scopes: [openid, profile, email, groups]
+  #   - id: forgejo
+  #     name: Forgejo
+  #     authorization_policy: forgejo_access
+  #     consent_mode: implicit
+  #     redirect_uris:
+  #       - "https://git.example.com/user/oauth2/Authelia/callback"
+  #     scopes: [openid, profile, email, groups]
+  # authorization_policies:
+  #   forgejo_access:
+  #     default_policy: deny
+  #     rules:
+  #       - policy: one_factor
+  #         subject: ["group:forgejo_users"]
+
 monitoring:
   profile: full                     # full (~800MB) | light (~50MB) | none
 

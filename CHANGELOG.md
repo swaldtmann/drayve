@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Declarative OIDC clients** (W-144) — `stack.yaml` accepts
+  `auth.oidc_clients` (list), `auth.authorization_policies` and
+  `auth.claims_policies` (dicts). The Authelia config template iterates
+  over the list instead of the previous Grafana-only hardcode. Per-client
+  plain secret comes from `host_secrets.authelia_oidc_<id>_secret`, the
+  PBKDF2-SHA512 hash is generated once on the host
+  (`<authelia-data>/.oidc_<id>_hash`), and the plain secret is exposed to
+  downstream services as `AUTHELIA_OIDC_<ID>_SECRET` in `.env`.
+  Backward-compatible: stacks without `auth.oidc_clients` keep the legacy
+  single Grafana client. Anlass: S328-Folge12 — Forgejo SSO outage caused
+  by `make deploy-prod` re-templating manual OIDC additions. See
+  `docs/auth-oidc-clients.md`.
 - **`make deploy-check-fast`** (W-131) — fast static validation of
   `stack.yaml` and host secrets without touching the target host.
   Runs `playbooks/validate.yml` locally and asserts: preflight vars,

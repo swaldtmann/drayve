@@ -21,6 +21,41 @@
 #
 # Upgrade: bump the image tag, `make deploy NAME=<name>`. Forgejo runs DB
 # migrations automatically on startup; keep a fresh kedge backup around.
+#
+# Authelia SSO (optional): declare a Forgejo OIDC client in stack.yaml:
+#
+#   auth:
+#     provider: authelia
+#     oidc_clients:
+#       - id: forgejo
+#         name: Forgejo
+#         authorization_policy: forgejo_access
+#         consent_mode: implicit
+#         redirect_uris:
+#           - "https://git.${DRAYVE_DOMAIN}/user/oauth2/Authelia/callback"
+#         scopes: [openid, profile, email, groups]
+#     authorization_policies:
+#       forgejo_access:
+#         default_policy: deny
+#         rules:
+#           - policy: one_factor
+#             subject: ["group:forgejo_users"]
+#
+# Set host_secrets.authelia_oidc_forgejo_secret in deploy/<name>/secrets.yml.
+# Then register the OAuth source inside Forgejo *once* on the host:
+#
+#   docker exec -u 1000 forgejo forgejo admin auth add-oauth \
+#     --name Authelia --provider openidConnect \
+#     --key forgejo --secret "$AUTHELIA_OIDC_FORGEJO_SECRET" \
+#     --auto-discover-url "https://auth.${DRAYVE_DOMAIN}/.well-known/openid-configuration" \
+#     --scopes profile --scopes email --scopes groups
+#
+# Important Forgejo 14 quirks (W-144 anlass S328-Folge12):
+#   - DO NOT pass `--scopes openid` — Forgejo prepends it automatically. Listing
+#     it explicitly breaks the consent flow with a duplicate-scope rejection.
+#   - In `app.ini` under [oauth2_client], set `USERNAME = email` (or `nickname`
+#     / `userid`). The OIDC-spec value `preferred_username` is silently rejected
+#     by Forgejo 14 and the source falls back to UID-only mapping.
 
 services:
   forgejo:
