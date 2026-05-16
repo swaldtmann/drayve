@@ -1,0 +1,45 @@
+---
+# host-base-update — installs and configures unattended-upgrades for
+# nightly security-only patches. Reboot is left to the rolling-update
+# playbook (Phase 3 of AFKI-W-122).
+
+- name: Ensure host runs Ubuntu (role is Ubuntu-scoped)
+  ansible.builtin.assert:
+    that:
+      - ansible_distribution == "Ubuntu"
+    fail_msg: "host-base-update is Ubuntu-only; got {{ ansible_distribution }}"
+    success_msg: "Ubuntu {{ ansible_distribution_version }} detected"
+  tags: [always]
+
+- name: Install unattended-upgrades stack
+  ansible.builtin.apt:
+    name: "{{ hbu_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  tags: [hbu, hbu-pkg]
+
+- name: Render APT periodic config (20auto-upgrades)
+  ansible.builtin.template:
+    src: 20auto-upgrades.j2
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    owner: root
+    group: root
+    mode: "0644"
+  tags: [hbu, hbu-config]
+
+- name: Render unattended-upgrades config (50unattended-upgrades)
+  ansible.builtin.template:
+    src: 50unattended-upgrades.j2
+    dest: /etc/apt/apt.conf.d/50unattended-upgrades
+    owner: root
+    group: root
+    mode: "0644"
+  tags: [hbu, hbu-config]
+
+- name: Validate unattended-upgrades config syntax
+  ansible.builtin.command: unattended-upgrades --dry-run --debug
+  register: hbu_dryrun
+  changed_when: false
+  failed_when: hbu_dryrun.rc != 0
+  tags: [hbu, hbu-verify]

@@ -1,0 +1,38 @@
+---
+# host-base-update — applies the host-base-update role to all Ubuntu hosts
+# in scope (auto_update != false in servers.yaml).
+#
+# Phase 2 of AFKI-W-122: flaechige unattended-upgrades-Hygiene.
+# Reboots are NOT triggered here — Phase 3 (host-update.yml) handles that.
+#
+# Inventory:
+#   Nutzt das zentrale tools/inventory-from-servers.sh (filtert ssh_alias,
+#   ki_freigabe=true, status!=retiring/decommissioned, patch.auto_update!=false).
+#
+# Aufruf:
+#   cd /Users/sw/claudes-welt/repos/drayve/ansible
+#   ansible-playbook -i /Users/sw/claudes-welt/tools/inventory-from-servers.sh \
+#     playbooks/host-base-update.yml [--limit prod-genua] [--check --diff]
+#
+# Nach erfolgreichem Lauf (Sync-Pipeline, Schwarm-Futter):
+#   cd /Users/sw/claudes-welt
+#   ansible-playbook -i tools/inventory-from-servers.sh tools/scan-inventory.yml
+#   python3 tools/merge-inventar.py
+#   tools/push-inventory.sh
+#
+# Idempotenz-Beweis: zweiter Lauf erwartet `changed=0`.
+
+- name: Apply host-base-update role
+  hosts: all
+  # become: nicht noetig — alle Inventory-Hosts haben Direct-Root-Login
+  # (ssh_user=root oder named-user mit uid=0). Phase 3 (apt-upgrade + reboot)
+  # bleibt unkritisch, weil Tasks ohnehin als root laufen.
+  gather_facts: true
+
+  pre_tasks:
+    - name: Skip non-Ubuntu hosts cleanly (HAOS, FreeBSD, etc.)
+      ansible.builtin.meta: end_host
+      when: ansible_distribution != "Ubuntu"
+
+  roles:
+    - role: host-base-update

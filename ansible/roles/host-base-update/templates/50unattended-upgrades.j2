@@ -1,0 +1,46 @@
+// Managed by Ansible role host-base-update — do not edit by hand.
+// Source: drayve/ansible/roles/host-base-update/templates/50unattended-upgrades.j2
+
+Unattended-Upgrade::Allowed-Origins {
+{% if hbu_security_only %}
+        "${distro_id}:${distro_codename}-security";
+        "${distro_id}ESMApps:${distro_codename}-apps-security";
+        "${distro_id}ESM:${distro_codename}-infra-security";
+{% else %}
+        "${distro_id}:${distro_codename}";
+        "${distro_id}:${distro_codename}-security";
+        "${distro_id}:${distro_codename}-updates";
+        "${distro_id}ESMApps:${distro_codename}-apps-security";
+        "${distro_id}ESM:${distro_codename}-infra-security";
+{% endif %}
+};
+
+{% if hbu_package_blacklist %}
+Unattended-Upgrade::Package-Blacklist {
+{% for pkg in hbu_package_blacklist %}
+        "{{ pkg }}";
+{% endfor %}
+};
+{% else %}
+Unattended-Upgrade::Package-Blacklist {
+};
+{% endif %}
+
+Unattended-Upgrade::DevRelease "auto";
+Unattended-Upgrade::AutoFixInterruptedDpkg "true";
+Unattended-Upgrade::MinimalSteps "{{ 'true' if hbu_minimal_steps else 'false' }}";
+Unattended-Upgrade::InstallOnShutdown "false";
+Unattended-Upgrade::Remove-Unused-Kernel-Packages "{{ 'true' if hbu_remove_unused_kernel else 'false' }}";
+Unattended-Upgrade::Remove-New-Unused-Dependencies "{{ 'true' if hbu_remove_new_unused_deps else 'false' }}";
+Unattended-Upgrade::Remove-Unused-Dependencies "{{ 'true' if hbu_remove_unused_deps else 'false' }}";
+Unattended-Upgrade::Automatic-Reboot "{{ 'true' if hbu_auto_reboot else 'false' }}";
+Unattended-Upgrade::Automatic-Reboot-WithUsers "false";
+Unattended-Upgrade::Automatic-Reboot-Time "{{ hbu_auto_reboot_time }}";
+
+{% if hbu_mail_recipient %}
+Unattended-Upgrade::Mail "{{ hbu_mail_recipient }}";
+Unattended-Upgrade::MailReport "{{ 'only-on-error' if hbu_mail_only_on_error else 'on-change' }}";
+{% endif %}
+
+Unattended-Upgrade::SyslogEnable "true";
+Unattended-Upgrade::SyslogFacility "daemon";

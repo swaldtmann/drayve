@@ -1,0 +1,226 @@
+---
+# host-update — Rolling Full-Upgrade + Reboot fuer Ubuntu-Hosts.
+#
+# AFKI-W-122 Phase 3. Pendant zu Phase 2 (host-base-update.yml): apt-Pakete
+# einmalig ausrollen, optional Reboot, Services vorher/nachher abgleichen.
+#
+# Nutzt das zentrale Inventory tools/inventory-from-servers.sh (Filter wie
+# Phase 2: ssh_alias + ki_freigabe + status != retiring/decommissioned/deleted/
+# destroyed + patch.auto_update != false).
+#
+# Aufruf (Pilot gegen einen Host):
+#   cd /Users/sw/claudes-welt/repos/drayve/ansible
+#   ansible-playbook -i /Users/sw/claudes-welt/tools/inventory-from-servers.sh \
+#     playbooks/host-update.yml --limit kigulls-dev
+#
+# Rolling gegen viele Hosts (serial=1 ist im Play schon gesetzt):
+#   ansible-playbook -i .../inventory-from-servers.sh playbooks/host-update.yml \
+#     --limit "prod-rezepte,forge-runner-drayve"
+#
+# Override Reboot-Verhalten:
+#   -e hu_reboot_if_required=false   # nur upgrade, kein Reboot
+#   -e hu_reboot_timeout=600         # SSH-Wait nach Reboot (Default 300s)
+#   -e hu_apt_full_upgrade=false     # nur apt upgrade, kein full-upgrade
+
+- name: Rolling host update
+  hosts: all
+  gather_facts: true
+  serial: 1   # nie batch — bewusst sequentiell
+
+  vars:
+    hu_reboot_if_required: true
+    hu_reboot_timeout: 300
+    hu_apt_full_upgrade: true
+
+  pre_tasks:
+    - name: Skip non-Ubuntu hosts cleanly (HAOS, FreeBSD, etc.)
+      ansible.builtin.meta: end_host
+      when: ansible_distribution != "Ubuntu"
+
+    - name: Capture running systemd services (pre)
+      ansible.builtin.shell: |
+        set -o pipefail
+        systemctl list-units --type=service --state=running --no-legend --no-pager \
+          | awk '{print $1}' | sort
+      args:
+        executable: /bin/bash
+      register: hu_services_pre
+      changed_when: false
+
+    - name: Capture failed systemd units (pre)
+      ansible.builtin.shell: |
+        set -o pipefail
+        systemctl list-units --state=failed --no-legend --no-pager \
+          | awk '{print $2}' | sort
+      args:
+        executable: /bin/bash
+      register: hu_failed_pre
+      changed_when: false
+
+    - name: Show pre-state summary
+      ansible.builtin.debug:
+        msg:
+          - "host={{ inventory_hostname }} kernel={{ ansible_kernel }} uptime_s={{ ansible_uptime_seconds }}"
+          - "running_services={{ hu_services_pre.stdout_lines | length }}"
+          - "failed_units_pre={{ hu_failed_pre.stdout_lines | length }}"
+
+  tasks:
+    - name: APT update (refresh package lists)
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 0
+
+    - name: APT full-upgrade
+      ansible.builtin.apt:
+        upgrade: full
+        autoremove: true
+        autoclean: true
+      when: hu_apt_full_upgrade | bool
+      register: hu_apt_upgrade
+
+    - name: APT upgrade (no full-upgrade)
+      ansible.builtin.apt:
+        upgrade: 'yes'
+        autoremove: true
+        autoclean: true
+      when: not (hu_apt_full_upgrade | bool)
+      register: hu_apt_upgrade_alt
+
+    - name: Detect reboot-required after upgrade
+      ansible.builtin.stat:
+        path: /var/run/reboot-required
+      register: hu_reboot_required
+
+    - name: Read reboot-required.pkgs (if present)
+      ansible.builtin.slurp:
+        path: /var/run/reboot-required.pkgs
+      register: hu_reboot_pkgs_raw
+      when: hu_reboot_required.stat.exists
+      failed_when: false
+
+    - name: Show reboot-required decision
+      ansible.builtin.debug:
+        msg:
+          - "reboot_required={{ hu_reboot_required.stat.exists }}"
+          - "reboot_will_run={{ hu_reboot_if_required | bool and hu_reboot_required.stat.exists }}"
+          - "reboot_pkgs={{ (hu_reboot_pkgs_raw.content | default('') | b64decode | trim).split('\n') if hu_reboot_required.stat.exists else [] }}"
+
+    - name: Reboot host
+      ansible.builtin.reboot:
+        msg: "AFKI-W-122 Phase 3 rolling update — reboot triggered by host-update.yml"
+        connect_timeout: 30
+        reboot_timeout: "{{ hu_reboot_timeout | int }}"
+        pre_reboot_delay: 5
+        post_reboot_delay: 15
+        test_command: uptime
+      when:
+        - hu_reboot_if_required | bool
+        - hu_reboot_required.stat.exists
+      register: hu_reboot_result
+
+  post_tasks:
+    - name: Re-gather facts after potential reboot
+      ansible.builtin.setup:
+        gather_subset:
+          - "kernel"
+          - "distribution"
+          - "default_ipv4"
+          - "virtual"
+
+    # Container-Recovery: AFKI-W-122 / RCA prod-hub 2026-05-16
+    # docker-ce/containerd via apt-upgrade triggert ein docker.service-Restart
+    # mid-dist-upgrade. Container die in dem schmalen Race-Window (zwischen
+    # docker-Daemon-Restart und Ansible-Reboot) im "stopped"-Zwischenzustand
+    # waren, kommen beim Boot nicht mehr hoch — Docker startet beim Boot nur
+    # Container deren persistierter State "running" war. Hier abgefangen:
+    # alle exited/created Container mit RestartPolicy != "no" werden gestartet.
+    - name: Detect docker presence
+      ansible.builtin.command: which docker
+      register: hu_docker_present
+      changed_when: false
+      failed_when: false
+
+    - name: Find stopped containers with auto-restart policy (recovery candidates)
+      ansible.builtin.shell: |
+        set -o pipefail
+        docker ps -a --filter status=exited --filter status=created \
+          --format '{{ "{{" }}.Names{{ "}}" }}' | while read -r name; do
+          [ -z "$name" ] && continue
+          policy=$(docker inspect "$name" --format '{{ "{{" }}.HostConfig.RestartPolicy.Name{{ "}}" }}' 2>/dev/null)
+          case "$policy" in
+            always|unless-stopped|on-failure) echo "$name $policy" ;;
+          esac
+        done
+      args:
+        executable: /bin/bash
+      register: hu_recovery_candidates
+      changed_when: false
+      when: hu_docker_present.rc == 0
+
+    - name: Recover stopped containers (docker start)
+      ansible.builtin.command: "docker start {{ item.split(' ')[0] }}"
+      loop: "{{ hu_recovery_candidates.stdout_lines | default([]) }}"
+      register: hu_recovery_result
+      when:
+        - hu_docker_present.rc == 0
+        - hu_recovery_candidates.stdout_lines | default([]) | length > 0
+      changed_when: hu_recovery_result.rc == 0
+
+    - name: Capture running systemd services (post)
+      ansible.builtin.shell: |
+        set -o pipefail
+        systemctl list-units --type=service --state=running --no-legend --no-pager \
+          | awk '{print $1}' | sort
+      args:
+        executable: /bin/bash
+      register: hu_services_post
+      changed_when: false
+
+    - name: Capture failed systemd units (post)
+      ansible.builtin.shell: |
+        set -o pipefail
+        systemctl list-units --state=failed --no-legend --no-pager \
+          | awk '{print $2}' | sort
+      args:
+        executable: /bin/bash
+      register: hu_failed_post
+      changed_when: false
+
+    - name: Diff pre/post services
+      ansible.builtin.set_fact:
+        hu_services_lost: "{{ hu_services_pre.stdout_lines | difference(hu_services_post.stdout_lines) }}"
+        hu_services_new: "{{ hu_services_post.stdout_lines | difference(hu_services_pre.stdout_lines) }}"
+        hu_failed_new: "{{ hu_failed_post.stdout_lines | difference(hu_failed_pre.stdout_lines) }}"
+
+    - name: Smoke — uname + uptime
+      ansible.builtin.command: "{{ item }}"
+      register: hu_smoke
+      changed_when: false
+      loop:
+        - uname -r
+        - uptime
+
+    - name: Final report
+      ansible.builtin.debug:
+        msg:
+          - "host={{ inventory_hostname }}"
+          - "kernel_after={{ ansible_kernel }}"
+          - "rebooted={{ hu_reboot_result.rebooted | default(false) }}"
+          - "services_running_pre={{ hu_services_pre.stdout_lines | length }} post={{ hu_services_post.stdout_lines | length }}"
+          - "services_lost={{ hu_services_lost }}"
+          - "services_new={{ hu_services_new }}"
+          - "failed_units_pre={{ hu_failed_pre.stdout_lines | length }} post={{ hu_failed_post.stdout_lines | length }}"
+          - "failed_units_new={{ hu_failed_new }}"
+          - "docker_recovered={{ hu_recovery_candidates.stdout_lines | default([]) }}"
+
+    # Hinweis: hu_services_lost wird nur als WARN gemeldet (im Final report
+    # oben sichtbar). Grund: `systemctl --state=running` ist ein Snapshot —
+    # on-demand-Services (polkit, fsckd, timedated, snapd) sind nach Reboot
+    # haeufig nicht "running" obwohl sie funktional aktiv sind. Echter
+    # Service-Gesundheits-Check passiert ueber failed-units + ggf. Stack-
+    # spezifische Smokes (Phase 3 Folge-Auftrag pro prod-Host).
+
+    - name: Hard fail when new failed units appeared
+      ansible.builtin.fail:
+        msg: "New failed units after update/reboot on {{ inventory_hostname }}: {{ hu_failed_new }}"
+      when: hu_failed_new | length > 0

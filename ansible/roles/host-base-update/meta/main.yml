@@ -1,0 +1,21 @@
+---
+galaxy_info:
+  role_name: host_base_update
+  author: byrd / drayve
+  description: |
+    Installs and configures unattended-upgrades on Ubuntu hosts.
+    Security-only by default, no auto-reboot — rolling reboot is the
+    job of the host-update playbook (AFKI-W-122 Phase 3).
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - jammy   # 22.04
+        - noble   # 24.04
+  galaxy_tags:
+    - apt
+    - unattended-upgrades
+    - patching
+    - security
+dependencies: []

@@ -1,0 +1,6 @@
+// Managed by Ansible role host-base-update — do not edit by hand.
+// Source: drayve/ansible/roles/host-base-update/templates/20auto-upgrades.j2
+APT::Periodic::Update-Package-Lists "{{ hbu_periodic_update_lists }}";
+APT::Periodic::Download-Upgradeable-Packages "{{ hbu_periodic_download }}";
+APT::Periodic::Unattended-Upgrade "{{ hbu_periodic_unattended }}";
+APT::Periodic::AutocleanInterval "{{ hbu_periodic_autoclean }}";

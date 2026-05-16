@@ -1,0 +1,34 @@
+---
+# host-base-update — flaechige unattended-upgrades-Hygiene fuer Ubuntu-Hosts.
+# Security-only, kein Auto-Reboot. Phase 3 (Rolling Full-Upgrade) ist eigenes
+# Playbook, das diese Role NICHT ablueost sondern ergaenzt.
+
+# Paket-Steuerung
+hbu_packages:
+  - unattended-upgrades
+  - update-notifier-common  # liefert /var/run/reboot-required-Logik
+  - apt-listchanges          # optional: Changelogs vor Update
+
+# Periodic-Schalter (-> /etc/apt/apt.conf.d/20auto-upgrades)
+hbu_periodic_update_lists: "1"        # apt update jede Nacht
+hbu_periodic_download: "1"            # Pakete pre-fetchen
+hbu_periodic_unattended: "1"          # unattended-upgrades ausfuehren
+hbu_periodic_autoclean: "7"           # apt-cache-Aufraeumung 7-taegig
+
+# unattended-upgrades Verhalten (-> /etc/apt/apt.conf.d/50unattended-upgrades)
+hbu_security_only: true               # nur ${distro_id}:${distro_codename}-security
+hbu_auto_reboot: false                # Phase 2 rebootet NICHT — Phase 3 macht das kontrolliert
+hbu_auto_reboot_time: "03:00"
+hbu_remove_unused_kernel: true        # alte Kernel automatisch entfernen
+hbu_remove_unused_deps: true          # automatisch installierte Abhaengigkeiten
+hbu_remove_new_unused_deps: true
+hbu_minimal_steps: true               # Updates in kleinen apt-Calls — robust bei Abbruch
+
+# Mail-Reporting (leer = kein Mail)
+hbu_mail_recipient: ""
+hbu_mail_only_on_error: false
+
+# Optionale Package-Blocks (z.B. docker.io festhalten weil docker-ce installiert ist)
+hbu_package_blacklist: []
+  # - "docker.io"
+  # - "docker-ce"
