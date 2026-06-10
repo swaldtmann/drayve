@@ -15,6 +15,7 @@ Beifang aus Werkstatt-Sessions. Nicht priorisiert — Roadmap bleibt führend.
 
 - [ ] Molecule-Szenarien testen kein SOPS — AGE-Key/SOPS-Pfad ungetestet (S168#3)
 - [ ] Molecule `basic` Szenario: kein curl-Test ob Basic Auth tatsächlich 401 liefert (S168#4)
+- [ ] `extra_files` Early-Fail-Copy-Mechanik in der deploy-Role nicht molecule-covered — nur der Validator-Teil ist unit-getestet (S328#extra_files)
 - [ ] Pre-push Hook validiert nur statische Liste — sollte alle `examples/*.yaml` per Glob prüfen (S215#13)
 
 ## Release Preparation
@@ -28,6 +29,7 @@ Beifang aus Werkstatt-Sessions. Nicht priorisiert — Roadmap bleibt führend.
 - [ ] Kein `make test-basic` / `make test-light` Target — nur per `molecule test -s` erreichbar (S168#7)
 - [ ] CrowdSec Whitelist nur auf Parser-Ebene — Bouncer `excludedIPRanges` wäre robuster (S168#6, Issue #83)
 - [ ] Kein Rollback-Mechanismus — alte compose.yml wird überschrieben (S168#18)
+- [ ] `extra_files` Path-Traversal-Guard lebt nur im Validator, nicht in der deploy-Role — `ansible-playbook deploy` ohne vorheriges validate kopiert `dest: ../..` ungeprüft. Defense-in-depth: `assert` in die Role (S328#extra_files)
 
 ## Dokumentation
 
