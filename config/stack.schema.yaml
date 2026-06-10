@@ -167,8 +167,37 @@ properties:
         type: string
         description: Backup destination.
         enum:
-          - storagebox
-          - s3
+          - kedge
           - local
-          - ssh
+          - sftp
         default: local
+
+  extra_files:
+    type: array
+    description: >
+      Out-of-band static config files (e.g. nginx.conf, a hand-maintained
+      .htpasswd, redis.conf) for services declared in compose.override.yml.
+      Drayve does NOT template or validate the content — it ships each file
+      verbatim from deploy/<host>/<src> on the controller to <deploy_dir>/<dest>
+      on the target host BEFORE `docker compose up`, so bind-mounts in the
+      override resolve. A declared src that is missing locally fails the deploy
+      early (before compose up), not as a downstream container crash.
+    items:
+      type: object
+      required:
+        - src
+      properties:
+        src:
+          type: string
+          description: >
+            Path relative to deploy/<host>/ on the controller
+            (e.g. "myapp/nginx.conf"). Must exist locally.
+        dest:
+          type: string
+          description: >
+            Path relative to the deploy dir on the target host.
+            Defaults to the value of src (same relative layout).
+        mode:
+          type: string
+          description: Octal file mode on the target host.
+          default: "0644"

@@ -203,6 +203,69 @@
   when: compose_override.stat.exists
   tags: [deploy]
 
+# === Extra files — out-of-band per-service config (e.g. nginx.conf, .htpasswd) ===
+# Declared in stack.yaml `extra_files:`. Copied from deploy/<host>/<src> on the
+# controller to <deploy_dir>/<dest> on the target BEFORE compose up, so that
+# bind-mounts in compose.override.yml resolve. A declared src missing locally
+# fails the deploy here, not later as a container crash.
+- name: Resolve extra_files from stack.yaml
+  ansible.builtin.set_fact:
+    extra_files: "{{ extra_files | default([]) }}"
+  tags: [deploy]
+
+- name: Check extra_files sources exist on controller
+  ansible.builtin.stat:
+    path: "{{ ops_secrets_root }}/deploy/{{ inventory_hostname }}/{{ item.src }}"
+  loop: "{{ extra_files }}"
+  loop_control:
+    label: "{{ item.src }}"
+  delegate_to: localhost
+  become: false
+  register: extra_files_check
+  when: extra_files | length > 0
+  tags: [deploy]
+
+- name: Fail early if any extra_files source is missing
+  ansible.builtin.assert:
+    that:
+      - item.stat.exists
+    fail_msg: >-
+      extra_files: declared source
+      deploy/{{ inventory_hostname }}/{{ item.item.src }} not found on the
+      controller. Create it or remove the entry from stack.yaml `extra_files:`.
+    quiet: true
+  loop: "{{ extra_files_check.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.src }}"
+  when: extra_files | length > 0
+  tags: [deploy]
+
+- name: Ensure extra_files target directories exist
+  ansible.builtin.file:
+    path: "{{ (drayve_deploy_dir ~ '/' ~ (item.dest | default(item.src))) | dirname }}"
+    state: directory
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0755"
+  loop: "{{ extra_files }}"
+  loop_control:
+    label: "{{ item.dest | default(item.src) }}"
+  when: extra_files | length > 0
+  tags: [deploy]
+
+- name: Copy extra_files to target host
+  ansible.builtin.copy:
+    src: "{{ ops_secrets_root }}/deploy/{{ inventory_hostname }}/{{ item.src }}"
+    dest: "{{ drayve_deploy_dir }}/{{ item.dest | default(item.src) }}"
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "{{ item.mode | default('0644') }}"
+  loop: "{{ extra_files }}"
+  loop_control:
+    label: "{{ item.dest | default(item.src) }}"
+  when: extra_files | length > 0
+  tags: [deploy]
+
 - name: Template .env
   ansible.builtin.template:
     src: "{{ ops_deploy_root }}/ansible/templates/env.j2"

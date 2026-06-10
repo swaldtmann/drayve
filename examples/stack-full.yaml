@@ -59,3 +59,14 @@ backup:
 #     url: https://git.ops.example.com
 #     icon: "&#x1F4BB;"
 #     description: Git hosting
+
+# Out-of-band static config for services in compose.override.yml that drayve
+# does not template (nginx.conf, a hand-maintained .htpasswd, redis.conf, ...).
+# Each src is copied from deploy/<host>/<src> to the deploy dir on the host
+# BEFORE `docker compose up`, so bind-mounts in the override resolve. A missing
+# src fails the deploy early. See docs/configuration.md#extra_files.
+# extra_files:
+#   - src: caddy/Caddyfile        # → <deploy_dir>/caddy/Caddyfile on the host
+#   - src: api/.htpasswd
+#     dest: api/.htpasswd
+#     mode: "0640"

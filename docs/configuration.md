@@ -71,7 +71,43 @@ Everything else has sensible defaults. This gives you: basic auth, full monitori
 |-----|------|---------|-------------|
 | `enabled` | bool | `true` | Enable backup |
 | `schedule` | string | `0 3 * * *` | Cron expression |
-| `target` | string | `local` | `local`, `storagebox`, `s3`, `ssh` |
+| `target` | string | `local` | `kedge` (recommended), `local`, `sftp` |
+
+### `extra_files`
+
+Out-of-band static config files for services in `compose.override.yml` that
+Drayve does not template — e.g. an `nginx.conf` for a reverse-proxy sidecar, a
+hand-maintained `.htpasswd`, a `redis.conf`. Each entry is copied from
+`deploy/<host>/<src>` on the controller to `<deploy_dir>/<dest>` on the target
+host **before `docker compose up`**, so bind-mounts in the override resolve.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `src` | string | — (required) | Path relative to `deploy/<host>/` on the controller. Must exist locally; a missing src fails the deploy early (before compose up), not as a downstream container crash. No leading `/`, no `..`. |
+| `dest` | string | value of `src` | Path relative to the deploy dir on the target host. No leading `/`, no `..`. |
+| `mode` | string | `0644` | Octal file mode on the target host. |
+
+```yaml
+extra_files:
+  - src: caddy/Caddyfile          # → <deploy_dir>/caddy/Caddyfile on the host
+  - src: api/.htpasswd
+    dest: api/.htpasswd
+    mode: "0640"
+```
+
+The matching bind-mount in `deploy/<host>/compose.override.yml`:
+
+```yaml
+services:
+  caddy:
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+```
+
+Drayve ships the file verbatim — it does not parse or validate the content.
+Treat secrets in `extra_files` like any other deploy-dir state: if the file
+holds credentials, keep it out of the public repo and under your SOPS/secrets
+discipline.
 
 ### Landing page
 

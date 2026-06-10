@@ -190,6 +190,24 @@ make deploy NAME=myserver
 
 Ansible scans all `services/*/compose.yml` at deploy time and updates the landing page, auth config, and dashboard provisioning automatically. No central registry needed — labels are the contract.
 
+### Out-of-band config files
+
+When a custom service needs a static config file Drayve doesn't template — an
+`nginx.conf`, a hand-maintained `.htpasswd`, a `redis.conf` — declare it in
+`stack.yaml` under `extra_files:`. Drayve copies it from `deploy/<host>/<src>`
+to the deploy dir on the host before `docker compose up`, so the bind-mount in
+your `compose.override.yml` resolves. A declared file that's missing locally
+fails the deploy early instead of crashing the container later.
+
+```yaml
+extra_files:
+  - src: caddy/Caddyfile
+  - src: api/.htpasswd
+    mode: "0640"
+```
+
+See [docs/configuration.md](docs/configuration.md#extra_files) for the full reference.
+
 ## Examples
 
 - `examples/stack-minimal.yaml` — Basic auth, light monitoring, quickstart secrets

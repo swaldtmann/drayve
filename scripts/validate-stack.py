@@ -18,6 +18,7 @@ ENUMS = {
 
 NAME_PATTERN = re.compile(r"^[a-z][a-z0-9-]*$")
 PLACEHOLDER_EMAILS = {"you@example.com", "admin@example.com", ""}
+MODE_PATTERN = re.compile(r"^0?[0-7]{3,4}$")
 
 
 def get_nested(data, path):
@@ -86,6 +87,38 @@ def validate(config):
         errors.append(
             "auth.ldap requires auth.provider=authentik"
         )
+
+    # extra_files: list of {src (required, str), dest? (str), mode? (octal str)}
+    extra_files = config.get("extra_files")
+    if extra_files is not None:
+        if not isinstance(extra_files, list):
+            errors.append("extra_files must be a list")
+        else:
+            for i, entry in enumerate(extra_files):
+                where = f"extra_files[{i}]"
+                if not isinstance(entry, dict):
+                    errors.append(f"{where} must be a mapping with at least 'src'")
+                    continue
+                src = entry.get("src")
+                if not src or not isinstance(src, str):
+                    errors.append(f"{where}.src is required and must be a string")
+                elif src.startswith("/") or ".." in src.split("/"):
+                    errors.append(
+                        f"{where}.src must be a relative path under deploy/<host>/ "
+                        f"(no leading '/', no '..'): '{src}'"
+                    )
+                dest = entry.get("dest")
+                if dest is not None:
+                    if not isinstance(dest, str) or dest.startswith("/") or ".." in dest.split("/"):
+                        errors.append(
+                            f"{where}.dest must be a relative path "
+                            f"(no leading '/', no '..'): '{dest}'"
+                        )
+                mode = entry.get("mode")
+                if mode is not None and not MODE_PATTERN.match(str(mode)):
+                    errors.append(
+                        f"{where}.mode must be an octal string like '0644': '{mode}'"
+                    )
 
     return errors, warnings
 
