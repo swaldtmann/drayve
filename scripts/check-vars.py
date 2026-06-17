@@ -51,6 +51,7 @@ MAGIC = {
     "ansible_user_gid", "ansible_user_dir", "ansible_user_shell",
     "ansible_processor_count", "ansible_processor_vcpus",
     "ansible_memtotal_mb", "ansible_date_time", "ansible_kernel",
+    "ansible_uptime_seconds",
     "ansible_pkg_mgr", "ansible_service_mgr", "ansible_virtualization_type",
     "item", "ansible_loop_var", "loop", "vars", "environment",
     "lookup", "query", "q", "now", "true", "false", "none", "True",

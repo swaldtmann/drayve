@@ -15,7 +15,7 @@ galaxy_info:
         - noble   # 24.04
   galaxy_tags:
     - apt
-    - unattended-upgrades
+    - unattendedupgrades
     - patching
     - security
 dependencies: []
