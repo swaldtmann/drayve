@@ -1,0 +1,51 @@
+name: Reap orphan test hosts
+
+# Last-line cleanup for leaked molecule test hosts (test-<scenario>) in the
+# hcloud project. molecule test + the release-gate Safety-destroy step catch
+# the normal cases; this reaper catches hard runner-kills where no in-job
+# cleanup runs. Only deletes hosts whose name is a known molecule scenario AND
+# older than REAP_AGE_HOURS (in-flight tests are never touched).
+#
+# Requires repository secret HCLOUD_TOKEN with project-write rights for the
+# hcloud project that hosts the test boxes (greenfields).
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"   # every 6h, off the hour
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "List candidates without deleting"
+        required: false
+        default: "0"
+        type: choice
+        options:
+          - "0"
+          - "1"
+
+jobs:
+  reap:
+    runs-on: self-hosted
+    container:
+      image: catthehacker/ubuntu:act-24.04
+    env:
+      WORKDIR: /tmp/ci-drayve-reap-${{ github.run_id }}
+    steps:
+      - name: Checkout
+        run: |
+          rm -rf $WORKDIR
+          git clone --depth 1 -b ${GITHUB_REF_NAME} https://codeberg.org/${GITHUB_REPOSITORY}.git $WORKDIR
+
+      - name: Install hcloud + pyyaml
+        run: python3 -m pip install -q --break-system-packages hcloud pyyaml
+
+      - name: Reap orphans
+        env:
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+          REAP_AGE_HOURS: "4"
+          DRY_RUN: ${{ inputs.dry_run || '0' }}
+        run: cd $WORKDIR && python3 scripts/reap-orphan-test-hosts.py
+
+      - name: Cleanup workspace
+        if: always()
+        run: rm -rf $WORKDIR

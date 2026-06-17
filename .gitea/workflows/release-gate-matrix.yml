@@ -56,6 +56,17 @@ jobs:
           cd $WORKDIR
           molecule test -s ${{ matrix.scenario }}
 
+      - name: Safety-destroy test host (interrupt/failure net)
+        # molecule test zerstoert am Sequenz-Ende selbst — aber bei hartem
+        # Abbruch (Cancel/OOM/Netz) zwischen create und destroy leakt der
+        # hcloud-Host. Idempotent: no-op wenn schon weg. Muss VOR dem
+        # Workspace-rm laufen (braucht $WORKDIR + molecule-State).
+        if: always()
+        env:
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+        run: |
+          cd $WORKDIR && molecule destroy -s ${{ matrix.scenario }} || true
+
       - name: Cleanup workspace
         if: always()
         run: rm -rf $WORKDIR
