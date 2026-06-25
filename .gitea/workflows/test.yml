@@ -63,3 +63,35 @@ jobs:
       - name: Cleanup
         if: always()
         run: rm -rf $WORKDIR
+
+  # AFKI-W-197 — Push-statt-Pull: roter main-Run schickt EINE Nachricht an
+  # Stephans Messenger (#00_wooki). Gate: nur wenn `test` failt UND es ein
+  # push auf main war (PRs + Tags schweigen) — sonst stirbt die Flaeche.
+  # Runs #58-60 (16.05.-10.06.) waren rot und blieben einen Monat unbemerkt,
+  # weil das CI-UI ein Holschuld-Surface ist.
+  notify-failure:
+    needs: test
+    if: ${{ failure() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: self-hosted
+    container:
+      image: catthehacker/ubuntu:act-24.04
+    env:
+      NWORKDIR: /tmp/ci-drayve-notify-${{ github.run_id }}
+    steps:
+      - name: Checkout (nur fuer das Notify-Script)
+        run: |
+          rm -rf $NWORKDIR
+          git clone --depth 1 -b ${GITHUB_REF_NAME} https://codeberg.org/${GITHUB_REPOSITORY}.git $NWORKDIR
+      - name: Notify Slack (#00_wooki)
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          CI_REPO: ${{ github.repository }}
+          CI_WORKFLOW: ${{ github.workflow }}
+          CI_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_number }}
+          CI_REF: ${{ github.ref_name }}
+          CI_SHA: ${{ github.sha }}
+          CI_RUN_NUMBER: ${{ github.run_number }}
+        run: bash $NWORKDIR/scripts/notify-ci-failure.sh
+      - name: Cleanup
+        if: always()
+        run: rm -rf $NWORKDIR
