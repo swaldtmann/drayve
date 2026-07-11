@@ -116,12 +116,17 @@
       storage_config:
         filesystem:
           directory: /loki/chunks
+      compactor:
+        working_directory: /loki/compactor
+        retention_enabled: true
+        delete_request_store: filesystem
       limits_config:
-        retention_period: 168h
+        retention_period: "{{ monitoring_loki_retention_period }}"
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
     mode: "0644"
   when: _mon_loki
+  register: _loki_config
   tags: [monitoring]
 
 # === Promtail config ===
@@ -154,32 +159,14 @@
   tags: [monitoring]
 
 - name: Deploy Promtail config
-  ansible.builtin.copy:
+  ansible.builtin.template:
+    src: promtail-config.yml.j2
     dest: "{{ drayve_deploy_dir }}/monitoring/promtail/promtail-config.yml"
-    content: |
-      server:
-        http_listen_port: 9080
-        grpc_listen_port: 0
-      positions:
-        filename: /tmp/positions.yaml
-      clients:
-        - url: "{{ _promtail_loki_url }}"
-      scrape_configs:
-        - job_name: docker
-          docker_sd_configs:
-            - host: unix:///var/run/docker.sock
-              refresh_interval: 5s
-          relabel_configs:
-            - source_labels: ['__meta_docker_container_name']
-              regex: '/(.*)'
-              target_label: 'container'
-            - source_labels: ['__meta_docker_container_name']
-              regex: '/(.*)'
-              target_label: 'service'
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
     mode: "0644"
   when: _mon_promtail
+  register: _promtail_config
   tags: [monitoring]
 
 # === Grafana provisioning (dashboards + datasources) ===
@@ -287,6 +274,28 @@
     (grafana_datasources.changed | default(false)) or
     (grafana_crowdsec_ds.changed | default(false)))
   tags: [monitoring, dashboards]
+
+- name: Force-recreate Loki on config change
+  ansible.builtin.command:
+    cmd: docker compose up -d --force-recreate loki
+    chdir: "{{ drayve_deploy_dir }}"
+  become: true
+  become_user: "{{ drayve_user }}"
+  when: >-
+    _compose_file.stat.exists and _mon_loki and
+    (_loki_config.changed | default(false))
+  tags: [monitoring]
+
+- name: Force-recreate Promtail on config change
+  ansible.builtin.command:
+    cmd: docker compose up -d --force-recreate promtail
+    chdir: "{{ drayve_deploy_dir }}"
+  become: true
+  become_user: "{{ drayve_user }}"
+  when: >-
+    _compose_file.stat.exists and _mon_promtail and
+    (_promtail_config.changed | default(false))
+  tags: [monitoring]
 
 # === Set facts for compose template ===
 - name: Export monitoring flags for compose template
