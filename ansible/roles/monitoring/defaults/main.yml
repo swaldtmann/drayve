@@ -13,3 +13,20 @@ monitoring_profile: full
 # Grafana
 grafana_admin_password: ""
 grafana_root_url: "https://grafana.{{ drayve_domain | default('localhost') }}"
+
+# Loki retention (Go duration, e.g. "168h", "720h"). Enforced by the compactor.
+monitoring_loki_retention_period: "168h"
+
+# Extra Promtail scrape_configs entries (list of dicts), appended after the
+# built-in docker job. Use this to scrape host-side log files (already
+# mounted read-only at /var/log in the promtail container). Example for a
+# cron-driven kedge host log:
+#   monitoring_promtail_extra_scrape_configs:
+#     - job_name: kedge
+#       static_configs:
+#         - targets:
+#             - localhost
+#           labels:
+#             job: kedge
+#             __path__: /var/log/kedge.log
+monitoring_promtail_extra_scrape_configs: []
