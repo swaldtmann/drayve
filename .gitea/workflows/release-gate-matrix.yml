@@ -1,7 +1,7 @@
 name: Release Gate — Matrix (tag-push)
 
-# Real-VM molecule scenarios on tag-push (v*). All 9 scenarios run.
-# Cost: ~0.05 EUR × 9 + wall-clock ~10 min/scenario.
+# Real-VM molecule scenarios on tag-push (v*). All 10 scenarios run.
+# Cost: ~0.05 EUR × 10 + wall-clock ~10 min/scenario.
 #
 # For single-scenario manual runs use release-gate-single.yml (workflow_dispatch).
 #

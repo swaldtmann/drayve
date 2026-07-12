@@ -53,12 +53,29 @@ provisioner:
         auth_provider: basic
         # --- Monitoring ---
         monitoring_profile: full
+        node_exporter_image: prom/node-exporter:v1.10.2
+        cadvisor_image: ghcr.io/google/cadvisor:0.56.2
+        loki_image: grafana/loki:3.3.2
+        promtail_image: grafana/promtail:3.3.2
+        grafana_image: grafana/grafana:12.3.6
+        prometheus_image: prom/prometheus:v3.4.0
+        # --- Memory limits ---
+        mem_traefik: 256m
+        mem_crowdsec: 512m
+        mem_prometheus: 512m
+        mem_grafana: 256m
+        mem_node_exporter: 32m
+        mem_cadvisor: 64m
+        mem_loki: 512m
+        mem_promtail: 64m
         # --- Security ---
         crowdsec_enabled: true
         # --- ACME ---
         acme_email: test@example.com
         # --- Secrets (test values) ---
         hetzner_api_token: ""
+        auth_basic_user: admin
+        auth_basic_password: test-basic-pw
         grafana_admin_password: test-grafana-pw
         crowdsec_bouncer_key: test-bouncer-key
         crowdsec_lapi_key: test-lapi-key

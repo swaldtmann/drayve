@@ -91,6 +91,7 @@ provisioner:
                 - policy: one_factor
                   subject: ["group:forgejo_users"]
         lldap_jwt_secret: test-lldap-jwt-secret-min-32-chars
+        lldap_key_seed: test-lldap-key-seed-min-12-chars
         # --- Monitoring ---
         monitoring_profile: full
         # --- Security ---
