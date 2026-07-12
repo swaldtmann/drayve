@@ -57,9 +57,15 @@ def test_authelia_oidc_well_known(host):
     A failing parse here means the multi-client template rendered invalid YAML
     or Authelia rejected the config — exactly the Forgejo-mount-drift class of
     silent failure this auftrag targets.
+
+    Authelia >= 4.39 derives the effective issuer from the request and rejects
+    plain-HTTP access without proxy headers (400, "invalid X-Forwarded-Proto
+    header value 'http'") — simulate the reverse proxy like Traefik does.
     """
     cmd = host.run(
         "docker exec authelia wget -q -O- "
+        "--header 'Host: auth.test.drayve.local' "
+        "--header 'X-Forwarded-Proto: https' "
         "http://localhost:9091/.well-known/openid-configuration"
     )
     assert cmd.rc == 0, f"OIDC discovery endpoint not reachable: {cmd.stderr}"

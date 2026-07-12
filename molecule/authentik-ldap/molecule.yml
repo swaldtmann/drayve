@@ -75,6 +75,7 @@ provisioner:
         lldap_base_dn: "DC=drayve,DC=local"
         lldap_admin_password: test-lldap-admin-password
         lldap_jwt_secret: test-lldap-jwt-secret-min-32-chars!!
+        lldap_key_seed: test-lldap-key-seed-min-12-chars
         lldap_image: lldap/lldap:stable
         mem_lldap: 128m
         lldap_users:
