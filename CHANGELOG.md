@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.1]
+
+### Fixed
+- **`.kedge.env.j2` quoting bug** — `BACKUP_EXCLUDE_MOUNTS` rendered without
+  shell quotes, so a space-separated multi-path value broke `source
+  .kedge.env` itself (bash tried to run the second path as a command),
+  aborting `kedge backup` under `set -e` before it ran. Blocked
+  `monitoring: profile: full` stacks, where kedge's `discover_bind_mounts`
+  picks up cAdvisor's `/` rootfs mount plus node-exporter/promtail system
+  paths (`/sys`, `/var/log`, `/var/run`, `/var/lib/docker`) and needs all
+  of them excluded at once. Found live on EWH-W-132's persistent cutover
+  lab (P5.6c). Added a regression test that actually `source`s the
+  rendered env file in bash instead of just parsing `KEY=value` lines —
+  the prior test suite would not have caught this.
+
 ## [Unreleased]
 
 ### Added
