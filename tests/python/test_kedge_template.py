@@ -127,7 +127,28 @@ def test_excludes_empty_does_not_render(render):
 def test_excludes_set_renders_value(render):
     rendered = render(backup_kedge_exclude_mounts="/var/cache /tmp/large")
     parsed = _parse_env(rendered)
-    assert parsed["BACKUP_EXCLUDE_MOUNTS"] == "/var/cache /tmp/large"
+    assert parsed["BACKUP_EXCLUDE_MOUNTS"] == '"/var/cache /tmp/large"'
+
+
+def test_excludes_multiword_value_is_shell_sourceable(render):
+    """Regression (EWH-W-132, P5.6): unquoted multi-word
+    BACKUP_EXCLUDE_MOUNTS broke `source .kedge.env` itself (bash tried to
+    run the second path as a command), aborting kedge backup under set -e.
+    Actually source the rendered file in bash and assert the variable
+    survives intact with all paths — the only check that would have
+    caught this."""
+    import subprocess
+
+    rendered = render(
+        backup_kedge_exclude_mounts="/ /sys /var/log /var/run /var/lib/docker"
+    )
+    result = subprocess.run(
+        ["bash", "-c", f"set -e; source /dev/stdin <<'EOF'\n{rendered}\nEOF\necho \"$BACKUP_EXCLUDE_MOUNTS\""],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"sourcing failed: {result.stderr}"
+    assert result.stdout.strip() == "/ /sys /var/log /var/run /var/lib/docker"
 
 
 # ---- 5) Optional healthcheck URL only renders when non-empty ----
