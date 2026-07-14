@@ -38,6 +38,7 @@ REQUIRED_KEYS = {
 OPTIONAL_KEYS = {
     "BACKUP_EXCLUDE_MOUNTS",
     "BACKUP_HEALTHCHECK_URL",
+    "BACKUP_PRE_HOOK",
 }
 
 
@@ -54,6 +55,7 @@ def _base_ctx(**overrides: object) -> dict[str, object]:
         "backup_retain_weekly": 4,
         "backup_retain_monthly": 6,
         "backup_kedge_healthcheck_url": "",
+        "backup_kedge_pre_hook": "",
     }
     ctx.update(overrides)
     return ctx
@@ -151,6 +153,36 @@ def test_excludes_multiword_value_is_shell_sourceable(render):
     assert result.stdout.strip() == "/ /sys /var/log /var/run /var/lib/docker"
 
 
+# ---- 4b) Optional pre-hook only renders when non-empty, stays sourceable ----
+
+def test_pre_hook_empty_does_not_render(render):
+    rendered = render(backup_kedge_pre_hook="")
+    parsed = _parse_env(rendered)
+    assert "BACKUP_PRE_HOOK" not in parsed
+
+
+def test_pre_hook_set_renders_quoted_value(render):
+    rendered = render(backup_kedge_pre_hook="echo hi")
+    parsed = _parse_env(rendered)
+    assert parsed["BACKUP_PRE_HOOK"] == '"echo hi"'
+
+
+def test_pre_hook_multiword_value_is_shell_sourceable(render):
+    """Same class of bug as BACKUP_EXCLUDE_MOUNTS (P5.6): a hook command
+    with spaces/operators must survive `source .kedge.env` intact."""
+    import subprocess
+
+    hook = "rm -rf /var/backups/ds389-dump && dsctl slapd-ewaldshof db2bak /var/backups/ds389-dump"
+    rendered = render(backup_kedge_pre_hook=hook)
+    result = subprocess.run(
+        ["bash", "-c", f"set -e; source /dev/stdin <<'EOF'\n{rendered}\nEOF\necho \"$BACKUP_PRE_HOOK\""],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"sourcing failed: {result.stderr}"
+    assert result.stdout.strip() == hook
+
+
 # ---- 5) Optional healthcheck URL only renders when non-empty ----
 
 def test_healthcheck_empty_does_not_render(render):
@@ -220,6 +252,7 @@ def test_defaults_declare_all_kedge_vars():
         "backup_kedge_stop_stack",
         "backup_kedge_exclude_mounts",
         "backup_kedge_healthcheck_url",
+        "backup_kedge_pre_hook",
         "backup_prune_schedule",
     ):
         assert f"{var}:" in text, f"defaults missing {var}"

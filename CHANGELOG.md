@@ -23,6 +23,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **kedge `BACKUP_PRE_HOOK` passthrough** — new `backup_kedge_pre_hook` var
+  renders `BACKUP_PRE_HOOK` in `.kedge.env.j2` (quoted, same fix class as
+  `BACKUP_EXCLUDE_MOUNTS` above). Lets a stack run an arbitrary command
+  before kedge's own backup steps — e.g. dumping a native (non-Docker)
+  service into a fixed path that a bind-mount entry then hands to kedge's
+  external-mount archiver. Anlass: EWH-W-132, ewh-lab runs a native `ds389`
+  directory server outside any container; kedge's Compose-only
+  auto-discovery can't see it otherwise.
 - **Declarative OIDC clients** (W-144) — `stack.yaml` accepts
   `auth.oidc_clients` (list), `auth.authorization_policies` and
   `auth.claims_policies` (dicts). The Authelia config template iterates

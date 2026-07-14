@@ -22,3 +22,4 @@ backup_kedge_restic_repository: ""  # required when target=kedge, e.g. sftp:u123
 backup_kedge_stop_stack: true
 backup_kedge_exclude_mounts: ""  # space-separated paths, see kedge BACKUP_EXCLUDE_VOLUMES
 backup_kedge_healthcheck_url: ""  # optional Healthchecks.io / Uptime Kuma URL
+backup_kedge_pre_hook: ""  # optional command, runs before kedge's own backup steps
