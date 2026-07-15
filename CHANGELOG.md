@@ -22,6 +22,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- **Grafana never got the `auth@file` middleware** — `landing` and `dashboard`
+  (Traefik's own UI) were gated behind `auth@file` whenever `auth_provider !=
+  'none'`, but `grafana`'s router labels never got the same treatment. Grafana
+  relied solely on its own native login (admin/`GF_SECURITY_ADMIN_PASSWORD`,
+  or OIDC auto-login for authelia/authentik), so with `auth: provider: basic`
+  it was the only public admin surface without an infra-level BasicAuth gate.
+  Found live on ewh-lab (EWH-W-132/EWH-W-131 Folge, 2026-07-15) rolling out
+  `auth:basic`. Now consistent with landing/dashboard for every
+  `auth_provider != none`.
+
+## [0.6.2]
+
 ### Added
 - **kedge `BACKUP_PRE_HOOK` passthrough** — new `backup_kedge_pre_hook` var
   renders `BACKUP_PRE_HOOK` in `.kedge.env.j2` (quoted, same fix class as
