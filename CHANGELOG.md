@@ -20,6 +20,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   rendered env file in bash instead of just parsing `KEY=value` lines —
   the prior test suite would not have caught this.
 
+## [0.6.5] - 2026-07-15
+
+### Changed
+- **`backup_kedge_version` default bumped v0.3.2 -> v0.3.4** — v0.3.3 fixes
+  `KEDGE_VERSION` falling back to `dev` when kedge runs through drayve's
+  `/usr/local/bin/kedge -> /opt/kedge/backup.sh` symlink (unresolved
+  `SCRIPT_DIR` broke `git describe`); v0.3.4 is a shellcheck-only cleanup
+  on top. Also corrected `docs/backup-with-kedge.md`'s tunables table,
+  which still listed the stale `v0.3.1` default.
+
 ## [0.6.4] - 2026-07-15
 
 ### Added

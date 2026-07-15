@@ -69,7 +69,7 @@ stack:
 | Variable                          | Default                                              | Notes                                       |
 |-----------------------------------|------------------------------------------------------|---------------------------------------------|
 | `backup_kedge_repo`               | `https://codeberg.org/StephanWaldtmann/kedge.git`    | Mirror URL if you self-host kedge           |
-| `backup_kedge_version`            | `v0.3.1`                                             | Pin to a tag, never `main`                  |
+| `backup_kedge_version`            | `v0.3.4`                                             | Pin to a tag, never `main`                  |
 | `backup_kedge_install_dir`        | `/opt/kedge`                                         |                                             |
 | `backup_kedge_env_file`           | `/root/.kedge.env`                                   | mode 0600, root-owned                       |
 | `backup_kedge_log_file`           | `/var/log/kedge.log`                                 |                                             |
