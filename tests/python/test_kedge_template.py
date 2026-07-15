@@ -253,6 +253,7 @@ def test_defaults_declare_all_kedge_vars():
         "backup_kedge_exclude_mounts",
         "backup_kedge_healthcheck_url",
         "backup_kedge_pre_hook",
+        "backup_kedge_cron_wrapper",
         "backup_prune_schedule",
     ):
         assert f"{var}:" in text, f"defaults missing {var}"
@@ -351,6 +352,62 @@ def test_kedge_cron_template_sources_env_file():
     assert "/usr/local/bin/kedge prune" in tpl, "template must invoke kedge prune"
     # cron.d format requires a user column
     assert " root " in tpl, "cron.d entries must specify the user column (root)"
+
+
+# ---- 9b) Optional cron wrapper (fail-signal helper, e.g. alert-pub) ----
+
+def _render_cron(ansible_jinja_env, **overrides: object) -> str:
+    ctx: dict[str, object] = {
+        "ansible_managed": "Ansible managed",
+        "stack_name": "prod-genua",
+        "backup_kedge_env_file": "/root/.kedge.env",
+        "backup_kedge_log_file": "/var/log/kedge.log",
+        "backup_schedule": "0 3 * * *",
+        "backup_prune_schedule": "30 4 * * 0",
+        "backup_kedge_cron_wrapper": "",
+    }
+    ctx.update(overrides)
+    env = ansible_jinja_env(TEMPLATE_DIR, strict=True)
+    # Mirror Ansible's real trim_blocks=True (this harness's Environment
+    # factory doesn't set it — irrelevant for the .kedge.env.j2 tests since
+    # they parse key/value lines and skip blanks, but load-bearing here
+    # since we assert on exact rendered lines).
+    env.trim_blocks = True
+    template = env.get_template("kedge-cron.j2")
+    return template.render(**ctx)
+
+
+def test_cron_wrapper_empty_is_byte_identical_to_unwrapped(ansible_jinja_env):
+    """Regression: adding the wrapper option must not change a single byte
+    of the rendered output when the var is unset (default) — existing
+    stacks without the var set must see zero diff on their next deploy."""
+    rendered = _render_cron(ansible_jinja_env)
+    assert "0 3 * * * root set -a; . /root/.kedge.env; set +a; /usr/local/bin/kedge backup >> /var/log/kedge.log 2>&1" in rendered
+    assert "30 4 * * 0 root set -a; . /root/.kedge.env; set +a; /usr/local/bin/kedge prune >> /var/log/kedge.log 2>&1" in rendered
+    assert "alert-pub" not in rendered
+    assert "bash -c" not in rendered
+
+
+def test_cron_wrapper_set_wraps_both_backup_and_prune(ansible_jinja_env):
+    rendered = _render_cron(ansible_jinja_env, backup_kedge_cron_wrapper="/usr/local/sbin/alert-pub")
+    assert (
+        "0 3 * * * root /usr/local/sbin/alert-pub kedge-prod-genua-backup -- "
+        "bash -c 'set -a; . /root/.kedge.env; set +a; /usr/local/bin/kedge backup' "
+        ">> /var/log/kedge.log 2>&1"
+    ) in rendered
+    assert (
+        "30 4 * * 0 root /usr/local/sbin/alert-pub kedge-prod-genua-prune -- "
+        "bash -c 'set -a; . /root/.kedge.env; set +a; /usr/local/bin/kedge prune' "
+        ">> /var/log/kedge.log 2>&1"
+    ) in rendered
+
+
+def test_cron_wrapper_job_names_differ_between_backup_and_prune(ansible_jinja_env):
+    """alert-pub keys its alert topic off the job-name argument — backup and
+    prune failures must not collide under the same name."""
+    rendered = _render_cron(ansible_jinja_env, backup_kedge_cron_wrapper="/usr/local/sbin/alert-pub")
+    assert "kedge-prod-genua-backup" in rendered
+    assert "kedge-prod-genua-prune" in rendered
 
 
 def test_kedge_cron_deployed_to_etc_crond():

@@ -78,6 +78,29 @@ stack:
 | `backup_kedge_stop_stack`         | `true`                                               | `false` = hot backup (see kedge README)     |
 | `backup_kedge_exclude_mounts`     | `""`                                                 | Space-separated paths to skip               |
 | `backup_kedge_healthcheck_url`    | `""`                                                 | Healthchecks.io / Uptime Kuma URL           |
+| `backup_kedge_pre_hook`           | `""`                                                 | Command run before kedge's own backup steps |
+| `backup_kedge_cron_wrapper`       | `""`                                                 | Cron wrapper, contract `<wrapper> <job-name> -- <cmd...>`. Wraps both the backup and prune cron line — e.g. a fail-signal helper. See "Fail-signal wrapper" below. |
+
+## Fail-signal wrapper
+
+kedge itself only runs `BACKUP_FAIL_HOOK`/`BACKUP_POST_HOOK` for the `backup`
+subcommand's own `cleanup()` trap — `kedge prune` has no hook or healthcheck
+integration at all. If you need uniform fail-alerting for both cron jobs (not
+just backup), set `backup_kedge_cron_wrapper` instead of relying on kedge's
+native hooks:
+
+```yaml
+backup:
+  ...
+  kedge_cron_wrapper: /usr/local/bin/my-fail-signal-wrapper
+```
+
+The wrapper must accept the contract `<wrapper> <job-name> -- <cmd...>`
+(run the command, forward its stdout/stderr and exit code unchanged, fire
+your alert on non-zero exit or on whatever failure signal you detect). Both
+generated cron lines — `kedge-<stack_name>-backup` and
+`kedge-<stack_name>-prune` — get wrapped identically. Empty (default): cron
+lines are unwrapped, exactly as before this option existed.
 
 ## Migration from `local` or `sftp`
 

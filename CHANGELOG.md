@@ -22,6 +22,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **kedge cron fail-signal wrapper** — new `backup_kedge_cron_wrapper` var
+  wraps both the `kedge backup` and `kedge prune` cron lines with a
+  generic `<wrapper> <job-name> -- <cmd...>` contract (e.g. a fail-signal
+  helper). kedge's own `BACKUP_FAIL_HOOK`/`BACKUP_POST_HOOK` only fire from
+  `cmd_backup`'s cleanup trap — `cmd_prune` has no hook or healthcheck
+  integration at all, so a per-job cron wrapper is the only place that
+  covers both uniformly. Empty (default): cron lines are unwrapped, byte-
+  identical to before this option existed. Anlass: CW-W-178 RCA — prod-genua
+  had fail-alerting (AFKI-W-219, `alert-pub`) hand-patched directly into
+  `/etc/cron.d/kedge-genua`/`kedge-genua-prune`, invisible to and
+  incompatible with the templated `/etc/cron.d/kedge-<stack_name>` file.
+
 ### Fixed
 - **Grafana never got the `auth@file` middleware** — `landing` and `dashboard`
   (Traefik's own UI) were gated behind `auth@file` whenever `auth_provider !=
