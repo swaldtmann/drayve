@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   rendered env file in bash instead of just parsing `KEY=value` lines —
   the prior test suite would not have caught this.
 
-## [Unreleased]
+## [0.6.4] - 2026-07-15
 
 ### Added
 - **kedge cron fail-signal wrapper** — new `backup_kedge_cron_wrapper` var
@@ -34,6 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   had fail-alerting (AFKI-W-219, `alert-pub`) hand-patched directly into
   `/etc/cron.d/kedge-genua`/`kedge-genua-prune`, invisible to and
   incompatible with the templated `/etc/cron.d/kedge-<stack_name>` file.
+
+## [0.6.3] - 2026-07-15
 
 ### Fixed
 - **Grafana never got the `auth@file` middleware** — `landing` and `dashboard`
