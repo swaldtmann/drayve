@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.6] - 2026-07-16
+
+### Fixed
+- **`deploy : Docker compose up` idempotence-flake** — `changed_when` matched
+  bare `'Started'` in `docker compose up` output, which Compose also prints
+  when a container is merely restarted without any config change (e.g. a
+  `depends_on: condition: service_healthy` dependency getting re-evaluated
+  on every `up` and hitting a health-poll race). This caused sporadic
+  Molecule idempotence failures on the auth-provider scenarios (authelia,
+  authentik, authentik-ldap, integration — the heaviest/slowest-converging
+  ones, giving the race the widest window). Now only `'Created'`/`'Recreated'`
+  count as changed — real drift, not a benign restart. CW-W-181.
+
 ## [0.6.1]
 
 ### Fixed

@@ -420,7 +420,12 @@
     chdir: "{{ drayve_deploy_dir }}"
   become: true
   become_user: "{{ drayve_user }}"
-  changed_when: "'Started' in compose_up.stderr or 'Recreated' in compose_up.stderr"
+  # 'Started' allein zaehlt nicht: Compose druckt das auch wenn ein Container
+  # ohne jede Config-Aenderung neu gestartet wird (depends_on:service_healthy
+  # wird bei jedem 'up' neu ausgewertet, kann bei Health-Poll-Race einen bereits
+  # korrekten Container einfach neu starten). Nur 'Created'/'Recreated' zeigen
+  # echte Drift (CW-W-181 — molecule (authelia) Idempotence-Flake, Run #193).
+  changed_when: "'Created' in compose_up.stderr or 'Recreated' in compose_up.stderr"
   register: compose_up
   tags: [deploy]
 
