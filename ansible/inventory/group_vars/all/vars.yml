@@ -52,6 +52,13 @@ acme_email: ""
 # the app itself owns the apex route.
 landing_enabled: true
 
+# Domain the landing router claims (Host() rule). Empty = falls back to the
+# apex (drayve_domain), the historical default. Override via stack.yaml
+# (services.landing.domain: dash.example.com) when the apex itself is owned
+# by something outside this stack (e.g. an unrelated site already living
+# there) and the landing page needs its own subdomain instead.
+landing_domain: ""
+
 # === Auth ===
 auth_provider: basic
 
