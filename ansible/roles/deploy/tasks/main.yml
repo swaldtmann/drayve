@@ -47,6 +47,11 @@
     landing_enabled: "{{ services.landing.enabled | default(landing_enabled) | default(true) | bool }}"
   tags: [deploy]
 
+- name: Resolve landing_domain from stack.yaml
+  ansible.builtin.set_fact:
+    landing_domain: "{{ (services.landing.domain | default('')) or drayve_domain }}"
+  tags: [deploy]
+
 - name: Resolve acme_email from stack.yaml
   ansible.builtin.set_fact:
     acme_email: "{{ stack.acme_email | default(acme_email) | default('') }}"

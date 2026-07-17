@@ -238,7 +238,7 @@ services:
       retries: 3
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.landing.rule=Host(`{{ drayve_domain }}`)"
+      - "traefik.http.routers.landing.rule=Host(`{{ landing_domain | default(drayve_domain) }}`)"
       - "traefik.http.routers.landing.entrypoints=websecure"
       - "traefik.http.routers.landing.tls=true"
       - "traefik.http.routers.landing.tls.certresolver=letsencrypt"
