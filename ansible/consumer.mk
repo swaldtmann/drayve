@@ -33,8 +33,11 @@
 #   PROD_SNAPSHOT     — Pfad zum prod-snapshot-Wrapper
 #   DRAYVE_REF        — git-ref fuer vendor (kommt aus Konsument)
 #   EXTRA_ANSIBLE_VARS — leer = aus, sonst an deploy-prod/-check/-check-fast
-#                       angehaengt (z.B. -e '{"auth":{"provider":"none"}}'),
-#                       gilt fuer alle drei Targets identisch (CW-W-172)
+#                       angehaengt, gilt fuer alle drei Targets identisch
+#                       (CW-W-172). Dateibasiert setzen, nicht inline-JSON —
+#                       z.B. -e @override.yml (inline "-e '{"a":{"b":"c"}}'"
+#                       zerbricht an Shell-Quoting, sobald Make die
+#                       Recipe-Zeile an /bin/sh uebergibt)
 
 ifndef NAME
 $(error consumer.mk: NAME ist nicht gesetzt. Setze NAME := <inventory-group> vor dem include.)
