@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.8] - 2026-07-18
+
 ### Fixed
 - **`acme_dns_provider` was silently ignored** — `stack.yaml`'s
   `acme_dns_provider`/`acme_dns_env_vars`/`acme_dns_propagation_delay` had no
