@@ -29,7 +29,7 @@ services:
       - "traefik.http.routers.dashboard.rule=Host(`traefik.{{ drayve_domain }}`)"
       - "traefik.http.routers.dashboard.entrypoints=websecure"
       - "traefik.http.routers.dashboard.tls=true"
-      - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.dashboard.tls.certresolver={{ traefik_certresolver }}"
       - "traefik.http.routers.dashboard.service=api@internal"
 {% if auth_provider != 'none' %}
       - "traefik.http.routers.dashboard.middlewares=auth@file"
@@ -108,7 +108,7 @@ services:
       - "traefik.http.routers.lldap.rule=Host(`ldap.{{ drayve_domain }}`)"
       - "traefik.http.routers.lldap.entrypoints=websecure"
       - "traefik.http.routers.lldap.tls=true"
-      - "traefik.http.routers.lldap.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.lldap.tls.certresolver={{ traefik_certresolver }}"
       - "traefik.http.services.lldap.loadbalancer.server.port=17170"
 {% endif %}
 
@@ -132,7 +132,7 @@ services:
       - "traefik.http.routers.authelia.rule=Host(`auth.{{ drayve_domain }}`)"
       - "traefik.http.routers.authelia.entrypoints=websecure"
       - "traefik.http.routers.authelia.tls=true"
-      - "traefik.http.routers.authelia.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.authelia.tls.certresolver={{ traefik_certresolver }}"
       - "traefik.http.services.authelia.loadbalancer.server.port=9091"
 {% endif %}
 
@@ -194,13 +194,13 @@ services:
       - "traefik.http.routers.authentik.rule=Host(`auth.{{ drayve_domain }}`)"
       - "traefik.http.routers.authentik.entrypoints=websecure"
       - "traefik.http.routers.authentik.tls=true"
-      - "traefik.http.routers.authentik.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.authentik.tls.certresolver={{ traefik_certresolver }}"
       - "traefik.http.services.authentik.loadbalancer.server.port=9000"
       # Outpost routes (must be accessible without auth middleware)
       - "traefik.http.routers.authentik-outpost.rule=HostRegexp(`{subdomain:[a-z0-9-]+}.{{ drayve_domain }}`) && PathPrefix(`/outpost.goauthentik.io/`)"
       - "traefik.http.routers.authentik-outpost.entrypoints=websecure"
       - "traefik.http.routers.authentik-outpost.tls=true"
-      - "traefik.http.routers.authentik-outpost.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.authentik-outpost.tls.certresolver={{ traefik_certresolver }}"
       - "traefik.http.services.authentik-outpost.loadbalancer.server.port=9000"
 
   authentik-worker:
@@ -241,7 +241,7 @@ services:
       - "traefik.http.routers.landing.rule=Host(`{{ landing_domain | default(drayve_domain) }}`)"
       - "traefik.http.routers.landing.entrypoints=websecure"
       - "traefik.http.routers.landing.tls=true"
-      - "traefik.http.routers.landing.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.landing.tls.certresolver={{ traefik_certresolver }}"
 {% if auth_provider != 'none' %}
       - "traefik.http.routers.landing.middlewares=auth@file"
 {% endif %}
@@ -358,7 +358,7 @@ services:
       - "traefik.http.routers.grafana.rule=Host(`grafana.{{ drayve_domain }}`)"
       - "traefik.http.routers.grafana.entrypoints=websecure"
       - "traefik.http.routers.grafana.tls=true"
-      - "traefik.http.routers.grafana.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.grafana.tls.certresolver={{ traefik_certresolver }}"
 {% if auth_provider != 'none' %}
       - "traefik.http.routers.grafana.middlewares=auth@file"
 {% endif %}

@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- **`acme_dns_provider` was silently ignored** — `stack.yaml`'s
+  `acme_dns_provider`/`acme_dns_env_vars`/`acme_dns_propagation_delay` had no
+  resolve task mapping them to Ansible vars, and even where they did apply,
+  every Traefik router label hardcoded `certresolver=letsencrypt` (the
+  HTTP-01 resolver) — the correctly-configured `letsencrypt-dns` resolver in
+  `traefik.yml.j2` was defined but never referenced. New `acme_challenge`
+  setting (`http`, default, or `dns`) now actually switches the resolver
+  used by every router. DRAYVE-W-011.
+- Verified (no code change needed): the pinned `traefik:v3.6` image bundles
+  lego v4.35.x, well past the v4.27 release that added Hetzner Cloud DNS API
+  support (`HETZNER_API_TOKEN`, already Drayve's default) — the legacy
+  `dns.hetzner.com` API concern from DRAYVE-W-011 Fund 2 was already resolved
+  upstream by the time it was investigated.
+
 ## [0.6.6] - 2026-07-16
 
 ### Fixed

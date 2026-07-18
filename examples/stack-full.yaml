@@ -7,9 +7,12 @@ stack:
   name: production
   domain: ops.example.com
   acme_email: admin@example.com
-  # ACME DNS-01 challenge — defaults to hetzner.
-  # Override when DNS lives elsewhere (cloudflare, netcup, route53, gcloud, ...).
-  # acme_dns_provider: cloudflare
+  # ACME challenge: "http" (default) needs port 80 reachable, no DNS secrets.
+  # "dns" is needed for wildcard certs or when port 80 can't be exposed —
+  # DRAYVE-W-011: acme_dns_provider alone does NOT switch the challenge type,
+  # acme_challenge: dns is what actually flips the certResolver.
+  # acme_challenge: dns
+  # acme_dns_provider: cloudflare          # defaults to hetzner
   # acme_dns_propagation_delay: 60        # netcup typically needs ~300
   # acme_dns_env_vars:                     # which env vars traefik should see
   #   - CF_DNS_API_TOKEN                   # values live in env.override

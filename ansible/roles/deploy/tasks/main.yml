@@ -57,6 +57,38 @@
     acme_email: "{{ stack.acme_email | default(acme_email) | default('') }}"
   tags: [deploy]
 
+# CW-Ticket DRAYVE-W-011: stack.acme_challenge steuerte bislang gar keinen
+# Ansible-Var (kein Resolve-Task) UND selbst waere der Wert wirkungslos
+# gewesen, weil jeder Router-Label in docker-compose.yml.j2 fest auf den
+# httpChallenge-Resolver "letsencrypt" zeigte statt auf eine Variable.
+# acme_dns_provider/-env_vars/-propagation_delay wurden aus demselben Grund
+# nie aus stack.yaml gelesen — die Ansible-Var-Defaults aus
+# roles/traefik/defaults/main.yml griffen immer, egal was in stack.yaml stand.
+- name: Resolve acme_challenge from stack.yaml
+  ansible.builtin.set_fact:
+    acme_challenge: "{{ stack.acme_challenge | default('http') }}"
+  tags: [deploy]
+
+- name: Resolve acme_dns_provider from stack.yaml
+  ansible.builtin.set_fact:
+    acme_dns_provider: "{{ stack.acme_dns_provider | default(acme_dns_provider) | default('hetzner') }}"
+  tags: [deploy]
+
+- name: Resolve acme_dns_env_vars from stack.yaml
+  ansible.builtin.set_fact:
+    acme_dns_env_vars: "{{ stack.acme_dns_env_vars | default(acme_dns_env_vars) | default(['HETZNER_API_TOKEN']) }}"
+  tags: [deploy]
+
+- name: Resolve acme_dns_propagation_delay from stack.yaml
+  ansible.builtin.set_fact:
+    acme_dns_propagation_delay: "{{ stack.acme_dns_propagation_delay | default(acme_dns_propagation_delay) | default(30) }}"
+  tags: [deploy]
+
+- name: Derive traefik_certresolver from acme_challenge
+  ansible.builtin.set_fact:
+    traefik_certresolver: "{{ 'letsencrypt-dns' if acme_challenge == 'dns' else 'letsencrypt' }}"
+  tags: [deploy]
+
 - name: Resolve apps from stack.yaml
   ansible.builtin.set_fact:
     apps: "{{ apps | default([]) }}"

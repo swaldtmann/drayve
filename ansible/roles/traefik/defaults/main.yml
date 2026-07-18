@@ -5,6 +5,13 @@ traefik_certs_dir: "{{ drayve_deploy_dir }}/traefik/certs"
 
 traefik_image: traefik:v3.6
 
+# Which certResolver Traefik router labels use: "letsencrypt" (httpChallenge,
+# default) or "letsencrypt-dns" (dnsChallenge, provider = acme_dns_provider
+# below). Set via stack.acme_challenge (http|dns) — the deploy role derives
+# this from that setting; this default only applies if that resolve task
+# didn't run (e.g. tag-only traefik role run).
+traefik_certresolver: letsencrypt
+
 # ACME DNS-01 challenge — provider for the letsencrypt-dns resolver.
 # Any provider supported by Traefik / lego is allowed (hetzner, cloudflare,
 # netcup, route53, gcloud, ...). Each provider expects its own credential

@@ -31,6 +31,35 @@ properties:
         type: string
         description: Email for Let's Encrypt certificate notifications.
         format: email
+      acme_challenge:
+        type: string
+        description: >
+          Which ACME challenge Traefik uses to issue certs. "http" (default)
+          needs port 80 reachable from the internet, no DNS-provider secrets.
+          "dns" uses acme_dns_provider below — needed for wildcard certs or
+          hosts where port 80 can't be exposed.
+        enum:
+          - http
+          - dns
+        default: http
+      acme_dns_provider:
+        type: string
+        description: >
+          DNS-01 provider (only used when acme_challenge=dns). Any provider
+          lego/Traefik supports. See https://doc.traefik.io/traefik/https/acme/#providers.
+        default: hetzner
+      acme_dns_env_vars:
+        type: array
+        description: >
+          Env vars forwarded to the traefik container for the selected
+          acme_dns_provider (values live in env.override on the host).
+        items:
+          type: string
+        default: ["HETZNER_API_TOKEN"]
+      acme_dns_propagation_delay:
+        type: integer
+        description: Seconds Traefik waits before checking DNS propagation (only acme_challenge=dns).
+        default: 30
 
   provider:
     type: object
