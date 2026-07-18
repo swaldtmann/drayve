@@ -32,6 +32,9 @@
 #                       (in deploy-prod/-check als Prerequisite)
 #   PROD_SNAPSHOT     — Pfad zum prod-snapshot-Wrapper
 #   DRAYVE_REF        — git-ref fuer vendor (kommt aus Konsument)
+#   EXTRA_ANSIBLE_VARS — leer = aus, sonst an deploy-prod/-check/-check-fast
+#                       angehaengt (z.B. -e '{"auth":{"provider":"none"}}'),
+#                       gilt fuer alle drei Targets identisch (CW-W-172)
 
 ifndef NAME
 $(error consumer.mk: NAME ist nicht gesetzt. Setze NAME := <inventory-group> vor dem include.)
@@ -43,6 +46,7 @@ SOPS_AGE_KEY_FILE ?= $(HOME)/.config/sops/age/drayve-$(NAME).txt
 SNAPSHOT_HOST     ?= $(NAME)
 PROD_SNAPSHOT     ?= /Users/sw/claudes-welt/tools/prod-snapshot
 SKIP_SNAPSHOT     ?=
+EXTRA_ANSIBLE_VARS ?=
 
 export SOPS_AGE_KEY_FILE
 
@@ -71,15 +75,15 @@ pre-snapshot:  ## Pre-Deploy hcloud-Snapshot (AFKI-W-125, SKIP_SNAPSHOT=1 uebers
 		$(PROD_SNAPSHOT) $(SNAPSHOT_HOST) --reason "drayve-deploy-$(DRAYVE_REF)"; \
 	fi
 
-deploy-prod: $(DEPLOY_DEPS)  ## Deploy DRAYVE_REF to host (CONFIRM=y to skip prompt, SKIP_SNAPSHOT=1 ueberspringt Snapshot)
+deploy-prod: $(DEPLOY_DEPS)  ## Deploy DRAYVE_REF to host (CONFIRM=y to skip prompt, SKIP_SNAPSHOT=1 ueberspringt Snapshot, EXTRA_ANSIBLE_VARS fuer Overrides)
 	@[ "$(CONFIRM)" = "y" ] || { printf "Deploy $(DRAYVE_REF) to $(NAME) PRODUCTION? [y/N] "; read ans; [ "$$ans" = "y" ] || exit 1; }
-	$(ANSIBLE) playbooks/deploy.yml -l $(NAME) -e deploy_ref=$(DRAYVE_REF) -e ops_secrets_root=$(CURDIR) -e @$(CURDIR)/stack.yaml
+	$(ANSIBLE) playbooks/deploy.yml -l $(NAME) -e deploy_ref=$(DRAYVE_REF) -e ops_secrets_root=$(CURDIR) -e @$(CURDIR)/stack.yaml $(EXTRA_ANSIBLE_VARS)
 
 deploy-check: $(CHECK_DEPS)  ## Deep dry-run: deploy.yml --check (KNOWN-BROKEN in v0.4.x, prefer deploy-check-fast — W-131)
-	$(ANSIBLE) playbooks/deploy.yml -l $(NAME) -e deploy_ref=$(DRAYVE_REF) -e ops_secrets_root=$(CURDIR) -e @$(CURDIR)/stack.yaml --check
+	$(ANSIBLE) playbooks/deploy.yml -l $(NAME) -e deploy_ref=$(DRAYVE_REF) -e ops_secrets_root=$(CURDIR) -e @$(CURDIR)/stack.yaml --check $(EXTRA_ANSIBLE_VARS)
 
-deploy-check-fast: $(CHECK_DEPS)  ## Fast static validation: stack.yaml + secrets, no host contact (W-131)
-	$(ANSIBLE) playbooks/validate.yml -l $(NAME) -e deploy_ref=$(DRAYVE_REF) -e ops_secrets_root=$(CURDIR) -e @$(CURDIR)/stack.yaml
+deploy-check-fast: $(CHECK_DEPS)  ## Fast static validation: stack.yaml + secrets, no host contact (W-131, EXTRA_ANSIBLE_VARS fuer Overrides — CW-W-172)
+	$(ANSIBLE) playbooks/validate.yml -l $(NAME) -e deploy_ref=$(DRAYVE_REF) -e ops_secrets_root=$(CURDIR) -e @$(CURDIR)/stack.yaml $(EXTRA_ANSIBLE_VARS)
 
 secrets-edit:  ## Edit SECRETS_FILE via sops
 	sops $(SECRETS_FILE)
