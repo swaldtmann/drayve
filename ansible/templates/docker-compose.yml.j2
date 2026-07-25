@@ -349,6 +349,9 @@ services:
       - GF_INSTALL_PLUGINS=yesoreyeram-infinity-datasource
       - CROWDSEC_LAPI_KEY=${CROWDSEC_LAPI_KEY:-}
 {% endif %}
+{% if grafana_alert_api_token | default('') | length > 0 %}
+      - KIGULLS_API_TOKEN=${KIGULLS_API_TOKEN:-}
+{% endif %}
     volumes:
       - grafana_data:/var/lib/grafana
       - grafana_plugins:/var/lib/grafana/plugins
