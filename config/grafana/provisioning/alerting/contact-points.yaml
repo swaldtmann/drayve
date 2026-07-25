@@ -1,0 +1,14 @@
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: kigulls-api-webhook
+    receivers:
+      - uid: kigulls-api-webhook-1
+        type: webhook
+        disableResolveMessage: false
+        settings:
+          url: https://api.horst.kigulls.dev/api/v1/alert
+          httpMethod: POST
+          authorization_scheme: Bearer
+          authorization_credentials: $KIGULLS_API_TOKEN

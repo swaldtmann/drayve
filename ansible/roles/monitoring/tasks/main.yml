@@ -180,6 +180,7 @@
   loop:
     - "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/dashboards/json"
     - "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/datasources"
+    - "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/alerting"
   when: _mon_grafana
   tags: [monitoring, dashboards]
 
@@ -256,6 +257,43 @@
   register: grafana_dashboards
   tags: [monitoring, dashboards]
 
+# === Grafana alerting: kigulls-api-webhook contact point + routing policy ===
+# Optional, gated on grafana_alert_api_token — off by default, no config migration
+# for consumers that never set it. CW-W-245: same contact point/policy pattern
+# already hand-copied onto genua/cloud/hub/kakapo, now versioned + wired to a
+# real secret instead of an unset $KIGULLS_API_TOKEN env var.
+- name: Deploy Grafana alert contact point (kigulls-api-webhook)
+  ansible.builtin.copy:
+    src: "{{ ops_deploy_root }}/config/grafana/provisioning/alerting/contact-points.yaml"
+    dest: "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/alerting/contact-points.yaml"
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0644"
+  when: _mon_grafana and (grafana_alert_api_token | default('') | length > 0)
+  register: grafana_alert_contact_points
+  tags: [monitoring, alerting]
+
+- name: Deploy Grafana alert policy (route to kigulls-api-webhook)
+  ansible.builtin.copy:
+    src: "{{ ops_deploy_root }}/config/grafana/provisioning/alerting/policies.yaml"
+    dest: "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/alerting/policies.yaml"
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0644"
+  when: _mon_grafana and (grafana_alert_api_token | default('') | length > 0)
+  register: grafana_alert_policies
+  tags: [monitoring, alerting]
+
+- name: Remove Grafana alert contact point/policy when token not configured
+  ansible.builtin.file:
+    path: "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/alerting/{{ item }}"
+    state: absent
+  loop:
+    - contact-points.yaml
+    - policies.yaml
+  when: _mon_grafana and (grafana_alert_api_token | default('') | length == 0)
+  tags: [monitoring, alerting]
+
 - name: Check if compose file exists (skip restart on first provision)
   ansible.builtin.stat:
     path: "{{ drayve_deploy_dir }}/docker-compose.yml"
@@ -272,7 +310,9 @@
     _compose_file.stat.exists and
     ((grafana_dashboards.changed | default(false)) or
     (grafana_datasources.changed | default(false)) or
-    (grafana_crowdsec_ds.changed | default(false)))
+    (grafana_crowdsec_ds.changed | default(false)) or
+    (grafana_alert_contact_points.changed | default(false)) or
+    (grafana_alert_policies.changed | default(false)))
   tags: [monitoring, dashboards]
 
 - name: Force-recreate Loki on config change

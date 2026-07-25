@@ -27,6 +27,7 @@ auth_basic_password: ""
 
 # --- Grafana ---
 grafana_admin_pass: ""
+grafana_alert_api_token: ""
 
 # --- CrowdSec ---
 crowdsec_bouncer_key: ""
