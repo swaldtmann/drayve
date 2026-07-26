@@ -260,6 +260,15 @@
     # `domains:`-Liste des Hosts aus servers.yaml, durchgereicht via
     # tools/inventory-from-servers.sh. Leere Liste -> Task hat 0 Iterationen,
     # laeuft sauber durch (kein when noetig, Ansible skippt leere loops).
+    #
+    # Live-Fund (prod-genua, 2026-07-26): direkt nach "SSH wieder da" waren
+    # alle 6 Domains 403/404 -- Traefik/Authelia waren nach dem Reboot noch
+    # nicht vollstaendig warm. ~90s spaeter (manueller curl) waren alle 6
+    # sauber (302 Authelia-Redirect bzw. 200). Kein echter Ausfall, sondern
+    # ein Timing-Race zwischen "SSH erreichbar" und "Reverse-Proxy/Auth-
+    # Backend fertig hochgefahren". Retry statt Blind-Sleep: wartet nur so
+    # lange wie noetig, pro Domain unabhaengig (verschiedene Backends werden
+    # unterschiedlich schnell warm).
     - name: External domain smokes (from control host)
       ansible.builtin.uri:
         url: "https://{{ item }}"
@@ -272,6 +281,9 @@
       loop_control:
         label: "{{ item }}"
       register: hu_domain_smokes
+      until: hu_domain_smokes.status is defined and hu_domain_smokes.status in [200, 301, 302, 401]
+      retries: 6
+      delay: 5
       ignore_errors: true
       changed_when: false
 
