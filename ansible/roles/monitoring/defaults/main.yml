@@ -30,3 +30,10 @@ monitoring_loki_retention_period: "168h"
 #             job: kedge
 #             __path__: /var/log/kedge.log
 monitoring_promtail_extra_scrape_configs: []
+
+# node_exporter textfile collector (EWH-W-128). Off by default, no behavior
+# change for existing consumers. When true, node_exporter gets
+# --collector.textfile.directory and a read-only mount of
+# {{ drayve_deploy_dir }}/monitoring/node-exporter-textfile, so host-side
+# cron jobs (e.g. backup-freshness signals) can drop .prom files there.
+monitoring_node_exporter_textfile: false

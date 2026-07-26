@@ -260,8 +260,14 @@ services:
       - '--path.rootfs=/host'
       - '--path.procfs=/host/proc'
       - '--path.sysfs=/host/sys'
+{% if monitoring_node_exporter_textfile | default(false) | bool %}
+      - '--collector.textfile.directory=/textfile_collector'
+{% endif %}
     volumes:
       - /:/host:ro,rslave
+{% if monitoring_node_exporter_textfile | default(false) | bool %}
+      - {{ drayve_deploy_dir }}/monitoring/node-exporter-textfile:/textfile_collector:ro
+{% endif %}
 {% endif %}
 
 {% if monitoring_services.cadvisor | default(false) | bool %}
