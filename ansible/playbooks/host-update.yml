@@ -21,6 +21,17 @@
 #   -e hu_reboot_if_required=false   # nur upgrade, kein Reboot
 #   -e hu_reboot_timeout=600         # SSH-Wait nach Reboot (Default 300s)
 #   -e hu_apt_full_upgrade=false     # nur apt upgrade, kein full-upgrade
+#
+# AFKI-W-158 Teil A/B (2026-07-26):
+# - Docker-Pakete (docker-ce, docker-ce-cli, containerd.io,
+#   docker-compose-plugin) werden vor dem apt-Lauf gehalten (apt-mark hold)
+#   und nach Reboot+Recovery wieder freigegeben. Verhindert das Race, das
+#   den Traefik-Ausfall auf prod-hub ausgeloest hat (RCA S328-Folge44):
+#   docker-ce-Postinstall restartet docker.service MITTEN im apt-Upgrade.
+# - Externe Domain-Smokes (von der Control-Maschine, nicht vom Host) gegen
+#   die `domains:`-Liste aus servers.yaml (durchgereicht via
+#   tools/inventory-from-servers.sh). Default: nur WARN-Report. Hard-Fail
+#   nur wenn `domains_required_up: true` fuer den Host gesetzt ist.
 
 - name: Rolling host update
   hosts: all
@@ -31,11 +42,43 @@
     hu_reboot_if_required: true
     hu_reboot_timeout: 300
     hu_apt_full_upgrade: true
+    hu_docker_packages:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-compose-plugin
+    # domains/domains_required_up bewusst NICHT hier mit Default vorbelegt:
+    # "play vars" haben HOEHERE Prioritaet als "inventory host vars" (Ansible-
+    # Variablen-Praezedenz) -- ein Default hier wuerde die echten, per
+    # tools/inventory-from-servers.sh durchgereichten Inventory-Werte fuer
+    # JEDEN Host ueberschreiben statt nur als Fallback zu wirken (live gegen
+    # kigulls-dev verifiziert: domains_checked kam als [] obwohl das Inventory
+    # 2 Domains lieferte). Default steht stattdessen an jeder Nutzungsstelle
+    # per Jinja `| default(...)`.
 
   pre_tasks:
     - name: Skip non-Ubuntu hosts cleanly (HAOS, FreeBSD, etc.)
       ansible.builtin.meta: end_host
       when: ansible_distribution != "Ubuntu"
+
+    # AFKI-W-158 Teil A: docker-Pakete VOR dem apt full-upgrade festhalten.
+    # RCA prod-hub traefik (2026-05-16, S328-Folge44): docker-ce-Postinstall
+    # ruft mitten im apt-Lauf "systemctl restart docker" auf -- Container die
+    # in diesem Race-Window stoppen, kommen ohne den Recovery-Step (post_tasks
+    # unten) nicht zurueck. Hold verhindert das Docker-Update in DIESEM Lauf
+    # komplett; Freigabe passiert erst nach Reboot+Recovery (post_tasks).
+    - name: Detect docker presence (pre-upgrade)
+      ansible.builtin.command: which docker
+      register: hu_docker_present_pre
+      changed_when: false
+      failed_when: false
+
+    - name: Hold docker packages before apt-upgrade
+      ansible.builtin.dpkg_selections:
+        name: "{{ item }}"
+        selection: hold
+      loop: "{{ hu_docker_packages }}"
+      when: hu_docker_present_pre.rc == 0
 
     - name: Capture running systemd services (pre)
       ansible.builtin.shell: |
@@ -127,6 +170,17 @@
           - "default_ipv4"
           - "virtual"
 
+    # AFKI-W-158 Teil A: Docker-Pakete nach Reboot+Recovery wieder freigeben,
+    # damit Phase 2 (unattended-upgrades, security-only) sie wieder normal
+    # patchen kann. Nutzt dieselbe Pre-Upgrade-Erkennung (hu_docker_present_pre)
+    # statt neu zu detektieren -- ein apt full-upgrade entfernt docker-ce nicht.
+    - name: Unhold docker packages after upgrade+reboot
+      ansible.builtin.dpkg_selections:
+        name: "{{ item }}"
+        selection: install
+      loop: "{{ hu_docker_packages }}"
+      when: hu_docker_present_pre.rc == 0
+
     # Container-Recovery: AFKI-W-122 / RCA prod-hub 2026-05-16
     # docker-ce/containerd via apt-upgrade triggert ein docker.service-Restart
     # mid-dist-upgrade. Container die in dem schmalen Race-Window (zwischen
@@ -200,6 +254,31 @@
         - uname -r
         - uptime
 
+    # AFKI-W-158 Teil B: externe Domain-Smokes von der Control-Maschine aus
+    # (nicht vom Host selbst -- ein Check von innen wuerde einen kaputten
+    # externen Pfad wie Traefik/DNS/Cloud-Firewall nicht sehen). Quelle:
+    # `domains:`-Liste des Hosts aus servers.yaml, durchgereicht via
+    # tools/inventory-from-servers.sh. Leere Liste -> Task hat 0 Iterationen,
+    # laeuft sauber durch (kein when noetig, Ansible skippt leere loops).
+    - name: External domain smokes (from control host)
+      ansible.builtin.uri:
+        url: "https://{{ item }}"
+        method: GET
+        status_code: [200, 301, 302, 401]
+        timeout: 15
+        validate_certs: true
+      delegate_to: localhost
+      loop: "{{ domains | default([]) }}"
+      loop_control:
+        label: "{{ item }}"
+      register: hu_domain_smokes
+      ignore_errors: true
+      changed_when: false
+
+    - name: Collect failing domains
+      ansible.builtin.set_fact:
+        hu_domains_down: "{{ hu_domain_smokes.results | default([]) | selectattr('failed', 'equalto', true) | map(attribute='item') | list }}"
+
     - name: Final report
       ansible.builtin.debug:
         msg:
@@ -212,6 +291,8 @@
           - "failed_units_pre={{ hu_failed_pre.stdout_lines | length }} post={{ hu_failed_post.stdout_lines | length }}"
           - "failed_units_new={{ hu_failed_new }}"
           - "docker_recovered={{ hu_recovery_candidates.stdout_lines | default([]) }}"
+          - "domains_checked={{ domains | default([]) }}"
+          - "domains_down={{ hu_domains_down }}"
 
     # Hinweis: hu_services_lost wird nur als WARN gemeldet (im Final report
     # oben sichtbar). Grund: `systemctl --state=running` ist ein Snapshot —
@@ -224,3 +305,10 @@
       ansible.builtin.fail:
         msg: "New failed units after update/reboot on {{ inventory_hostname }}: {{ hu_failed_new }}"
       when: hu_failed_new | length > 0
+
+    - name: Hard fail when required domains are down
+      ansible.builtin.fail:
+        msg: "domains_required_up=true fuer {{ inventory_hostname }}, aber nicht erreichbar: {{ hu_domains_down }}"
+      when:
+        - domains_required_up | default(false) | bool
+        - hu_domains_down | length > 0
