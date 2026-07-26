@@ -213,6 +213,16 @@
     # waren, kommen beim Boot nicht mehr hoch — Docker startet beim Boot nur
     # Container deren persistierter State "running" war. Hier abgefangen:
     # alle exited/created Container mit RestartPolicy != "no" werden gestartet.
+    #
+    # Live-Fund prod-hub (2026-07-26): "on-failure" heisst per Docker-Semantik
+    # "nur neu starten wenn der letzte Exit-Code != 0 war" -- ein sauber mit
+    # 0 durchgelaufener Einmal-Job (z.B. zammad-init) BLEIBT bei Docker
+    # bewusst stehen. Die Recovery-Filterung ignorierte den Exit-Code und
+    # startete on-failure-Container immer neu, auch nach Exit 0 -- harmlos
+    # bei idempotenten Init-Skripten, aber semantisch falsch (kein Recovery-
+    # Fall, nur unnoetiger Re-Run). "always"/"unless-stopped" bleiben
+    # unveraendert (die sollen so oder so immer laufen, exit-code-unabhaengig
+    # -- genau der traefik-Fall aus der urspruenglichen RCA).
     - name: Detect docker presence
       ansible.builtin.command: which docker
       register: hu_docker_present
@@ -227,7 +237,13 @@
           [ -z "$name" ] && continue
           policy=$(docker inspect "$name" --format '{{ "{{" }}.HostConfig.RestartPolicy.Name{{ "}}" }}' 2>/dev/null)
           case "$policy" in
-            always|unless-stopped|on-failure) echo "$name $policy" ;;
+            always|unless-stopped)
+              echo "$name $policy"
+              ;;
+            on-failure)
+              exit_code=$(docker inspect "$name" --format '{{ "{{" }}.State.ExitCode{{ "}}" }}' 2>/dev/null)
+              [ "$exit_code" != "0" ] && echo "$name $policy"
+              ;;
           esac
         done
       args:
