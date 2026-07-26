@@ -42,11 +42,24 @@
     hu_reboot_if_required: true
     hu_reboot_timeout: 300
     hu_apt_full_upgrade: true
+    # Beide Docker-Paketierungs-Schemata: Docker's offizielles apt-Repo
+    # (docker-ce*, containerd.io, docker-compose-plugin) UND Ubuntus eigene
+    # Repos (docker.io, containerd, docker-compose-v2) -- welches ein Host
+    # nutzt haengt davon ab, wie Docker installiert wurde (get-docker.sh vs.
+    # `apt install docker.io`). Live-Fund horst (2026-07-26): hu_docker_packages
+    # hardcodete nur das erste Schema, dpkg_selections("hold") schlug fehl mit
+    # "Failed to find package" und brach den kompletten Lauf VOR dem Upgrade ab
+    # (kein Schaden, aber kein Patch). Gefiltert auf tatsaechlich installierte
+    # Pakete via hu_docker_packages_present (s. pre_tasks), keine Hardcode-Liste
+    # mehr direkt in hold/unhold.
     hu_docker_packages:
       - docker-ce
       - docker-ce-cli
       - containerd.io
       - docker-compose-plugin
+      - docker.io
+      - containerd
+      - docker-compose-v2
     # domains/domains_required_up bewusst NICHT hier mit Default vorbelegt:
     # "play vars" haben HOEHERE Prioritaet als "inventory host vars" (Ansible-
     # Variablen-Praezedenz) -- ein Default hier wuerde die echten, per
@@ -73,11 +86,23 @@
       changed_when: false
       failed_when: false
 
+    # Nur tatsaechlich installierte Pakete filtern (s. hu_docker_packages
+    # Kommentar oben) -- dpkg_selections("hold") auf ein unbekanntes Paket
+    # ist ein harter Fehler ("Failed to find package"), kein no-op.
+    - name: Gather installed package facts
+      ansible.builtin.package_facts:
+      when: hu_docker_present_pre.rc == 0
+
+    - name: Determine which docker package names are actually installed
+      ansible.builtin.set_fact:
+        hu_docker_packages_present: "{{ hu_docker_packages | select('in', ansible_facts.packages | default({})) | list }}"
+      when: hu_docker_present_pre.rc == 0
+
     - name: Hold docker packages before apt-upgrade
       ansible.builtin.dpkg_selections:
         name: "{{ item }}"
         selection: hold
-      loop: "{{ hu_docker_packages }}"
+      loop: "{{ hu_docker_packages_present | default([]) }}"
       when: hu_docker_present_pre.rc == 0
 
     - name: Capture running systemd services (pre)
@@ -178,7 +203,7 @@
       ansible.builtin.dpkg_selections:
         name: "{{ item }}"
         selection: install
-      loop: "{{ hu_docker_packages }}"
+      loop: "{{ hu_docker_packages_present | default([]) }}"
       when: hu_docker_present_pre.rc == 0
 
     # Container-Recovery: AFKI-W-122 / RCA prod-hub 2026-05-16
