@@ -44,6 +44,16 @@
   when: _mon_grafana or _mon_prometheus
   tags: [monitoring]
 
+- name: Create node_exporter textfile collector directory
+  ansible.builtin.file:
+    path: "{{ drayve_deploy_dir }}/monitoring/node-exporter-textfile"
+    state: directory
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0755"
+  when: _mon_node_exporter and (monitoring_node_exporter_textfile | default(false) | bool)
+  tags: [monitoring]
+
 # === Prometheus config ===
 - name: Deploy Prometheus config
   ansible.builtin.copy:
