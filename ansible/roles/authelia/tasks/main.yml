@@ -162,6 +162,59 @@
   register: authelia_config
   tags: [authelia]
 
+# AFKI-W-240 (Befund 1): authelia_jwt_secret/authelia_session_secret/
+# authelia_storage_encryption_key/authelia_ldap_password/authelia_oidc_*
+# rendered into configuration.yml above come exclusively from roles/secrets
+# (tag [secrets]). A `--tags authelia` run (no `secrets` tag) leaves them
+# empty, "Deploy Authelia configuration" then reports changed:true (content
+# differs from the correctly-rendered version on disk), and the removal
+# below would delete an already-deployed, working Authelia DB (2FA
+# registrations, sessions, tokens) — same bug class as AFKI-W-233/238/239.
+# Re-stat secrets.yml + the DB file here (cheap, independent of whether
+# roles/secrets ran this pass) and fail before the delete, same pattern as
+# AFKI-W-239's monitoring-role guard. Only blocks when the DB already
+# exists — a genuinely fresh install with nothing to lose is unaffected.
+- name: Check for host secrets file (cross-tag guard, AFKI-W-240 authelia)
+  ansible.builtin.stat:
+    path: "{{ ops_secrets_root }}/deploy/{{ inventory_hostname }}/secrets.yml"
+  register: _authelia_secrets_file_check
+  delegate_to: localhost
+  become: false
+  when: authelia_config.changed | default(false)
+  tags: [authelia]
+
+- name: Check for existing Authelia DB (cross-tag guard, AFKI-W-240 authelia)
+  ansible.builtin.stat:
+    path: "{{ authelia_data_dir }}/db.sqlite3"
+  register: _authelia_db_precheck
+  when: authelia_config.changed | default(false)
+  tags: [authelia]
+
+- name: Guard — fail instead of deleting Authelia DB when secrets weren't loaded (AFKI-W-240)
+  ansible.builtin.assert:
+    that:
+      - >-
+        not (
+          _authelia_secrets_file_check.stat.exists and
+          drayve_secrets_facts_loaded is not defined and
+          (authelia_config.changed | default(false)) and
+          (_authelia_db_precheck.stat.exists | default(false))
+        )
+    fail_msg: |
+      Secrets nicht geladen — Authelia-Deploy ohne `secrets`-Tag gefahren?
+      deploy/{{ inventory_hostname }}/secrets.yml existiert, aber die Rolle
+      secrets (Task "Set secret variables", tag [secrets]) hat in diesem
+      Lauf nicht gesetzt. Die authelia_*-Secrets (JWT/Session/Storage-
+      Encryption/LDAP/OIDC) rendern deshalb leer, "Deploy Authelia
+      configuration" gilt dadurch als geaendert, und der naechste Schritt
+      wuerde die bestehende Authelia-DB (db.sqlite3 — 2FA-Registrierungen,
+      Sessions, Tokens) LOESCHEN statt sie unangetastet zu lassen.
+
+      Fix: `--tags secrets,authelia` statt `--tags authelia` allein, oder
+      den vollen Lauf ohne Tag-Scoping fahren.
+  when: authelia_config.changed | default(false)
+  tags: [authelia]
+
 - name: Remove stale Authelia DB on config change
   ansible.builtin.file:
     path: "{{ authelia_data_dir }}/db.sqlite3"

@@ -18,6 +18,14 @@ the container-gating pattern already used in docker-compose.yml.j2. The
 ``monitoring_services.traefik`` flag exists anywhere in the compose
 template), so there is no analogous mismatch there.
 
+AFKI-W-240 (Befund 2) adds the same gating for the ``crowdsec`` job: the
+CrowdSec container is controlled by ``crowdsec_enabled`` (checked in
+``docker-compose.yml.j2``), not by an ``_mon_*`` flag — the scrape job was
+still hard-wired in regardless, producing the same class of structurally
+permanent ``target-down`` alert when ``crowdsec_enabled: false``. The
+``content`` block now also wraps the ``crowdsec`` job in
+``{% if crowdsec_enabled %}``.
+
 This test renders the *actual* ``content`` string straight out of
 ``tasks/main.yml`` (parsed via ``yaml.safe_load``, not duplicated by hand) so
 a regression in the real file is caught, not just a copy of it. It builds its
@@ -61,8 +69,12 @@ def render():
     env = Environment(trim_blocks=True, lstrip_blocks=False, keep_trailing_newline=True)
     template = env.from_string(content)
 
-    def _render(*, cadvisor: bool, node_exporter: bool) -> dict:
-        rendered = template.render(_mon_cadvisor=cadvisor, _mon_node_exporter=node_exporter)
+    def _render(*, cadvisor: bool, node_exporter: bool, crowdsec: bool = True) -> dict:
+        rendered = template.render(
+            _mon_cadvisor=cadvisor,
+            _mon_node_exporter=node_exporter,
+            crowdsec_enabled=crowdsec,
+        )
         parsed = yaml.safe_load(rendered)
         assert parsed is not None, f"rendered prometheus.yml is not valid YAML:\n{rendered}"
         return parsed
@@ -113,31 +125,48 @@ def test_node_job_present_when_node_exporter_enabled(render):
     assert "node" in _job_names(parsed)
 
 
-# ---- traefik + crowdsec + prometheus jobs stay unconditional ----
+# ---- traefik + prometheus jobs stay unconditional (no monitoring_services
+#      flag exists for traefik anywhere in the compose template) ----
 
 
 @pytest.mark.parametrize("cadvisor", [True, False])
 @pytest.mark.parametrize("node_exporter", [True, False])
-def test_unconditional_jobs_always_present(render, cadvisor, node_exporter):
-    parsed = render(cadvisor=cadvisor, node_exporter=node_exporter)
+@pytest.mark.parametrize("crowdsec", [True, False])
+def test_unconditional_jobs_always_present(render, cadvisor, node_exporter, crowdsec):
+    parsed = render(cadvisor=cadvisor, node_exporter=node_exporter, crowdsec=crowdsec)
     jobs = _job_names(parsed)
     assert "prometheus" in jobs
     assert "traefik" in jobs
-    assert "crowdsec" in jobs
+
+
+# ---- crowdsec job follows crowdsec_enabled (AFKI-W-240, Befund 2) ----
+
+
+def test_crowdsec_job_absent_when_crowdsec_disabled(render):
+    """The AFKI-W-240 repro case: a stack with crowdsec_enabled: false."""
+    parsed = render(cadvisor=True, node_exporter=True, crowdsec=False)
+    assert "crowdsec" not in _job_names(parsed)
+
+
+def test_crowdsec_job_present_when_crowdsec_enabled(render):
+    parsed = render(cadvisor=True, node_exporter=True, crowdsec=True)
+    assert "crowdsec" in _job_names(parsed)
 
 
 # ---- exact job set per combination (locks in the full contract) ----
 
 
 @pytest.mark.parametrize(
-    ("cadvisor", "node_exporter", "expected"),
+    ("cadvisor", "node_exporter", "crowdsec", "expected"),
     [
-        (True, True, {"prometheus", "node", "cadvisor", "traefik", "crowdsec"}),
-        (False, True, {"prometheus", "node", "traefik", "crowdsec"}),
-        (True, False, {"prometheus", "cadvisor", "traefik", "crowdsec"}),
-        (False, False, {"prometheus", "traefik", "crowdsec"}),
+        (True, True, True, {"prometheus", "node", "cadvisor", "traefik", "crowdsec"}),
+        (False, True, True, {"prometheus", "node", "traefik", "crowdsec"}),
+        (True, False, True, {"prometheus", "cadvisor", "traefik", "crowdsec"}),
+        (False, False, True, {"prometheus", "traefik", "crowdsec"}),
+        (True, True, False, {"prometheus", "node", "cadvisor", "traefik"}),
+        (False, False, False, {"prometheus", "traefik"}),
     ],
 )
-def test_exact_job_set(render, cadvisor, node_exporter, expected):
-    parsed = render(cadvisor=cadvisor, node_exporter=node_exporter)
+def test_exact_job_set(render, cadvisor, node_exporter, crowdsec, expected):
+    parsed = render(cadvisor=cadvisor, node_exporter=node_exporter, crowdsec=crowdsec)
     assert set(_job_names(parsed)) == expected

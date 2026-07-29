@@ -84,9 +84,12 @@
           static_configs:
             - targets: ['traefik:8080']
 
+      {% if crowdsec_enabled %}
+
         - job_name: 'crowdsec'
           static_configs:
             - targets: ['crowdsec:6060']
+      {% endif %}
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
     mode: "0644"
