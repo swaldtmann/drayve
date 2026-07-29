@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-07-29
+
+### Fixed
+- **Prometheus config changes never reached the running container**
+  (DRAYVE-W-012) — the config is a single-file bind mount; an atomic
+  write+rename (new inode) left the running container bound to the old
+  one, and the prior `/-/reload` API call re-read the (from its view
+  unchanged) old file. Scrape-job/alert changes silently never applied
+  until someone manually force-recreated the container. Now
+  force-recreates Prometheus on config change, same pattern as
+  Traefik/Authelia/CrowdSec.
+
 ## [0.6.9] - 2026-07-29
 
 First mainline release after retiring the per-host tag lines
