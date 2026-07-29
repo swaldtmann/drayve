@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-07-29
+
+### Changed
+- **Backup freshness dashboard generalized** (partial pick from
+  `ewh-cloud-dashboard-fix-v0.6.4`, DRAYVE-W-014): panels rewired from
+  brittle Loki log-string matching to a Prometheus freshness metric
+  (`kedge_backup_last_success`), generalized from the host-specific
+  `cloud_` prefix so any host wiring kedge's new
+  `tools/backup-freshness-write` via `BACKUP_POST_HOOK` gets working
+  panels out of the box.
+
 ## [0.7.0] - 2026-07-29
 
 ### Fixed
