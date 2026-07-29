@@ -303,6 +303,38 @@
   when: extra_files | length > 0
   tags: [deploy]
 
+# AFKI-W-233: cross-tag guard. "Set secret variables" (roles/secrets, tag
+# [secrets]) sets drayve_secrets_facts_loaded once host_secrets is mapped.
+# A tag-scoped run without the `secrets` tag (e.g. --tags monitoring,deploy)
+# skips that task silently, and env.j2 below would then template every
+# secret with Jinja default('') — .env gets overwritten empty, lldap/
+# Authelia crash on the next `docker compose up` (oops-0092, prod-genua).
+# Re-stat secrets.yml here (cheap, independent of whether the secrets role
+# ran this pass) and fail before the write.
+- name: Check for host secrets file (cross-tag guard, AFKI-W-233)
+  ansible.builtin.stat:
+    path: "{{ ops_secrets_root }}/deploy/{{ inventory_hostname }}/secrets.yml"
+  register: _deploy_secrets_file_check
+  delegate_to: localhost
+  become: false
+  tags: [deploy]
+
+- name: Guard — fail if secrets.yml exists but its facts were never loaded (AFKI-W-233)
+  ansible.builtin.assert:
+    that:
+      - not (_deploy_secrets_file_check.stat.exists and drayve_secrets_facts_loaded is not defined)
+    fail_msg: |
+      Secrets nicht geladen — Deploy ohne `secrets`-Tag gefahren?
+      deploy/{{ inventory_hostname }}/secrets.yml existiert, aber die Rolle
+      secrets (Task "Set secret variables", tag [secrets]) hat in diesem
+      Lauf nicht gesetzt. `.env` würde jetzt mit leeren Secret-Werten
+      überschrieben (Jinja default('')) — lldap/Authelia crashen beim
+      nächsten `docker compose up` (oops-0092).
+
+      Fix: `--tags secrets,deploy` statt `--tags deploy` allein, oder den
+      vollen Lauf ohne Tag-Scoping fahren.
+  tags: [deploy]
+
 - name: Template .env
   ansible.builtin.template:
     src: "{{ ops_deploy_root }}/ansible/templates/env.j2"
