@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-07-29
+
+### Added
+- **Optional per-host Grafana alert-rules override** (DRAYVE-W-014) —
+  `deploy/<host>/grafana-alert-rules.yaml` under `ops_secrets_root`, copied
+  if present, removed if not (same idiom as `compose.override.yml`). Closes
+  the gap that made prod-cloud's alert rules a hand-maintained,
+  never-versioned host artifact outside the deploy pipeline.
+
 ## [0.7.1] - 2026-07-29
 
 ### Changed
