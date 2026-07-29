@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.9] - 2026-07-29
+
+First mainline release after retiring the per-host tag lines
+(`genua-grafana-alert-*`, `ewh-cloud-*`) — consumers should pin release tags
+from here on (DRAYVE-W-013).
+
+### Added
+- **Optional Grafana alert-webhook contact point** (`kigulls-api-webhook`) —
+  wires the `grafana_alert_api_token` secret end to end so Grafana alerting
+  can reach an external alert endpoint. Off by default: empty secret means
+  no alerting files, no compose change. Previously hand-copied onto genua,
+  cloud, hub and kakapo; now versioned.
+- **Optional node_exporter textfile collector** —
+  `monitoring_node_exporter_textfile: true` mounts a host-side textfile
+  directory read-only into node_exporter for custom metrics (EWH-W-128).
+  Off by default, no behavior change for existing consumers.
+- **`host-update.yml` hardening** (AFKI-W-158) — docker packages held during
+  apt-upgrade, external domain smokes with retry instead of blind sleep,
+  on-failure recovery only on genuine failed exits.
+- **`require-ticket-ref` commit-msg hook** (`.githooks/`, CW-W-198).
+
+### Fixed
+- **Tag-scoped deploys could silently skip the secrets role and destroy
+  state** — four cross-tag guards (AFKI-W-233/238/239/240): `.env`
+  templating now fails hard when secrets facts were never loaded;
+  cadvisor/node Prometheus scrape jobs are gated on their `_mon_*` service
+  flags; Grafana alert deletion and CrowdSec bouncer registration are gated
+  on a secrets sentinel; Authelia DB deletion is guarded against the
+  unloaded-secrets false-`changed` that would wipe 2FA registrations,
+  sessions and tokens.
+- **stack-overview dashboard query robustness** (partial pick from
+  `ewh-cloud-dashboard-fix-v0.6.4`, DRAYVE-W-013): container-down stat via
+  time-since-last-seen instead of flaky offset diff, memory panel
+  `sum by (name)`, log-error regex with word boundary to cut false
+  positives. (The backup dashboard rewire stays out until its host-specific
+  metric is generalized — DRAYVE-W-014.)
+
 ## [0.6.8] - 2026-07-18
 
 ### Fixed
