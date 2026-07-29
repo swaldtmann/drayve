@@ -302,6 +302,42 @@
   register: grafana_alert_policies
   tags: [monitoring, alerting]
 
+# === Grafana alert rules: optional per-host override (DRAYVE-W-014) ===
+# Alert rule thresholds/labels/host-names are inherently host-specific (unlike
+# the contact-point/policy above), so this follows the same per-host-override
+# idiom as compose.override.yml (roles/deploy/tasks/main.yml) rather than the
+# framework-fixed config/ pattern: optional file under deploy/<host>/, copied
+# if present, removed if not -- no consumer without one sees any change.
+# Found live: prod-cloud's alerting rules.yaml was hand-maintained directly on
+# the host, outside any repo, surviving only because no deploy task touched it
+# -- the same "invisible until the host is rebuilt" drift class as the
+# unversioned backup-freshness-write script this ticket also retires.
+- name: Check for host Grafana alert rules override
+  ansible.builtin.stat:
+    path: "{{ ops_secrets_root }}/deploy/{{ inventory_hostname }}/grafana-alert-rules.yaml"
+  register: _grafana_alert_rules_override
+  delegate_to: localhost
+  become: false
+  when: _mon_grafana
+  tags: [monitoring, alerting]
+
+- name: Deploy host Grafana alert rules
+  ansible.builtin.copy:
+    src: "{{ ops_secrets_root }}/deploy/{{ inventory_hostname }}/grafana-alert-rules.yaml"
+    dest: "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/alerting/rules.yaml"
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0644"
+  when: _mon_grafana and _grafana_alert_rules_override.stat.exists | default(false)
+  tags: [monitoring, alerting]
+
+- name: Remove host Grafana alert rules if not present locally
+  ansible.builtin.file:
+    path: "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/alerting/rules.yaml"
+    state: absent
+  when: _mon_grafana and not (_grafana_alert_rules_override.stat.exists | default(false))
+  tags: [monitoring, alerting]
+
 # AFKI-W-239 (Befund 1, closes oops-0096): the removal below is destructive —
 # it deletes an already-deployed alert config, not just skips deploying one.
 # grafana_alert_api_token comes exclusively from roles/secrets (tag [secrets]).
