@@ -559,6 +559,43 @@
   tags: [deploy, crowdsec]
 
 # === CrowdSec bouncer registration ===
+# AFKI-W-239 (Befund 2): crowdsec_bouncer_key/crowdsec_lapi_key come exclusively
+# from roles/secrets (tag [secrets]). These registration tasks are tagged
+# [deploy, crowdsec] — Ansible runs a task if ANY of its tags is requested, so
+# `--tags crowdsec` alone (no `deploy`, no `secrets`) also reaches them. With
+# an empty key, the registration tasks' `when` (key | length > 0) silently
+# skips — no crash, but the bouncer stays unregistered (security gap, not
+# just cosmetics). Guard is tagged identically ([deploy, crowdsec]) so it
+# fires under every tag combination that reaches the registration tasks —
+# the AFKI-W-233 guard above is tagged [deploy] only and would NOT fire for a
+# bare `--tags crowdsec` run.
+- name: Check for host secrets file (cross-tag guard, AFKI-W-239 crowdsec)
+  ansible.builtin.stat:
+    path: "{{ ops_secrets_root }}/deploy/{{ inventory_hostname }}/secrets.yml"
+  register: _deploy_crowdsec_secrets_file_check
+  delegate_to: localhost
+  become: false
+  when: crowdsec_enabled
+  tags: [deploy, crowdsec]
+
+- name: Guard — fail if secrets.yml exists but its facts were never loaded before CrowdSec bouncer registration (AFKI-W-239)
+  ansible.builtin.assert:
+    that:
+      - not (_deploy_crowdsec_secrets_file_check.stat.exists and drayve_secrets_facts_loaded is not defined)
+    fail_msg: |
+      Secrets nicht geladen — CrowdSec-Bouncer-Registrierung ohne `secrets`-Tag
+      gefahren? deploy/{{ inventory_hostname }}/secrets.yml existiert, aber
+      die Rolle secrets (Task "Set secret variables", tag [secrets]) hat in
+      diesem Lauf nicht gesetzt. crowdsec_bouncer_key/crowdsec_lapi_key sind
+      deshalb leer — die Registrierung wuerde jetzt still uebersprungen und
+      der Bouncer bliebe unbemerkt unregistriert.
+
+      Fix: `--tags secrets,deploy,crowdsec` statt `--tags deploy,crowdsec`
+      (oder `--tags crowdsec`) allein, oder den vollen Lauf ohne Tag-Scoping
+      fahren.
+  when: crowdsec_enabled
+  tags: [deploy, crowdsec]
+
 - name: Check if CrowdSec bouncer is registered
   ansible.builtin.command:
     cmd: docker exec crowdsec cscli bouncers list -o raw

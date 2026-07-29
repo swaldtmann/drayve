@@ -298,6 +298,62 @@
   register: grafana_alert_policies
   tags: [monitoring, alerting]
 
+# AFKI-W-239 (Befund 1, closes oops-0096): the removal below is destructive —
+# it deletes an already-deployed alert config, not just skips deploying one.
+# grafana_alert_api_token comes exclusively from roles/secrets (tag [secrets]).
+# A tag-scoped run without that tag (e.g. --tags monitoring) leaves the token
+# empty and would delete a correctly deployed contact-points.yaml/policies.yaml
+# (this is exactly the oops-0096 incident). Re-stat secrets.yml + the target
+# files here (cheap, independent of whether roles/secrets ran this pass) and
+# fail before the delete, same pattern as AFKI-W-233's deploy-role guard.
+- name: Check for host secrets file (cross-tag guard, AFKI-W-239)
+  ansible.builtin.stat:
+    path: "{{ ops_secrets_root }}/deploy/{{ inventory_hostname }}/secrets.yml"
+  register: _mon_secrets_file_check
+  delegate_to: localhost
+  become: false
+  when: _mon_grafana
+  tags: [monitoring, alerting]
+
+- name: Check for existing Grafana alert contact-point file (cross-tag guard, AFKI-W-239)
+  ansible.builtin.stat:
+    path: "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/alerting/contact-points.yaml"
+  register: _mon_alert_contact_points_precheck
+  when: _mon_grafana
+  tags: [monitoring, alerting]
+
+- name: Check for existing Grafana alert policy file (cross-tag guard, AFKI-W-239)
+  ansible.builtin.stat:
+    path: "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/alerting/policies.yaml"
+  register: _mon_alert_policies_precheck
+  when: _mon_grafana
+  tags: [monitoring, alerting]
+
+- name: Guard — fail instead of deleting Grafana alert config when secrets weren't loaded (AFKI-W-239)
+  ansible.builtin.assert:
+    that:
+      - >-
+        not (
+          _mon_secrets_file_check.stat.exists and
+          drayve_secrets_facts_loaded is not defined and
+          (grafana_alert_api_token | default('') | length == 0) and
+          ((_mon_alert_contact_points_precheck.stat.exists | default(false)) or
+           (_mon_alert_policies_precheck.stat.exists | default(false)))
+        )
+    fail_msg: |
+      Secrets nicht geladen — Monitoring-Deploy ohne `secrets`-Tag gefahren?
+      deploy/{{ inventory_hostname }}/secrets.yml existiert, aber die Rolle
+      secrets (Task "Set secret variables", tag [secrets]) hat in diesem
+      Lauf nicht gesetzt. grafana_alert_api_token ist deshalb leer, und der
+      naechste Schritt wuerde die bestehende Grafana-Alert-Config
+      (contact-points.yaml/policies.yaml) LOESCHEN statt sie unangetastet zu
+      lassen (oops-0096).
+
+      Fix: `--tags secrets,monitoring` statt `--tags monitoring` allein, oder
+      den vollen Lauf ohne Tag-Scoping fahren.
+  when: _mon_grafana
+  tags: [monitoring, alerting]
+
 - name: Remove Grafana alert contact point/policy when token not configured
   ansible.builtin.file:
     path: "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/alerting/{{ item }}"
