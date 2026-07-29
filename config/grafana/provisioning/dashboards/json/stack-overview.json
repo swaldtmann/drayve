@@ -78,7 +78,7 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "count(container_last_seen{name!=\"\"}) - count(container_last_seen{name!=\"\"} offset 1m > 0)",
+          "expr": "count((time() - max by (name)(container_last_seen{name!=\"\"})) > 30) or vector(0)",
           "legendFormat": "Stopped"
         }
       ]
@@ -114,7 +114,7 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "container_memory_usage_bytes{name!=\"\"}",
+          "expr": "sum by (name)(container_memory_usage_bytes{name!=\"\"})",
           "legendFormat": "{{name}}"
         }
       ]
@@ -129,7 +129,7 @@
       "targets": [
         {
           "datasource": { "type": "loki", "uid": "loki" },
-          "expr": "{container!=\"\"} |~ \"(?i)error|fatal|panic|crash\"",
+          "expr": "{container!=\"\"} |~ \"(?i)(^|[^a-z])(error|fatal|panic|crash)\"",
           "queryType": "range"
         }
       ]
