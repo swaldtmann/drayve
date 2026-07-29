@@ -67,14 +67,18 @@
         - job_name: 'prometheus'
           static_configs:
             - targets: ['localhost:9090']
+      {% if _mon_node_exporter %}
 
         - job_name: 'node'
           static_configs:
             - targets: ['node-exporter:9100']
+      {% endif %}
+      {% if _mon_cadvisor %}
 
         - job_name: 'cadvisor'
           static_configs:
             - targets: ['cadvisor:8080']
+      {% endif %}
 
         - job_name: 'traefik'
           static_configs:
