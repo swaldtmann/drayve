@@ -464,13 +464,6 @@
   register: traefik_dynamic_files
   tags: [deploy, traefik]
 
-- name: Check Prometheus config
-  ansible.builtin.stat:
-    path: "{{ drayve_deploy_dir }}/monitoring/prometheus/prometheus.yml"
-    checksum_algorithm: sha256
-  register: prom_config_before
-  tags: [deploy]
-
 - name: Docker compose pull
   ansible.builtin.command:
     cmd: docker compose pull
@@ -518,16 +511,22 @@
     - authelia_config.changed | default(false)
   tags: [deploy, authelia]
 
-- name: Reload Prometheus config via API
-  ansible.builtin.uri:
-    url: "http://localhost:9090/-/reload"
-    method: POST
-    status_code: [200, 204]
-  when:
-    - monitoring_services.prometheus | default(false) | bool
-    - prom_config_before.stat.checksum | default('') != ''
-  failed_when: false
-  tags: [deploy]
+- name: Force-recreate Prometheus on config change
+  # Prometheus mounts prometheus.yml as a single-file bind mount. The template
+  # task replaces it via atomic write+rename (new inode) — a running
+  # container keeps the old inode bound and a "/-/reload" API call re-reads
+  # the (from its view unchanged) old file, so scrape-config/alert changes
+  # silently never take effect until the container is recreated. Same
+  # force-recreate pattern as Traefik/Authelia/CrowdSec above. Found live on
+  # prod-genua's AFKI-W-241 rollout (DRAYVE-W-012): rendered config on disk
+  # was correct, running container still scraped the pre-deploy job list.
+  ansible.builtin.command:
+    cmd: docker compose up -d --force-recreate --no-deps prometheus
+    chdir: "{{ drayve_deploy_dir }}"
+  become: true
+  become_user: "{{ drayve_user }}"
+  when: prometheus_config.changed | default(false)
+  tags: [deploy, monitoring]
 
 - name: Wait for containers to stabilize
   ansible.builtin.pause:
