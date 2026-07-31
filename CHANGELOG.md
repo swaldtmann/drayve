@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.3] - 2026-07-31
+
+### Fixed
+- **`backup_kedge_post_hook` wiring** (KEDGE-W-012) — the kedge backup role
+  templated `BACKUP_PRE_HOOK` only; `BACKUP_POST_HOOK` (kedge's native
+  post-backup hook, see `backup.sh`) had no matching Ansible var or template
+  line. The 0.7.1 freshness dashboard and its `kedge_backup_last_success`
+  metric assumed hosts would wire `tools/backup-freshness-write` via this
+  hook — nothing actually could, since the slot didn't exist. Adds
+  `backup_kedge_post_hook` (default `""`, same idiom as the pre-hook var).
+
 ## [0.7.2] - 2026-07-29
 
 ### Added

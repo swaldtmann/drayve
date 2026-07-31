@@ -23,6 +23,10 @@ backup_kedge_stop_stack: true
 backup_kedge_exclude_mounts: ""  # space-separated paths, see kedge BACKUP_EXCLUDE_VOLUMES
 backup_kedge_healthcheck_url: ""  # optional Healthchecks.io / Uptime Kuma URL
 backup_kedge_pre_hook: ""  # optional command, runs before kedge's own backup steps
+backup_kedge_post_hook: ""  # optional command, runs after a successful backup (e.g.
+                             # freshness-metric export — kedge's own BACKUP_POST_HOOK,
+                             # see backup.sh; distinct from backup_kedge_cron_wrapper,
+                             # which only signals cron-level failure, not backup success)
 backup_kedge_cron_wrapper: ""  # optional cron wrapper, contract: <wrapper> <job-name> -- <cmd...>
                                 # (e.g. a fail-signal helper). Wraps both the backup and the
                                 # prune cron line, since kedge itself has no fail-hook for prune.

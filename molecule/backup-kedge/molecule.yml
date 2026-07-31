@@ -58,6 +58,9 @@ provisioner:
         backup_restic_password: test-restic-password-32chars-long
         # Local restic-repo for the kedge run (no SFTP in CI).
         backup_kedge_restic_repository: /var/lib/restic-test/repo
+        # KEDGE-W-012: BACKUP_POST_HOOK wiring — cheap no-op command, only
+        # asserts the env file renders the key, not that a real backup runs it.
+        backup_kedge_post_hook: "touch /tmp/kedge-post-hook-marker"
         backup_kedge_version: v0.3.2
         # Use stable stack name in derived artefacts (cron file).
         stack:
