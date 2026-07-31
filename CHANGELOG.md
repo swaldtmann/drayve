@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.4] - 2026-07-31
+
+### Fixed
+- **journald no longer duplicates container logs into `/var/log/syslog`**
+  (EWH-W-139) — the `docker` role fixes `log-driver=journald`, but nothing
+  ever disabled journald's own `ForwardToSyslog` (systemd default is
+  enabled when unset). Every container log line existed twice on disk: once
+  in journald (with its own documented retention), once in an undocumented
+  `/var/log/syslog` copy. New `journald_forward_to_syslog` var (default
+  `false`) in the `common` role sets `ForwardToSyslog=no`. Verified on
+  `prod-cloud`/`prod-genua` no consumer (CrowdSec, Promtail) reads
+  container lines from `/var/log/syslog` — safe to disable.
+
 ## [0.7.3] - 2026-07-31
 
 ### Fixed

@@ -16,3 +16,13 @@ swap_file: /swapfile
 # Schluessel (z.B. in CI ohne Key), wird der authorized_key-Task skipped.
 # Override via stack.yaml oder -e drayve_ssh_authorized_key=...
 drayve_ssh_authorized_key: "{{ lookup('file', '~/.ssh/id_ed25519.pub', errors='ignore') | default('', true) }}"
+
+# The docker role's daemon.json.j2 fixes log-driver=journald, which by
+# default ALSO gets duplicated into /var/log/syslog via journald's own
+# ForwardToSyslog (systemd default is enabled when unset). Every
+# container-log line then exists twice on disk in two undocumented-scope
+# retentions. journald already has its own retention (see host log-retention
+# docs); syslog's copy is pure duplication with no independent consumer.
+# Override to true if a host genuinely needs syslog-forwarded journal
+# entries (e.g. an external rsyslog-based log shipper).
+journald_forward_to_syslog: false

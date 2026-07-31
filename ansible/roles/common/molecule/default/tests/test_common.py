@@ -50,6 +50,13 @@ def test_ufw_https_allowed(host):
     assert "443/tcp" in cmd.stdout
 
 
+def test_journald_forward_to_syslog_disabled_by_default(host):
+    """EWH-W-139/KEDGE-W-012-adjacent: docker log-driver=journald otherwise
+    duplicates every container log line into /var/log/syslog too."""
+    journald_conf = host.file("/etc/systemd/journald.conf")
+    assert journald_conf.contains("ForwardToSyslog=no")
+
+
 def test_ssh_password_auth_disabled(host):
     """SSH password authentication should be disabled."""
     sshd = host.file("/etc/ssh/sshd_config")

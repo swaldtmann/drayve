@@ -85,6 +85,18 @@
     state: enabled
   tags: [firewall]
 
+# === journald ===
+# See defaults/main.yml (journald_forward_to_syslog) — the docker role
+# forces log-driver=journald, which duplicates every container log line
+# into /var/log/syslog too unless this is explicitly disabled.
+- name: Set journald ForwardToSyslog
+  ansible.builtin.lineinfile:
+    path: /etc/systemd/journald.conf
+    regexp: "^#?ForwardToSyslog"
+    line: "ForwardToSyslog={{ 'yes' if journald_forward_to_syslog | bool else 'no' }}"
+  notify: Restart systemd-journald
+  tags: [bootstrap]
+
 # === SSH Hardening ===
 - name: Disable SSH password authentication
   ansible.builtin.lineinfile:
