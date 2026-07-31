@@ -30,3 +30,19 @@ backup_kedge_post_hook: ""  # optional command, runs after a successful backup (
 backup_kedge_cron_wrapper: ""  # optional cron wrapper, contract: <wrapper> <job-name> -- <cmd...>
                                 # (e.g. a fail-signal helper). Wraps both the backup and the
                                 # prune cron line, since kedge itself has no fail-hook for prune.
+
+# OpenBao-backed restic password (CW-W-254) — opt-in per host, default off.
+# When true: .kedge.env.j2 does NOT template backup_restic_password into
+# RESTIC_PASSWORD (that var stays populated from SOPS/ansible-vars only as
+# the break-glass copy, unused for the live consumption path). Instead a
+# small fetch script logs in via AppRole (role_id here + a locally-stored
+# secret_id, delivered once via response-wrapping during bootstrap — not an
+# ansible task, see CW-W-254 migration plan) and refreshes RESTIC_PASSWORD
+# in .kedge.env right before each cron run, so an ansible redeploy never
+# clobbers the live value with a stale templated one.
+backup_kedge_use_openbao: false
+backup_kedge_openbao_role_id: ""  # not secret, role_id from AppRole "backup-consumer-<host>"
+backup_kedge_openbao_base_url: "https://bao.authbox.org/v1"
+backup_kedge_openbao_secret_path: "secret/data/backup/{{ stack_name | default(inventory_hostname) }}/kedge"
+backup_kedge_openbao_secret_id_file: /root/.kedge-openbao/secret_id
+backup_kedge_openbao_fetch_script: /usr/local/bin/kedge-openbao-fetch.py

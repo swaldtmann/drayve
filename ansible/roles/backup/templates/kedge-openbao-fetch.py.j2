@@ -1,0 +1,64 @@
+#!/usr/bin/env python3
+"""{{ ansible_managed }}
+Refreshes RESTIC_PASSWORD in {{ backup_kedge_env_file }} from OpenBao
+right before a kedge cron run (CW-W-254). AppRole auth (role_id here,
+secret_id read from a locally-stored file delivered once via response-
+wrapping during bootstrap — not an ansible task). No `bao` CLI needed,
+same pattern as CW-W-214's wookilx-consumer proof.
+
+Fails loudly (non-zero exit) rather than leaving a stale/placeholder
+password in place — a failed fetch must not let kedge run with a bad
+RESTIC_PASSWORD.
+"""
+import json
+import re
+import sys
+import urllib.error
+import urllib.request
+
+ROLE_ID = "{{ backup_kedge_openbao_role_id }}"
+SECRET_ID_FILE = "{{ backup_kedge_openbao_secret_id_file }}"
+BASE_URL = "{{ backup_kedge_openbao_base_url }}"
+SECRET_PATH = "{{ backup_kedge_openbao_secret_path }}"
+ENV_FILE = "{{ backup_kedge_env_file }}"
+
+
+def call(method, path, token=None, body=None):
+    data = json.dumps(body).encode() if body is not None else None
+    headers = {"Content-Type": "application/json"}
+    if token:
+        headers["X-Vault-Token"] = token
+    req = urllib.request.Request(f"{BASE_URL}{path}", data=data, headers=headers, method=method)
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        return json.loads(resp.read())
+
+
+def main():
+    with open(SECRET_ID_FILE) as f:
+        secret_id = f.read().strip()
+
+    login = call("POST", "/auth/approle/login", body={"role_id": ROLE_ID, "secret_id": secret_id})
+    token = login["auth"]["client_token"]
+
+    secret = call("GET", f"/{SECRET_PATH}", token=token)
+    password = secret["data"]["data"]["value"]
+    if not password:
+        raise SystemExit("empty password from OpenBao, refusing to write")
+
+    with open(ENV_FILE) as f:
+        content = f.read()
+    new_content, count = re.subn(r"^RESTIC_PASSWORD=.*$", f"RESTIC_PASSWORD={password}", content, flags=re.MULTILINE)
+    if count != 1:
+        raise SystemExit(f"expected exactly one RESTIC_PASSWORD line in {ENV_FILE}, found {count}")
+
+    with open(ENV_FILE, "w") as f:
+        f.write(new_content)
+    print("kedge-openbao-fetch: RESTIC_PASSWORD refreshed")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (urllib.error.URLError, KeyError, OSError) as e:
+        print(f"kedge-openbao-fetch: FAILED — {e}", file=sys.stderr)
+        sys.exit(1)

@@ -182,6 +182,33 @@
     - backup_target == "kedge"
   tags: [backup]
 
+# CW-W-254 — OpenBao-backed restic password, opt-in per host.
+- name: Deploy kedge OpenBao fetch script
+  ansible.builtin.template:
+    src: kedge-openbao-fetch.py.j2
+    dest: "{{ backup_kedge_openbao_fetch_script }}"
+    owner: root
+    group: root
+    mode: "0700"
+  when:
+    - backup_enabled | bool
+    - backup_target == "kedge"
+    - backup_kedge_use_openbao | default(false) | bool
+  tags: [backup]
+
+- name: Ensure OpenBao secret_id directory exists (root-only)
+  ansible.builtin.file:
+    path: "{{ backup_kedge_openbao_secret_id_file | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+  when:
+    - backup_enabled | bool
+    - backup_target == "kedge"
+    - backup_kedge_use_openbao | default(false) | bool
+  tags: [backup]
+
 # Cron is deployed as a single /etc/cron.d/kedge-<stack_name> file holding
 # both the backup and prune entries — visible to ls /etc/cron.d/, debuggable
 # without crontab -l, atomically versionable. See ADR / role README for the

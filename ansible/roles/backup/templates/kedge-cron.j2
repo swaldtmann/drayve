@@ -10,10 +10,11 @@
 {% endif %}
 MAILTO=""
 SHELL=/bin/bash
+{% set openbao_fetch = (backup_kedge_openbao_fetch_script ~ ' && ') if (backup_kedge_use_openbao | default(false) | bool) else '' %}
 {% if backup_kedge_cron_wrapper %}
-{{ backup_schedule }} root {{ backup_kedge_cron_wrapper }} kedge-{{ stack_name }}-backup -- bash -c 'set -a; . {{ backup_kedge_env_file }}; set +a; /usr/local/bin/kedge backup' >> {{ backup_kedge_log_file }} 2>&1
-{{ backup_prune_schedule }} root {{ backup_kedge_cron_wrapper }} kedge-{{ stack_name }}-prune -- bash -c 'set -a; . {{ backup_kedge_env_file }}; set +a; /usr/local/bin/kedge prune' >> {{ backup_kedge_log_file }} 2>&1
+{{ backup_schedule }} root {{ backup_kedge_cron_wrapper }} kedge-{{ stack_name }}-backup -- bash -c '{{ openbao_fetch }}set -a; . {{ backup_kedge_env_file }}; set +a; /usr/local/bin/kedge backup' >> {{ backup_kedge_log_file }} 2>&1
+{{ backup_prune_schedule }} root {{ backup_kedge_cron_wrapper }} kedge-{{ stack_name }}-prune -- bash -c '{{ openbao_fetch }}set -a; . {{ backup_kedge_env_file }}; set +a; /usr/local/bin/kedge prune' >> {{ backup_kedge_log_file }} 2>&1
 {% else %}
-{{ backup_schedule }} root set -a; . {{ backup_kedge_env_file }}; set +a; /usr/local/bin/kedge backup >> {{ backup_kedge_log_file }} 2>&1
-{{ backup_prune_schedule }} root set -a; . {{ backup_kedge_env_file }}; set +a; /usr/local/bin/kedge prune >> {{ backup_kedge_log_file }} 2>&1
+{{ backup_schedule }} root {{ openbao_fetch }}set -a; . {{ backup_kedge_env_file }}; set +a; /usr/local/bin/kedge backup >> {{ backup_kedge_log_file }} 2>&1
+{{ backup_prune_schedule }} root {{ openbao_fetch }}set -a; . {{ backup_kedge_env_file }}; set +a; /usr/local/bin/kedge prune >> {{ backup_kedge_log_file }} 2>&1
 {% endif %}
