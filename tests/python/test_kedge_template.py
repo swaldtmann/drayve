@@ -39,6 +39,7 @@ OPTIONAL_KEYS = {
     "BACKUP_EXCLUDE_MOUNTS",
     "BACKUP_HEALTHCHECK_URL",
     "BACKUP_PRE_HOOK",
+    "BACKUP_POST_HOOK",
 }
 
 
@@ -56,6 +57,7 @@ def _base_ctx(**overrides: object) -> dict[str, object]:
         "backup_retain_monthly": 6,
         "backup_kedge_healthcheck_url": "",
         "backup_kedge_pre_hook": "",
+        "backup_kedge_post_hook": "",
     }
     ctx.update(overrides)
     return ctx
