@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.5] - 2026-07-31
+
+### Fixed
+- **`playbooks/deploy.yml` never ran the `common` role** (EWH-W-139
+  Nachtrag) — `common` (journald, SSH hardening, UFW, swap, drayve
+  user/dirs) only ran during `make provision` (first deploy). Any
+  template fix landing in `common` afterwards — including the 0.7.4
+  `journald_forward_to_syslog` fix — silently never reached an
+  already-provisioned host again on ordinary `make deploy-prod` runs.
+  Live-verified on `prod-genua`: after a clean 0.7.4 deploy,
+  `/etc/systemd/journald.conf` still had `ForwardToSyslog` commented out.
+  `common` is now the first role in `deploy.yml`'s `Deploy` play — all its
+  tasks are idempotent (apt present-state, guarded swap creation, UFW
+  allow-rules, lineinfile), so re-applying on every deploy is a no-op once
+  a host is in the desired state, and corrects real config drift when it
+  isn't.
+
 ## [0.7.4] - 2026-07-31
 
 ### Fixed

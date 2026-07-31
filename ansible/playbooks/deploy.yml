@@ -7,6 +7,13 @@
 # playbook (server creation, drayve user, docker, traefik, auth, monitoring,
 # deploy). Running deploy.yml against a host that has not been provisioned
 # yet will fail at the drayve user lookup; the precheck below catches that.
+#
+# `common` runs here too (EWH-W-139): baseline OS config (journald, SSH
+# hardening, UFW, swap, drayve user/dirs) is idempotent and was previously
+# only applied at provision-time — any template fix landing in `common`
+# after a host's initial provision silently never reached that host again.
+# Re-applying it on every deploy keeps baseline config from drifting out of
+# the framework.
 - name: Pre-deploy host readiness check
   hosts: "{{ target | default('drayve') }}"
   become: true
@@ -37,6 +44,7 @@
   become: true
 
   roles:
+    - common
     - secrets
     - traefik
     - auth
