@@ -37,6 +37,8 @@ REQUIRED_KEYS = {
 }
 OPTIONAL_KEYS = {
     "BACKUP_EXCLUDE_MOUNTS",
+    "SYSTEM_PATHS",
+    "SYSTEM_PATHS_EXCLUDE",
     "BACKUP_HEALTHCHECK_URL",
     "BACKUP_PRE_HOOK",
     "BACKUP_POST_HOOK",
@@ -52,6 +54,8 @@ def _base_ctx(**overrides: object) -> dict[str, object]:
         "backup_restic_password": "supersecret",
         "backup_kedge_stop_stack": True,
         "backup_kedge_exclude_mounts": "",
+        "backup_kedge_system_paths": "",
+        "backup_kedge_system_paths_exclude": "",
         "backup_retain_daily": 7,
         "backup_retain_weekly": 4,
         "backup_retain_monthly": 6,
@@ -155,6 +159,59 @@ def test_excludes_multiword_value_is_shell_sourceable(render):
     assert result.stdout.strip() == "/ /sys /var/log /var/run /var/lib/docker"
 
 
+# ---- 4a) SYSTEM_PATHS / SYSTEM_PATHS_EXCLUDE only render when non-empty ----
+# (CW-W-258 follow-up: prod-cloud's /etc /usr /opt /srv /var /root coverage was
+# silently dropped when the host migrated from a hand-maintained .kedge.env to
+# this generic template, which never had SYSTEM_PATHS support at all.)
+
+def test_system_paths_empty_does_not_render(render):
+    rendered = render(backup_kedge_system_paths="")
+    parsed = _parse_env(rendered)
+    assert "SYSTEM_PATHS" not in parsed
+
+
+def test_system_paths_set_renders_value(render):
+    rendered = render(backup_kedge_system_paths="/etc /usr /opt /srv /var /root")
+    parsed = _parse_env(rendered)
+    assert parsed["SYSTEM_PATHS"] == '"/etc /usr /opt /srv /var /root"'
+
+
+def test_system_paths_exclude_empty_does_not_render(render):
+    rendered = render(backup_kedge_system_paths_exclude="")
+    parsed = _parse_env(rendered)
+    assert "SYSTEM_PATHS_EXCLUDE" not in parsed
+
+
+def test_system_paths_exclude_set_renders_value(render):
+    rendered = render(backup_kedge_system_paths_exclude="/proc /sys /var/lib/docker/overlay2")
+    parsed = _parse_env(rendered)
+    assert parsed["SYSTEM_PATHS_EXCLUDE"] == '"/proc /sys /var/lib/docker/overlay2"'
+
+
+def test_system_paths_multiword_value_is_shell_sourceable(render):
+    """Same class of bug as BACKUP_EXCLUDE_MOUNTS (P5.6): a multi-word value
+    must survive `source .kedge.env` intact, not get split into a second
+    command."""
+    import subprocess
+
+    rendered = render(
+        backup_kedge_system_paths="/etc /usr /opt /srv /var /root",
+        backup_kedge_system_paths_exclude=(
+            "/run /sys /dev /tmp /mnt /proc /var/run /lost+found /var/lib/lxcfs "
+            "/var/spool/dma /var/lib/mysql /home /var/lib/docker/volumes /var/lib/docker/overlay2"
+        ),
+    )
+    result = subprocess.run(
+        ["bash", "-c", f"set -e; source /dev/stdin <<'EOF'\n{rendered}\nEOF\necho \"$SYSTEM_PATHS|$SYSTEM_PATHS_EXCLUDE\""],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"sourcing failed: {result.stderr}"
+    stdout = result.stdout.strip()
+    assert stdout.startswith("/etc /usr /opt /srv /var /root|")
+    assert stdout.endswith("/var/lib/docker/volumes /var/lib/docker/overlay2")
+
+
 # ---- 4b) Optional pre-hook only renders when non-empty, stays sourceable ----
 
 def test_pre_hook_empty_does_not_render(render):
@@ -253,6 +310,8 @@ def test_defaults_declare_all_kedge_vars():
         "backup_kedge_restic_repository",
         "backup_kedge_stop_stack",
         "backup_kedge_exclude_mounts",
+        "backup_kedge_system_paths",
+        "backup_kedge_system_paths_exclude",
         "backup_kedge_healthcheck_url",
         "backup_kedge_pre_hook",
         "backup_kedge_cron_wrapper",
