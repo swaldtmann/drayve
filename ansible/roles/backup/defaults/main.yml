@@ -11,8 +11,8 @@ backup_sftp_host: ""
 backup_sftp_path: ""
 
 # kedge target (backup_target: kedge) — delegates to kedge CLI
-# https://codeberg.org/StephanWaldtmann/kedge
-backup_kedge_repo: "https://codeberg.org/StephanWaldtmann/kedge.git"
+# https://git.authbox.de/stephan/kedge
+backup_kedge_repo: "https://git.authbox.de/stephan/kedge.git"
 backup_kedge_version: "v0.3.4"
 backup_kedge_install_dir: /opt/kedge
 backup_kedge_env_file: /root/.kedge.env
