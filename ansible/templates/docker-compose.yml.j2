@@ -365,6 +365,11 @@ services:
       - GF_SMTP_PASSWORD=${GRAFANA_SMTP_PASSWORD:-}
       - GF_SMTP_FROM_ADDRESS=${GRAFANA_SMTP_FROM_ADDRESS:-}
 {% endif %}
+{% if grafana_slack_token | default('') | length > 0 %}
+      # KIG-W-054 Schritt 2b: Slack-Contact-Point slack-critical liest $SLACK_TOKEN
+      # aus dem Container-Env (Grafana-eigene Var-Expansion in der Alerting-Provisionierung).
+      - SLACK_TOKEN=${SLACK_TOKEN}
+{% endif %}
     volumes:
       - grafana_data:/var/lib/grafana
       - grafana_plugins:/var/lib/grafana/plugins

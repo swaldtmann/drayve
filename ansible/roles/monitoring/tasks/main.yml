@@ -343,6 +343,105 @@
   register: grafana_alert_email_contact_point
   tags: [monitoring, alerting]
 
+# === Grafana alerting: Slack contact point for severity=critical (KIG-W-054 Schritt 2b) ===
+# Optional, gated on grafana_slack_token — off by default, same idiom as the
+# SMTP block above. Additive: does not touch the root routing by itself —
+# wiring severity=critical into policies.yaml happens in the root-policy
+# block further down, alongside the SMTP root receiver.
+- name: Assert Grafana alert Slack channel is configured when Slack token is set
+  ansible.builtin.assert:
+    that:
+      - grafana_alert_slack_channel | default('') | length > 0
+    fail_msg: |
+      grafana_slack_token is set but grafana_alert_slack_channel is empty. Set
+      grafana_alert_slack_channel (e.g. in stack.yaml) to the Slack channel
+      that should receive severity=critical alerts, or unset
+      grafana_slack_token to disable the Slack alert contact point.
+  when: _mon_grafana and (grafana_slack_token | default('') | length > 0)
+  tags: [monitoring, alerting]
+
+- name: Deploy Grafana alert contact point (Slack critical)
+  ansible.builtin.copy:
+    dest: "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/alerting/contact-points-slack-critical.yaml"
+    content: |
+      apiVersion: 1
+
+      contactPoints:
+        - orgId: 1
+          name: slack-critical
+          receivers:
+            - uid: slack-critical-1
+              type: slack
+              disableResolveMessage: false
+              settings:
+                recipient: '{{ grafana_alert_slack_channel }}'
+                token: $SLACK_TOKEN
+                username: reggi_woos_ki
+                title: 'CRIT — {{ "{{" }} .CommonLabels.alertname {{ "}}" }} ({{ "{{" }} .CommonLabels.host {{ "}}" }})'
+                text: |
+                  {{ "{{" }} range .Alerts {{ "}}" }}
+                  *{{ "{{" }} .Annotations.summary {{ "}}" }}*
+                  {{ "{{" }} .Annotations.description {{ "}}" }}
+                  <{{ "{{" }} .GeneratorURL {{ "}}" }}|Grafana>
+                  {{ "{{" }} end {{ "}}" }}
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0644"
+  when: _mon_grafana and (grafana_slack_token | default('') | length > 0)
+  register: grafana_alert_slack_contact_point
+  tags: [monitoring, alerting]
+
+# === Grafana alerting: root policy for SMTP email + Slack critical (KIG-W-054) ===
+# Found while wiring Slack: policies.yaml is deployed by the webhook block
+# above ONLY when grafana_alert_api_token is set — a host that migrated to
+# SMTP (grafana_alert_api_token unset) never gets a policies.yaml at all,
+# and Grafana alerts silently fall back to its own built-in default contact
+# point instead of grafana-smtp-email. This block replaces that gap: deployed
+# whenever grafana_smtp_host OR grafana_slack_token is set (not just the old
+# webhook token), independent of the webhook path. Runs after the webhook
+# policy task above, so once a host has SMTP and/or Slack configured this
+# becomes the effective policies.yaml (last write wins on the same dest) —
+# that IS the intended cutover away from the webhook root receiver.
+# Root receiver is grafana-smtp-email when SMTP is configured; if only Slack
+# is configured (no SMTP), root stays on Grafana's own built-in default
+# contact point (grafana-default-email) rather than pointing at an undefined
+# receiver. severity=critical additionally routes to Slack with
+# continue: true (Mail/default AND Slack, no replacement) when Slack is set.
+- name: "Deploy Grafana alert policy (root: SMTP email + Slack critical)"
+  ansible.builtin.copy:
+    dest: "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/alerting/policies.yaml"
+    content: |
+      apiVersion: 1
+
+      policies:
+        - orgId: 1
+          receiver: {{ 'grafana-smtp-email' if (grafana_smtp_host | default('') | length > 0) else 'grafana-default-email' }}
+          group_by: ['alertname', 'severity']
+          group_wait: 30s
+          group_interval: 5m
+          repeat_interval: 4h
+      {% if grafana_slack_token | default('') | length > 0 %}
+          routes:
+            # KIG-W-054 Schritt 2b: severity=critical zusaetzlich nach Slack.
+            # continue:true -> Root-Receiver feuert trotzdem, kein Ersatz sondern Zusatz.
+            - receiver: slack-critical
+              matchers:
+                - severity = critical
+              continue: true
+              group_wait: 30s
+              group_interval: 5m
+              repeat_interval: 4h
+      {% endif %}
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0644"
+  when: >-
+    _mon_grafana and
+    ((grafana_smtp_host | default('') | length > 0) or
+     (grafana_slack_token | default('') | length > 0))
+  register: grafana_alert_root_policy
+  tags: [monitoring, alerting]
+
 # === Grafana alert rules: optional per-host override (DRAYVE-W-014) ===
 # Alert rule thresholds/labels/host-names are inherently host-specific (unlike
 # the contact-point/policy above), so this follows the same per-host-override
@@ -417,6 +516,13 @@
   when: _mon_grafana
   tags: [monitoring, alerting]
 
+- name: Check for existing Grafana alert contact-point file (Slack critical) (cross-tag guard, AFKI-W-239)
+  ansible.builtin.stat:
+    path: "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/alerting/contact-points-slack-critical.yaml"
+  register: _mon_alert_slack_contact_point_precheck
+  when: _mon_grafana
+  tags: [monitoring, alerting]
+
 - name: Guard — fail instead of deleting Grafana alert config when secrets weren't loaded (AFKI-W-239)
   ansible.builtin.assert:
     that:
@@ -425,8 +531,16 @@
           _mon_secrets_file_check.stat.exists and
           drayve_secrets_facts_loaded is not defined and
           (grafana_alert_api_token | default('') | length == 0) and
-          ((_mon_alert_contact_points_precheck.stat.exists | default(false)) or
-           (_mon_alert_policies_precheck.stat.exists | default(false)))
+          (_mon_alert_contact_points_precheck.stat.exists | default(false))
+        )
+      - >-
+        not (
+          _mon_secrets_file_check.stat.exists and
+          drayve_secrets_facts_loaded is not defined and
+          (grafana_alert_api_token | default('') | length == 0) and
+          (grafana_smtp_host | default('') | length == 0) and
+          (grafana_slack_token | default('') | length == 0) and
+          (_mon_alert_policies_precheck.stat.exists | default(false))
         )
       - >-
         not (
@@ -435,15 +549,22 @@
           (grafana_smtp_host | default('') | length == 0) and
           (_mon_alert_email_contact_point_precheck.stat.exists | default(false))
         )
+      - >-
+        not (
+          _mon_secrets_file_check.stat.exists and
+          drayve_secrets_facts_loaded is not defined and
+          (grafana_slack_token | default('') | length == 0) and
+          (_mon_alert_slack_contact_point_precheck.stat.exists | default(false))
+        )
     fail_msg: |
       Secrets nicht geladen — Monitoring-Deploy ohne `secrets`-Tag gefahren?
       deploy/{{ inventory_hostname }}/secrets.yml existiert, aber die Rolle
       secrets (Task "Set secret variables", tag [secrets]) hat in diesem
-      Lauf nicht gesetzt. grafana_alert_api_token bzw. grafana_smtp_host ist
-      deshalb leer, und der naechste Schritt wuerde die bestehende
-      Grafana-Alert-Config (contact-points.yaml/policies.yaml bzw.
-      contact-points-email.yaml) LOESCHEN statt sie unangetastet zu lassen
-      (oops-0096).
+      Lauf nicht gesetzt. grafana_alert_api_token bzw. grafana_smtp_host bzw.
+      grafana_slack_token ist deshalb leer, und der naechste Schritt wuerde
+      die bestehende Grafana-Alert-Config (contact-points.yaml/policies.yaml
+      bzw. contact-points-email.yaml bzw. contact-points-slack-critical.yaml)
+      LOESCHEN statt sie unangetastet zu lassen (oops-0096).
 
       Fix: `--tags secrets,monitoring` statt `--tags monitoring` allein, oder
       den vollen Lauf ohne Tag-Scoping fahren.
@@ -457,7 +578,11 @@
   loop:
     - contact-points.yaml
     - policies.yaml
-  when: _mon_grafana and (grafana_alert_api_token | default('') | length == 0)
+  when: >-
+    _mon_grafana and (grafana_alert_api_token | default('') | length == 0) and
+    (item == 'contact-points.yaml' or
+     ((grafana_smtp_host | default('') | length == 0) and
+      (grafana_slack_token | default('') | length == 0)))
   tags: [monitoring, alerting]
 
 - name: Remove Grafana alert contact point (email) when SMTP not configured
@@ -465,6 +590,13 @@
     path: "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/alerting/contact-points-email.yaml"
     state: absent
   when: _mon_grafana and (grafana_smtp_host | default('') | length == 0)
+  tags: [monitoring, alerting]
+
+- name: Remove Grafana alert contact point (Slack critical) when Slack not configured
+  ansible.builtin.file:
+    path: "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/alerting/contact-points-slack-critical.yaml"
+    state: absent
+  when: _mon_grafana and (grafana_slack_token | default('') | length == 0)
   tags: [monitoring, alerting]
 
 - name: Check if compose file exists (skip restart on first provision)
@@ -486,7 +618,9 @@
     (grafana_crowdsec_ds.changed | default(false)) or
     (grafana_alert_contact_points.changed | default(false)) or
     (grafana_alert_policies.changed | default(false)) or
-    (grafana_alert_email_contact_point.changed | default(false)))
+    (grafana_alert_email_contact_point.changed | default(false)) or
+    (grafana_alert_slack_contact_point.changed | default(false)) or
+    (grafana_alert_root_policy.changed | default(false)))
   tags: [monitoring, dashboards]
 
 - name: Force-recreate Loki on config change

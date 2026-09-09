@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.8.1] - 2026-09-10
+
+### Added
+- **Optional Grafana Slack contact point for severity=critical alerts**
+  (KIG-W-054 Schritt 2b) — new secret var `grafana_slack_token`
+  (`roles/secrets`) and `grafana_alert_slack_channel` (plain var) enable
+  `SLACK_TOKEN` on the Grafana container and deploy a `type: slack` contact
+  point (`contact-points-slack-critical.yaml`, bot `reggi_woos_ki`), gated
+  on `grafana_slack_token` — same off-by-default idiom as the webhook/SMTP
+  contact points. Fails fast if the token is set but
+  `grafana_alert_slack_channel` is empty. The AFKI-W-239 cross-tag
+  delete-guard is extended to protect the new file.
+
+### Fixed
+- **`policies.yaml` root routing never followed a host off the retired
+  `kigulls-api-webhook` path** — the only task that ever deployed
+  `policies.yaml` was gated on the legacy `grafana_alert_api_token`. A host
+  that migrated to SMTP-only (KIG-W-054, v0.8.0, token unset) got no
+  `policies.yaml` at all and silently fell back to Grafana's built-in
+  default receiver instead of `grafana-smtp-email`. A new, independent
+  policy-deploy task now fires whenever `grafana_smtp_host` OR
+  `grafana_slack_token` is set: root receiver is `grafana-smtp-email` when
+  SMTP is configured, otherwise Grafana's own built-in default
+  (`grafana-default-email` — never an undefined receiver); a
+  severity=critical route to `slack-critical` with `continue: true` is
+  added when Slack is configured. The webhook-path removal task is refined
+  so it only deletes `policies.yaml` when webhook, SMTP and Slack are all
+  unset, and the AFKI-W-239 guard is extended to match. Additive: the
+  webhook contact point/policy and the SMTP/Slack contact points themselves
+  are untouched.
+
 ## [0.8.0] - 2026-09-09
 
 ### Added

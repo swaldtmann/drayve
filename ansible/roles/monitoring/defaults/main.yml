@@ -20,6 +20,11 @@ grafana_root_url: "https://grafana.{{ drayve_domain | default('localhost') }}"
 # contact point rather than silently mailing nobody.
 grafana_alert_email_to: ""
 
+# Grafana alert Slack channel for the severity=critical route (KIG-W-054
+# Schritt 2b). Only relevant when grafana_slack_token (roles/secrets) is
+# set — no default, deliberately, same idiom as grafana_alert_email_to.
+grafana_alert_slack_channel: ""
+
 # Loki retention (Go duration, e.g. "168h", "720h"). Enforced by the compactor.
 monitoring_loki_retention_period: "168h"
 
