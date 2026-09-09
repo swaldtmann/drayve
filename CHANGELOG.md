@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Optional Grafana alert email contact point via SMTP** (KIG-W-054) — new
+  secret vars `grafana_smtp_host`/`grafana_smtp_port`/`grafana_smtp_user`/
+  `grafana_smtp_password`/`grafana_smtp_from_address` (`roles/secrets`) and
+  `grafana_alert_email_to` (plain var) enable `GF_SMTP_*` on the Grafana
+  container and deploy a `type: email` contact point
+  (`contact-points-email.yaml`), gated on `grafana_smtp_host` — same
+  off-by-default idiom as the existing `kigulls-api-webhook` contact point
+  (`grafana_alert_api_token`). Additive: the webhook contact point and
+  `policies.yaml` routing are untouched, no host sees a behavior change
+  without setting `grafana_smtp_host`. Fails fast (`ansible.builtin.assert`)
+  if SMTP is enabled but `grafana_alert_email_to` is empty. The AFKI-W-239
+  cross-tag delete-guard (oops-0096) is extended to also protect
+  `contact-points-email.yaml` from being deleted by a `--tags monitoring`
+  run that skipped `secrets`. Part of the KIgulls-Schwarm-Rueckbau — the
+  webhook path itself is retired in a separate step.
+
 ## [0.7.5] - 2026-07-31
 
 ### Fixed

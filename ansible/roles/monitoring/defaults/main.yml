@@ -14,6 +14,12 @@ monitoring_profile: full
 grafana_admin_password: ""
 grafana_root_url: "https://grafana.{{ drayve_domain | default('localhost') }}"
 
+# Grafana alert email recipient (KIG-W-054). Only relevant when
+# grafana_smtp_host (roles/secrets) is set — no default, deliberately: the
+# monitoring role asserts this is non-empty before deploying the email
+# contact point rather than silently mailing nobody.
+grafana_alert_email_to: ""
+
 # Loki retention (Go duration, e.g. "168h", "720h"). Enforced by the compactor.
 monitoring_loki_retention_period: "168h"
 

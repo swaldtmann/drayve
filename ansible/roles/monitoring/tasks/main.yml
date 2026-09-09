@@ -302,6 +302,47 @@
   register: grafana_alert_policies
   tags: [monitoring, alerting]
 
+# === Grafana alerting: email contact point via SMTP (KIG-W-054) ===
+# Optional, gated on grafana_smtp_host — off by default, no config migration
+# for consumers that never set it (same idiom as the kigulls-api-webhook
+# block above). Additive: does not touch policies.yaml/routing, does not
+# retire the webhook contact point — a host can have both deployed, wiring
+# either into the routing policy is a separate step.
+- name: Assert Grafana alert email recipient is configured when SMTP is enabled
+  ansible.builtin.assert:
+    that:
+      - grafana_alert_email_to | default('') | length > 0
+    fail_msg: |
+      grafana_smtp_host is set but grafana_alert_email_to is empty. Set
+      grafana_alert_email_to (e.g. in stack.yaml) to the address that should
+      receive Grafana alert emails, or unset grafana_smtp_host to disable
+      the SMTP alert contact point.
+  when: _mon_grafana and (grafana_smtp_host | default('') | length > 0)
+  tags: [monitoring, alerting]
+
+- name: Deploy Grafana alert contact point (email via SMTP)
+  ansible.builtin.copy:
+    dest: "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/alerting/contact-points-email.yaml"
+    content: |
+      apiVersion: 1
+
+      contactPoints:
+        - orgId: 1
+          name: grafana-smtp-email
+          receivers:
+            - uid: grafana-smtp-email-1
+              type: email
+              disableResolveMessage: false
+              settings:
+                addresses: {{ grafana_alert_email_to }}
+                singleEmail: true
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0644"
+  when: _mon_grafana and (grafana_smtp_host | default('') | length > 0)
+  register: grafana_alert_email_contact_point
+  tags: [monitoring, alerting]
+
 # === Grafana alert rules: optional per-host override (DRAYVE-W-014) ===
 # Alert rule thresholds/labels/host-names are inherently host-specific (unlike
 # the contact-point/policy above), so this follows the same per-host-override
@@ -369,6 +410,13 @@
   when: _mon_grafana
   tags: [monitoring, alerting]
 
+- name: Check for existing Grafana alert contact-point file (email via SMTP) (cross-tag guard, AFKI-W-239)
+  ansible.builtin.stat:
+    path: "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/alerting/contact-points-email.yaml"
+  register: _mon_alert_email_contact_point_precheck
+  when: _mon_grafana
+  tags: [monitoring, alerting]
+
 - name: Guard — fail instead of deleting Grafana alert config when secrets weren't loaded (AFKI-W-239)
   ansible.builtin.assert:
     that:
@@ -380,14 +428,22 @@
           ((_mon_alert_contact_points_precheck.stat.exists | default(false)) or
            (_mon_alert_policies_precheck.stat.exists | default(false)))
         )
+      - >-
+        not (
+          _mon_secrets_file_check.stat.exists and
+          drayve_secrets_facts_loaded is not defined and
+          (grafana_smtp_host | default('') | length == 0) and
+          (_mon_alert_email_contact_point_precheck.stat.exists | default(false))
+        )
     fail_msg: |
       Secrets nicht geladen — Monitoring-Deploy ohne `secrets`-Tag gefahren?
       deploy/{{ inventory_hostname }}/secrets.yml existiert, aber die Rolle
       secrets (Task "Set secret variables", tag [secrets]) hat in diesem
-      Lauf nicht gesetzt. grafana_alert_api_token ist deshalb leer, und der
-      naechste Schritt wuerde die bestehende Grafana-Alert-Config
-      (contact-points.yaml/policies.yaml) LOESCHEN statt sie unangetastet zu
-      lassen (oops-0096).
+      Lauf nicht gesetzt. grafana_alert_api_token bzw. grafana_smtp_host ist
+      deshalb leer, und der naechste Schritt wuerde die bestehende
+      Grafana-Alert-Config (contact-points.yaml/policies.yaml bzw.
+      contact-points-email.yaml) LOESCHEN statt sie unangetastet zu lassen
+      (oops-0096).
 
       Fix: `--tags secrets,monitoring` statt `--tags monitoring` allein, oder
       den vollen Lauf ohne Tag-Scoping fahren.
@@ -402,6 +458,13 @@
     - contact-points.yaml
     - policies.yaml
   when: _mon_grafana and (grafana_alert_api_token | default('') | length == 0)
+  tags: [monitoring, alerting]
+
+- name: Remove Grafana alert contact point (email) when SMTP not configured
+  ansible.builtin.file:
+    path: "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/alerting/contact-points-email.yaml"
+    state: absent
+  when: _mon_grafana and (grafana_smtp_host | default('') | length == 0)
   tags: [monitoring, alerting]
 
 - name: Check if compose file exists (skip restart on first provision)
@@ -422,7 +485,8 @@
     (grafana_datasources.changed | default(false)) or
     (grafana_crowdsec_ds.changed | default(false)) or
     (grafana_alert_contact_points.changed | default(false)) or
-    (grafana_alert_policies.changed | default(false)))
+    (grafana_alert_policies.changed | default(false)) or
+    (grafana_alert_email_contact_point.changed | default(false)))
   tags: [monitoring, dashboards]
 
 - name: Force-recreate Loki on config change

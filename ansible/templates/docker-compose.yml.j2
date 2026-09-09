@@ -358,6 +358,13 @@ services:
 {% if grafana_alert_api_token | default('') | length > 0 %}
       - KIGULLS_API_TOKEN=${KIGULLS_API_TOKEN:-}
 {% endif %}
+{% if grafana_smtp_host | default('') | length > 0 %}
+      - GF_SMTP_ENABLED=true
+      - GF_SMTP_HOST=${GRAFANA_SMTP_HOST:-}:${GRAFANA_SMTP_PORT:-587}
+      - GF_SMTP_USER=${GRAFANA_SMTP_USER:-}
+      - GF_SMTP_PASSWORD=${GRAFANA_SMTP_PASSWORD:-}
+      - GF_SMTP_FROM_ADDRESS=${GRAFANA_SMTP_FROM_ADDRESS:-}
+{% endif %}
     volumes:
       - grafana_data:/var/lib/grafana
       - grafana_plugins:/var/lib/grafana/plugins
