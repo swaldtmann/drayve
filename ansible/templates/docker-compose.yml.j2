@@ -277,6 +277,8 @@ services:
     restart: unless-stopped
     mem_limit: {{ mem_cadvisor }}
     privileged: true
+    command:
+      - '--docker_only=true'
     devices:
       - /dev/kmsg
     volumes:
