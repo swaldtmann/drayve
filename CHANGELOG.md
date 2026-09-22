@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- **cadvisor scraped every cgroup on the host, not just Docker containers**
+  (EWH-W-173 Folgebefund, 2026-09-22) — the cadvisor service had no
+  `command:`, so its default flags applied and it exposed metrics for every
+  cgroup on the host (systemd slices, kernel cgroups), not just Docker
+  containers. On prod-cloud (`monitoring.profile: full`) this produced 75
+  distinct `id` label values for ~15-18 actual containers and 4.463 active
+  Prometheus series (57 % of the host's total), driving Prometheus memory
+  from 233 MiB to 642 MiB within 40 h after the EWH-W-173 cadvisor OOM fix
+  made cadvisor stable enough to be scraped continuously for the first
+  time. Added `--docker_only=true` to the cadvisor command
+  (`ansible/templates/docker-compose.yml.j2`) to scope it to Docker
+  containers only. Checked all `stack.yaml` consumers before the template
+  change: `drayve-prod-genua` has cadvisor explicitly off, `drayve-ticket`
+  (`profile: none`), `drayve-greenfield` (`profile: light`) and
+  `drayve-rezepte` (`profile: minimal`) never enable cadvisor — only
+  `ewh-stack` (prod-cloud, `profile: full`) is affected.
+
 ## [0.8.1] - 2026-09-10
 
 ### Added
