@@ -47,6 +47,8 @@ Everything else has sensible defaults. This gives you: basic auth, full monitori
 |-----|------|---------|-------------|
 | `profile` | string | `full` | `full` (~800MB) — Grafana, Prometheus, Loki, Promtail, cAdvisor, node_exporter. `light` (~50MB) — node_exporter + Promtail only. `none` — no monitoring |
 | `loki_url` | string | `http://loki:3100/...` | Loki push URL for Promtail. **Required** for `light` profile (no local Loki). Defaults to local Loki for `full` profile |
+| `loki_basic_auth_user` | string | — | HTTP Basic-Auth username for the Promtail Loki client (e.g. an external Loki behind Basic-Auth). Password goes in `secrets.yml` as `monitoring_loki_basic_auth_password`, never here. Empty (default) — no Basic-Auth block rendered |
+| `loki_host_label` | string | — | `external_labels.host` value sent with every log line to Loki — use when several hosts push into the same external Loki. Empty (default) — no label rendered |
 | `grafana` | bool | — | Override Grafana on/off regardless of profile |
 | `prometheus` | bool | — | Override Prometheus on/off |
 | `loki` | bool | — | Override Loki on/off |

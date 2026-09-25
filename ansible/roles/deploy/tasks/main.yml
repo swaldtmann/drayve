@@ -25,6 +25,17 @@
   tags: [deploy]
 
 # Resolve nested stack.yaml values to flat vars
+
+# Independent of the monitoring role's own `_promtail_loki_basic_auth_user`
+# fact (roles/monitoring/tasks/main.yml) — needed here too so a tag-scoped
+# `--tags deploy` run (monitoring role skipped) still renders the Promtail
+# password-file mount in docker-compose.yml.j2 correctly, same idiom as
+# monitoring_services above.
+- name: Resolve Promtail Basic-Auth user for compose template
+  ansible.builtin.set_fact:
+    _deploy_promtail_basic_auth_user: "{{ monitoring.loki_basic_auth_user | default(monitoring_loki_basic_auth_user) | default('') }}"
+  tags: [deploy]
+
 - name: Resolve auth_provider from stack.yaml
   ansible.builtin.set_fact:
     auth_provider: "{{ auth.provider | default(auth_provider) | default('basic') }}"

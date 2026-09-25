@@ -5,6 +5,15 @@ positions:
   filename: /tmp/positions.yaml
 clients:
   - url: "{{ _promtail_loki_url }}"
+{% if _promtail_loki_basic_auth_user %}
+    basic_auth:
+      username: "{{ _promtail_loki_basic_auth_user }}"
+      password_file: /etc/promtail/loki-basic-auth-password
+{% endif %}
+{% if _promtail_host_label %}
+    external_labels:
+      host: "{{ _promtail_host_label }}"
+{% endif %}
 scrape_configs:
   - job_name: docker
     docker_sd_configs:

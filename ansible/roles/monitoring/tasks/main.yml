@@ -154,6 +154,26 @@
   when: _mon_promtail
   tags: [monitoring]
 
+# Optional HTTP Basic-Auth for the Promtail Loki client, e.g. an external
+# Loki behind nginx Basic-Auth (monitoring.loki_url). Username lives in
+# stack.yaml, password in secrets.yml (monitoring_loki_basic_auth_password,
+# roles/secrets) — empty user (default) keeps promtail-config.yml.j2
+# byte-identical to v0.8.2.
+- name: Resolve Promtail Loki Basic-Auth user
+  ansible.builtin.set_fact:
+    _promtail_loki_basic_auth_user: "{{ monitoring.loki_basic_auth_user | default(monitoring_loki_basic_auth_user) | default('') }}"
+  when: _mon_promtail
+  tags: [monitoring]
+
+# Optional external_labels.host for the Promtail Loki client — useful when
+# several hosts push into the same external Loki. Empty (default) keeps
+# promtail-config.yml.j2 byte-identical to v0.8.2.
+- name: Resolve Promtail external host label
+  ansible.builtin.set_fact:
+    _promtail_host_label: "{{ monitoring.loki_host_label | default(monitoring_loki_host_label) | default('') }}"
+  when: _mon_promtail
+  tags: [monitoring]
+
 - name: Warn — Promtail without local Loki and no loki_url configured
   ansible.builtin.debug:
     msg: >-
@@ -174,6 +194,19 @@
     group: "{{ drayve_group }}"
     mode: "0755"
   when: _mon_promtail
+  tags: [monitoring]
+
+- name: Write Promtail Loki Basic-Auth password file
+  ansible.builtin.copy:
+    content: "{{ monitoring_loki_basic_auth_password | default('') }}"
+    dest: "{{ drayve_deploy_dir }}/monitoring/promtail/loki-basic-auth-password"
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0600"
+  when:
+    - _mon_promtail
+    - _promtail_loki_basic_auth_user | length > 0
+  no_log: true
   tags: [monitoring]
 
 - name: Deploy Promtail config

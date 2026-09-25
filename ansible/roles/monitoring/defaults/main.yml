@@ -28,6 +28,19 @@ grafana_alert_slack_channel: ""
 # Loki retention (Go duration, e.g. "168h", "720h"). Enforced by the compactor.
 monitoring_loki_retention_period: "168h"
 
+# Optional HTTP Basic-Auth username for the Promtail Loki client
+# (monitoring.loki_url pointing at an external Loki behind Basic-Auth).
+# Password lives in secrets.yml (monitoring_loki_basic_auth_password,
+# roles/secrets), never here. Empty (default) renders promtail-config.yml
+# and the promtail service in docker-compose.yml byte-identical to v0.8.2.
+monitoring_loki_basic_auth_user: ""
+
+# Optional Promtail external_labels.host value, e.g. "buckbeak" — set this
+# when several hosts push into the same external Loki so log streams stay
+# distinguishable. Empty (default) renders promtail-config.yml byte-identical
+# to v0.8.2.
+monitoring_loki_host_label: ""
+
 # Extra Promtail scrape_configs entries (list of dicts), appended after the
 # built-in docker job. Use this to scrape host-side log files (already
 # mounted read-only at /var/log in the promtail container). Example for a

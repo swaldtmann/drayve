@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.8.3] - 2026-09-25
+
+### Added
+- **Optional HTTP Basic-Auth + host label for the Promtail Loki client**
+  — lets Promtail push to an external Loki behind Basic-Auth (e.g. nginx),
+  with several hosts writing into the same instance distinguishable by an
+  `external_labels.host` value. New `stack.yaml` keys
+  `monitoring.loki_basic_auth_user` / `monitoring.loki_host_label` (flat
+  equivalents `monitoring_loki_basic_auth_user` / `monitoring_loki_host_label`,
+  `roles/monitoring/defaults`), password in `secrets.yml` as
+  `monitoring_loki_basic_auth_password` (`roles/secrets`) — never in
+  `stack.yaml` or rendered config. The password is written to a dedicated
+  file (`monitoring/promtail/loki-basic-auth-password`, mode `0600`) and
+  referenced via Promtail's `basic_auth.password_file`
+  (`roles/monitoring/templates/promtail-config.yml.j2`); no plaintext
+  password ever appears in the rendered config or `docker-compose.yml`.
+  Hard requirement, same idiom as `docker_daemon_extra` (v0.8.2): with both
+  vars unset (the default), the rendered `promtail-config.yml` and the
+  Promtail service block in `docker-compose.yml` stay byte-identical to
+  v0.8.2 — Promtail force-recreates on any config change
+  (`roles/monitoring/tasks/main.yml`), so drift here would restart Promtail
+  on every existing Drayve host on its next deploy. Proven via render
+  comparisons against the frozen v0.8.2 templates, unset and set
+  (`tests/python/test_promtail_template.py`).
+
 ## [0.8.2] - 2026-09-25
 
 ### Added
