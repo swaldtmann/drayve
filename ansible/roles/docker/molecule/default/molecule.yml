@@ -35,5 +35,7 @@ provisioner:
           - { port: "443", proto: "tcp" }
         ssh_password_auth: "no"
         ssh_root_login: "prohibit-password"
+        docker_daemon_extra:
+          debug: true  # exercises the docker_daemon_extra merge with a harmless, valid daemon.json key
 verifier:
   name: testinfra

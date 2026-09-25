@@ -1,3 +1,4 @@
+{% if not docker_daemon_extra %}
 {
   "log-driver": "journald",
   "log-opts": {
@@ -6,3 +7,8 @@
   "registry-mirrors": {{ docker_registry_mirrors | to_json }}{% endif %}
 
 }
+{% else %}
+{% set _base = {"log-driver": "journald", "log-opts": {"tag": "{{.Name}}"}} %}
+{% set _with_mirrors = _base | combine({"registry-mirrors": docker_registry_mirrors} if docker_registry_mirrors else {}) %}
+{{ (_with_mirrors | combine(docker_daemon_extra)) | to_nice_json(indent=2) }}
+{% endif %}

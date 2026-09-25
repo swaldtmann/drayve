@@ -2,3 +2,4 @@
 docker_users:
   - "{{ drayve_user }}"
 docker_registry_mirrors: []  # e.g. ["http://192.0.2.10:5000"]
+docker_daemon_extra: {}  # host-specific /etc/docker/daemon.json overrides, e.g. data-root, runtimes

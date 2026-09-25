@@ -5,7 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.8.2] - 2026-09-25
+
+### Added
+- **`docker_daemon_extra` — host-specific `/etc/docker/daemon.json` overrides**
+  — new `docker_registry_mirrors`-sibling var (`roles/docker/defaults`,
+  empty dict by default) merged over the base daemon.json (`log-driver`,
+  `log-opts`, optional `registry-mirrors`) via `combine`. Lets a consumer
+  set host-specific Docker Engine settings (e.g. a non-default
+  `data-root`, `runtimes.nvidia`) without forking the template. Hard
+  requirement: with `docker_daemon_extra` empty (the default), the
+  rendered daemon.json is byte-identical to the pre-existing output —
+  the role restarts Docker whenever the file changes
+  (`ansible/roles/docker/tasks/main.yml`), so any drift here would
+  restart Docker on every existing Drayve host on its next deploy. Proven
+  via a render comparison against the frozen v0.8.1 template, both
+  without and with `registry-mirrors` set
+  (`tests/python/test_docker_daemon_template.py`).
 
 ### Fixed
 - **cadvisor scraped every cgroup on the host, not just Docker containers**

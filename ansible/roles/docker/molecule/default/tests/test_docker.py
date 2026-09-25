@@ -28,6 +28,14 @@ def test_docker_daemon_json(host):
     assert f.contains('"log-driver": "journald"')
 
 
+def test_docker_daemon_extra_merged(host):
+    """docker_daemon_extra (molecule.yml group_vars) must be merged into
+    daemon.json alongside the base keys."""
+    f = host.file("/etc/docker/daemon.json")
+    assert f.contains('"debug": true')
+    assert f.contains('"log-driver": "journald"')
+
+
 def test_drayve_user_in_docker_group(host):
     """The drayve user should be in the docker group."""
     user = host.user("drayve")
