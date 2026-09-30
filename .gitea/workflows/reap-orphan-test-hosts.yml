@@ -32,9 +32,11 @@ jobs:
       WORKDIR: /tmp/ci-drayve-reap-${{ github.run_id }}
     steps:
       - name: Checkout
+        env:
+          CI_TOKEN: ${{ github.token }}
         run: |
           rm -rf $WORKDIR
-          git clone --depth 1 -b ${GITHUB_REF_NAME} https://codeberg.org/${GITHUB_REPOSITORY}.git $WORKDIR
+          git -c http.extraheader="Authorization: token ${CI_TOKEN}" clone --depth 1 -b ${GITHUB_REF_NAME} ${{ github.server_url }}/${{ github.repository }}.git $WORKDIR
 
       - name: Install hcloud + pyyaml
         run: python3 -m pip install -q --break-system-packages hcloud pyyaml

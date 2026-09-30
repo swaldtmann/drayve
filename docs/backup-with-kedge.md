@@ -1,7 +1,7 @@
 # Backup with kedge
 
 Since v0.5.0, drayve's `backup` role can delegate to
-[kedge](https://codeberg.org/StephanWaldtmann/kedge) — a generic
+[kedge](https://github.com/swaldtmann/kedge) — a generic
 encrypted backup tool for Docker Compose stacks. kedge auto-discovers
 volumes, bind mounts, and database services, runs DB pre-hooks, and
 ships snapshots into a restic repository.
@@ -68,7 +68,7 @@ stack:
 
 | Variable                          | Default                                              | Notes                                       |
 |-----------------------------------|------------------------------------------------------|---------------------------------------------|
-| `backup_kedge_repo`               | `https://codeberg.org/StephanWaldtmann/kedge.git`    | Mirror URL if you self-host kedge           |
+| `backup_kedge_repo`               | `https://github.com/swaldtmann/kedge.git`    | Mirror URL if you self-host kedge           |
 | `backup_kedge_version`            | `v0.3.4`                                             | Pin to a tag, never `main`                  |
 | `backup_kedge_install_dir`        | `/opt/kedge`                                         |                                             |
 | `backup_kedge_env_file`           | `/root/.kedge.env`                                   | mode 0600, root-owned                       |
@@ -145,7 +145,7 @@ should produce a fresh snapshot in the restic repository.
 
 ## See also
 
-- [kedge README](https://codeberg.org/StephanWaldtmann/kedge) —
+- [kedge README](https://github.com/swaldtmann/kedge) —
   full CLI reference, hot-backup safety classification, restore
   procedures.
 - [`docs/secrets.md`](secrets.md) — how `host_secrets` is encrypted

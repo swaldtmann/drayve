@@ -21,7 +21,7 @@ Get a fully configured Docker stack running on a fresh Ubuntu server in under 10
 ## Setup
 
 ```bash
-git clone https://codeberg.org/StephanWaldtmann/drayve.git
+git clone https://github.com/swaldtmann/drayve.git
 cd drayve
 make setup              # venv, dependencies, git hooks
 source .venv/bin/activate

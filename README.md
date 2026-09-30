@@ -100,7 +100,7 @@ SHELL := /bin/bash
 
 NAME        := my-host           # required: inventory group + snapshot host
 DRAYVE_REF  ?= v0.4.0            # tag/branch in drayve to vendor
-DRAYVE_REPO ?= https://codeberg.org/StephanWaldtmann/drayve.git
+DRAYVE_REPO ?= https://github.com/swaldtmann/drayve.git
 DRAYVE_DIR  := vendor/drayve
 
 # Optional: override paths/flags before the include

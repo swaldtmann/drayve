@@ -11,7 +11,7 @@
 #
 #   vendor:  ## Clone/update drayve at DRAYVE_REF
 #       @if [ ! -d $(DRAYVE_DIR)/.git ]; then \
-#           git clone https://codeberg.org/StephanWaldtmann/drayve.git $(DRAYVE_DIR); \
+#           git clone https://github.com/swaldtmann/drayve.git $(DRAYVE_DIR); \
 #       fi
 #       @git -C $(DRAYVE_DIR) fetch --tags --quiet
 #       @git -C $(DRAYVE_DIR) checkout --quiet $(DRAYVE_REF)

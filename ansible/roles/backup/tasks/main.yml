@@ -129,7 +129,7 @@
   tags: [backup]
 
 # ── kedge target ──────────────────────────────────────────────────────
-# Delegates backup/prune to the kedge CLI (https://codeberg.org/StephanWaldtmann/kedge).
+# Delegates backup/prune to the kedge CLI (https://github.com/swaldtmann/kedge).
 # Replaces the in-role restic wrapper above with a separately-versioned tool that
 # auto-discovers compose volumes, bind mounts, and DB pre-hooks.
 - name: Install kedge dependencies
