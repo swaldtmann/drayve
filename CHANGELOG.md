@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-10-01
+
 ### Added
 - **CrowdSec signal sharing off by default** — new role default
   `crowdsec_signal_sharing: false` (`roles/traefik`). The role renders
