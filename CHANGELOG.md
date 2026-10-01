@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.5] - 2026-10-01
+
 ### Changed
 - **behaviour change: hosts move kedge to v0.5.1 on the next backup-playbook
   run.** `backup_kedge_version` default `v0.3.4` -> `v0.5.1`; before, a run
