@@ -1,5 +1,5 @@
 ---
-# Testrunde 3 — Authelia + LLDAP on a real Hetzner server.
+# Testrunde 3 — Authelia + LLDAP on a real VM (Incus by default, see docs/testing.md).
 #
 # Tests the full auth stack: LLDAP user directory, Authelia SSO,
 # Traefik forwardAuth middleware, OIDC JWKS key generation.
@@ -8,14 +8,7 @@
 #   make test-integration  # or:
 #   molecule test -s authelia
 #
-# Cost: ~0.01 EUR per run (cx23 for a few minutes).
-driver:
-  name: molecule_hetznercloud
-platforms:
-  - name: test-authelia
-    image: ubuntu-24.04
-    server_type: cx23
-    location: nbg1
+# Cost: none with Incus; ~0.01 EUR per run on Hetzner (cx23 for a few minutes).
 provisioner:
   name: ansible
   playbooks:

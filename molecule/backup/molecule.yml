@@ -1,12 +1,5 @@
 ---
 # Test: backup role with local target.
-driver:
-  name: molecule_hetznercloud
-platforms:
-  - name: test-backup
-    image: ubuntu-24.04
-    server_type: cx23
-    location: nbg1
 provisioner:
   name: ansible
   playbooks:

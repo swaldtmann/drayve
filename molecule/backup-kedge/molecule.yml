@@ -1,13 +1,6 @@
 ---
 # Test: backup role with kedge target — git-clone + symlink + .kedge.env
 # + /etc/cron.d/kedge-<stack> + legacy crontab cleanup.
-driver:
-  name: molecule_hetznercloud
-platforms:
-  - name: test-backup-kedge
-    image: ubuntu-24.04
-    server_type: cx23
-    location: nbg1
 provisioner:
   name: ansible
   playbooks:

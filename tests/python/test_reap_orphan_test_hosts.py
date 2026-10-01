@@ -62,6 +62,13 @@ def test_load_allowlist_parses_platform_names(tmp_path):
     assert reaper.load_allowlist(tmp_path) == {"test-alpha", "test-beta"}
 
 
+def test_load_allowlist_inherits_base_config_name(tmp_path):
+    # No platforms key: host comes from the shared base config, test-<scenario>.
+    (tmp_path / "gamma").mkdir()
+    (tmp_path / "gamma" / "molecule.yml").write_text("provisioner:\n  name: ansible\n")
+    assert reaper.load_allowlist(tmp_path) == {"test-gamma"}
+
+
 def test_load_allowlist_skips_broken_yaml(tmp_path):
     (tmp_path / "bad").mkdir()
     (tmp_path / "bad" / "molecule.yml").write_text("platforms: [unterminated\n")

@@ -1,0 +1,193 @@
+---
+# Molecule create for the default (Incus) driver.
+#
+# Starts one Incus VM per platform, waits for the Incus agent and cloud-init,
+# and records SSH access in molecule's instance config (same shape the
+# molecule_hetznercloud driver writes), so converge/verify run over plain SSH
+# as root — exactly like on a Hetzner server.
+#
+# Tunables (env, all optional; a platform key of the same meaning wins):
+#   DRAYVE_MOLECULE_INCUS_IMAGE   image            (images:ubuntu/24.04/cloud)
+#   DRAYVE_MOLECULE_INCUS_CPUS    limits.cpu       (2)      platform key: cpus
+#   DRAYVE_MOLECULE_INCUS_MEMORY  limits.memory    (4GiB)   platform key: memory
+#   DRAYVE_MOLECULE_INCUS_DISK    root disk size   (20GiB)  platform key: disk
+#   RESOURCE_NAMESPACE            cleanup label, defaults to a hash of the
+#                                 scenario directory (same variable the
+#                                 hetzner driver uses)
+- name: Create
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  no_log: "{{ molecule_no_log }}"
+  vars:
+    incus_image: "{{ lookup('ansible.builtin.env', 'DRAYVE_MOLECULE_INCUS_IMAGE') | default('images:ubuntu/24.04/cloud', true) }}"
+    default_cpus: "{{ lookup('ansible.builtin.env', 'DRAYVE_MOLECULE_INCUS_CPUS') | default('2', true) }}"
+    default_memory: "{{ lookup('ansible.builtin.env', 'DRAYVE_MOLECULE_INCUS_MEMORY') | default('4GiB', true) }}"
+    default_disk: "{{ lookup('ansible.builtin.env', 'DRAYVE_MOLECULE_INCUS_DISK') | default('20GiB', true) }}"
+    resource_namespace: "{{ (lookup('ansible.builtin.env', 'RESOURCE_NAMESPACE') | default(molecule_scenario_directory | md5, true) | string)[:12] }}"
+    ssh_port: 22
+    ssh_user: root
+    ssh_key_path: "{{ molecule_ephemeral_directory }}/ssh_key"
+  tasks:
+    - name: Check that the incus CLI can talk to a daemon
+      ansible.builtin.command:
+        cmd: incus list --format csv --columns n
+      changed_when: false
+
+    # Lookup results are re-evaluated on every use, so draw the run id once.
+    - name: Draw a run id (instance names are unique per run)
+      ansible.builtin.set_fact:
+        run_id: "{{ lookup('ansible.builtin.password', '/dev/null length=6 chars=ascii_lowercase,digits') }}"
+
+    - name: Plan instances
+      ansible.builtin.set_fact:
+        instance_plan: >-
+          {{ (instance_plan | default([])) + [item | combine({
+            'incus_name': 'dm-' ~ run_id ~ '-' ~ item.name,
+            'namespace': resource_namespace,
+          })] }}
+        planned_conf: >-
+          {{ (planned_conf | default([])) + [{
+            'instance': item.name,
+            'incus_name': 'dm-' ~ run_id ~ '-' ~ item.name,
+            'namespace': resource_namespace,
+          }] }}
+      loop: "{{ molecule_yml.platforms }}"
+
+    - name: Create SSH key (per run)
+      community.crypto.openssh_keypair:
+        path: "{{ ssh_key_path }}"
+        type: ed25519
+      register: generated_ssh_key
+
+    - name: Build cloud-init user-data (root login with the per-run key)
+      ansible.builtin.set_fact:
+        user_data: |
+          #cloud-config
+          disable_root: false
+          ssh_pwauth: false
+          users:
+            - name: root
+              ssh_authorized_keys:
+                - {{ generated_ssh_key.public_key }}
+
+    # Written before launching, so `destroy` knows the names even if a later
+    # step fails (address/user/port are filled in once the VM is up).
+    - name: Record planned instances for destroy
+      ansible.builtin.copy:
+        content: |
+          # Molecule managed
+
+          {{ planned_conf | to_yaml }}
+        dest: "{{ molecule_instance_config }}"
+        mode: "0600"
+
+    - name: Launch VM(s)
+      ansible.builtin.command:
+        argv:
+          - incus
+          - launch
+          - "{{ incus_image }}"
+          - "{{ item.incus_name }}"
+          - --vm
+          - --config
+          - "limits.cpu={{ item.cpus | default(default_cpus) }}"
+          - --config
+          - "limits.memory={{ item.memory | default(default_memory) }}"
+          - --config
+          - "user.drayve_molecule_ns={{ item.namespace }}"
+          - --config
+          - "cloud-init.user-data={{ user_data }}"
+          - --device
+          - "root,size={{ item.disk | default(default_disk) }}"
+      loop: "{{ instance_plan }}"
+      changed_when: true
+
+    - name: Wait for the Incus agent
+      ansible.builtin.command:
+        argv: [incus, exec, "{{ item.incus_name }}", --, "true"]
+      loop: "{{ instance_plan }}"
+      register: agent_probe
+      until: agent_probe.rc == 0
+      retries: 60
+      delay: 5
+      changed_when: false
+
+    - name: Wait for cloud-init to finish
+      ansible.builtin.command:
+        argv: [incus, exec, "{{ item.incus_name }}", --, cloud-init, status, --wait]
+      loop: "{{ instance_plan }}"
+      register: cloud_init
+      # rc 2 = "done, recoverable errors" (e.g. a failed optional module)
+      failed_when: cloud_init.rc not in [0, 2]
+      changed_when: false
+      async: 600
+      poll: 5
+
+    - name: Wait for a global IPv4 address
+      ansible.builtin.command:
+        argv: [incus, exec, "{{ item.incus_name }}", --, ip, -j, -4, addr, show, scope, global]
+      loop: "{{ instance_plan }}"
+      register: addr_probe
+      until: addr_probe.rc == 0 and (addr_probe.stdout | from_json | length) > 0
+      retries: 30
+      delay: 2
+      changed_when: false
+
+    - name: Populate instance config
+      ansible.builtin.set_fact:
+        instance_conf: >-
+          {{ (instance_conf | default([])) + [{
+            'instance': item.item.name,
+            'address': (item.stdout | from_json)[0].addr_info[0].local,
+            'user': ssh_user,
+            'port': ssh_port,
+            'identity_file': ssh_key_path,
+            'incus_name': item.item.incus_name,
+            'namespace': item.item.namespace,
+          }] }}
+      loop: "{{ addr_probe.results }}"
+
+    - name: Dump instance config
+      ansible.builtin.copy:
+        content: |
+          # Molecule managed
+
+          {{ instance_conf | to_yaml }}
+        dest: "{{ molecule_instance_config }}"
+        mode: "0600"
+
+    - name: Wait for SSH banner
+      ansible.builtin.wait_for:
+        host: "{{ item.address }}"
+        port: "{{ item.port }}"
+        search_regex: SSH
+        timeout: 120
+      loop: "{{ instance_conf }}"
+
+    - name: Check key login as root
+      ansible.builtin.command:
+        argv:
+          - ssh
+          - -i
+          - "{{ item.identity_file }}"
+          - -p
+          - "{{ item.port }}"
+          - -o
+          - BatchMode=yes
+          - -o
+          - IdentitiesOnly=yes
+          - -o
+          - StrictHostKeyChecking=no
+          - -o
+          - UserKnownHostsFile=/dev/null
+          - -o
+          - LogLevel=ERROR
+          - "{{ item.user }}@{{ item.address }}"
+          - "true"
+      loop: "{{ instance_conf }}"
+      register: ssh_probe
+      until: ssh_probe.rc == 0
+      retries: 10
+      delay: 3
+      changed_when: false

@@ -1,18 +1,11 @@
 ---
-# Integration test — full Drayve stack on a real Hetzner server.
+# Integration test — full Drayve stack on a real VM (Incus by default, see docs/testing.md).
 #
 # Usage:
-#   export HCLOUD_TOKEN="your-token"
+#   (Hetzner only: export DRAYVE_MOLECULE_DRIVER=molecule_hetznercloud HCLOUD_TOKEN="your-token")
 #   molecule test -s integration
 #
-# Cost: ~0.006 EUR per run (cx23 for a few minutes).
-driver:
-  name: molecule_hetznercloud
-platforms:
-  - name: test-integration
-    image: ubuntu-24.04
-    server_type: cx23
-    location: nbg1
+# Cost: none with Incus; ~0.006 EUR per run on Hetzner (cx23 for a few minutes).
 provisioner:
   name: ansible
   playbooks:

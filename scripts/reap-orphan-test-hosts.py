@@ -38,13 +38,20 @@ DEFAULT_AGE_HOURS = 4
 
 
 def load_allowlist(molecule_root: Path) -> set[str]:
-    """Collect molecule platform host names from molecule/*/molecule.yml."""
+    """Collect molecule platform host names from molecule/*/molecule.yml.
+
+    A scenario without its own ``platforms`` list inherits the shared base
+    config (``.config/molecule/config.yml``), whose single host is named
+    ``test-<scenario>``.
+    """
     names: set[str] = set()
     for mol in sorted(molecule_root.glob("*/molecule.yml")):
         try:
             data = yaml.safe_load(mol.read_text()) or {}
         except yaml.YAMLError:
             continue
+        if not data.get("platforms"):
+            names.add(f"test-{mol.parent.name}")
         for platform in data.get("platforms") or []:
             name = (platform or {}).get("name")
             if name:

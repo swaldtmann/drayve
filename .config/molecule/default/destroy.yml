@@ -1,0 +1,48 @@
+---
+# Molecule destroy for the default (Incus) driver.
+#
+# Deletes every VM named in the instance config AND every VM carrying this
+# scenario's namespace label (user.drayve_molecule_ns), so an aborted run whose
+# instance config was lost is still cleaned up by the next `destroy`/`test`.
+# Must stay idempotent: molecule calls it at the start and end of `test`.
+- name: Destroy
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  no_log: "{{ molecule_no_log }}"
+  vars:
+    resource_namespace: "{{ (lookup('ansible.builtin.env', 'RESOURCE_NAMESPACE') | default(molecule_scenario_directory | md5, true) | string)[:12] }}"
+  tasks:
+    - name: Check that the incus CLI can talk to a daemon
+      ansible.builtin.command:
+        cmd: incus list --format csv --columns n
+      changed_when: false
+
+    - name: Read the instance config
+      ansible.builtin.set_fact:
+        instance_conf: "{{ lookup('file', molecule_instance_config, errors='warn') | from_yaml | default([], true) }}"
+
+    - name: Find labelled VMs of this namespace
+      ansible.builtin.command:
+        argv: [incus, list, "user.drayve_molecule_ns={{ resource_namespace }}", --format, csv, --columns, n]
+      register: labelled
+      changed_when: false
+
+    - name: Delete VM(s)
+      ansible.builtin.command:
+        argv: [incus, delete, --force, "{{ item }}"]
+      loop: >-
+        {{ (instance_conf | map(attribute='incus_name', default='') | select | list
+            + labelled.stdout_lines | map('trim') | select | list) | unique }}
+      register: deleted
+      changed_when: deleted.rc == 0
+      failed_when: deleted.rc != 0 and 'not found' not in deleted.stderr
+
+    - name: Empty the instance config
+      ansible.builtin.copy:
+        content: |
+          # Molecule managed
+
+          []
+        dest: "{{ molecule_instance_config }}"
+        mode: "0600"

@@ -172,6 +172,15 @@ ifndef HCLOUD_TOKEN
 	$(error HCLOUD_TOKEN is required. Copy .env.test.example to .env.test and add your token)
 endif
 
+# Scenario tests run on local Incus VMs by default (see docs/testing.md); the
+# token is only needed when DRAYVE_MOLECULE_DRIVER=molecule_hetznercloud.
+_require-test-driver:
+ifeq ($(DRAYVE_MOLECULE_DRIVER),molecule_hetznercloud)
+ifndef HCLOUD_TOKEN
+	$(error HCLOUD_TOKEN is required for DRAYVE_MOLECULE_DRIVER=molecule_hetznercloud. Copy .env.test.example to .env.test and add your token)
+endif
+endif
+
 test-role: _require-name _require-hcloud-token  ## Test a single role with Molecule (NAME=common|docker|...)
 	@if [ ! -d "$(ANSIBLE_DIR)/roles/$(NAME)/molecule" ]; then \
 		echo "Error: No Molecule scenario for role '$(NAME)'. Roles with tests:"; \
@@ -181,32 +190,32 @@ test-role: _require-name _require-hcloud-token  ## Test a single role with Molec
 	@echo "==> Testing role: $(NAME)"
 	@cd $(ANSIBLE_DIR)/roles/$(NAME) && $(MOLECULE) test
 
-test-integration: _require-hcloud-token  ## Full stack integration test (needs HCLOUD_TOKEN)
-	@echo "==> Running integration test (creates Hetzner server)"
+test-integration: _require-test-driver  ## Full stack integration test (Incus VM; Hetzner needs HCLOUD_TOKEN)
+	@echo "==> Running integration test (creates a test VM)"
 	@$(MOLECULE) test -s integration
 
-test-authelia: _require-hcloud-token  ## Authelia + LLDAP integration test (needs HCLOUD_TOKEN)
-	@echo "==> Running Authelia integration test (creates Hetzner server)"
+test-authelia: _require-test-driver  ## Authelia + LLDAP integration test (Incus VM; Hetzner needs HCLOUD_TOKEN)
+	@echo "==> Running Authelia integration test (creates a test VM)"
 	@$(MOLECULE) test -s authelia
 
-test-authentik: _require-hcloud-token  ## Authentik integration test (needs HCLOUD_TOKEN)
-	@echo "==> Running Authentik integration test (creates Hetzner server)"
+test-authentik: _require-test-driver  ## Authentik integration test (Incus VM; Hetzner needs HCLOUD_TOKEN)
+	@echo "==> Running Authentik integration test (creates a test VM)"
 	@$(MOLECULE) test -s authentik
 
-test-authentik-ldap: _require-hcloud-token  ## Authentik + LDAP Source test (needs HCLOUD_TOKEN)
-	@echo "==> Running Authentik + LDAP integration test (creates Hetzner server)"
+test-authentik-ldap: _require-test-driver  ## Authentik + LDAP Source test (Incus VM; Hetzner needs HCLOUD_TOKEN)
+	@echo "==> Running Authentik + LDAP integration test (creates a test VM)"
 	@$(MOLECULE) test -s authentik-ldap
 
-test-auth-none: _require-hcloud-token  ## No-auth integration test (needs HCLOUD_TOKEN)
-	@echo "==> Running no-auth integration test (creates Hetzner server)"
+test-auth-none: _require-test-driver  ## No-auth integration test (Incus VM; Hetzner needs HCLOUD_TOKEN)
+	@echo "==> Running no-auth integration test (creates a test VM)"
 	@$(MOLECULE) test -s auth-none
 
-test-backup: _require-hcloud-token  ## Backup integration test (needs HCLOUD_TOKEN)
-	@echo "==> Running backup integration test (creates Hetzner server)"
+test-backup: _require-test-driver  ## Backup integration test (Incus VM; Hetzner needs HCLOUD_TOKEN)
+	@echo "==> Running backup integration test (creates a test VM)"
 	@$(MOLECULE) test -s backup
 
-test-sops: _require-hcloud-token  ## SOPS secrets integration test (needs HCLOUD_TOKEN)
-	@echo "==> Running SOPS integration test (creates Hetzner server)"
+test-sops: _require-test-driver  ## SOPS secrets integration test (Incus VM; Hetzner needs HCLOUD_TOKEN)
+	@echo "==> Running SOPS integration test (creates a test VM)"
 	@$(MOLECULE) test -s sops
 
 setup:  ## One-time setup: venv + git hooks

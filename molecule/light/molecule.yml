@@ -1,12 +1,14 @@
 ---
 # Test: no auth + monitoring light (only exporters, no Grafana/Prometheus).
-driver:
-  name: molecule_hetznercloud
+# Larger host than the shared default in .config/molecule/config.yml
+# (cx33 = 4 vCPU / 8 GiB; the Incus VM gets the same via cpus/memory).
 platforms:
   - name: test-light
     image: ubuntu-24.04
     server_type: cx33
     location: nbg1
+    cpus: 4
+    memory: 8GiB
 provisioner:
   name: ansible
   playbooks:

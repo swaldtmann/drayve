@@ -1,12 +1,5 @@
 ---
 # Test: no auth + full monitoring.
-driver:
-  name: molecule_hetznercloud
-platforms:
-  - name: test-auth-none
-    image: ubuntu-24.04
-    server_type: cx23
-    location: nbg1
 provisioner:
   name: ansible
   playbooks:
