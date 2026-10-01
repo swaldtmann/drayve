@@ -88,6 +88,16 @@ def validate(config):
             "auth.ldap requires auth.provider=authentik"
         )
 
+    # headers.clacks: boolean opt-in
+    headers = config.get("headers")
+    if headers is not None:
+        if not isinstance(headers, dict):
+            errors.append("headers must be a mapping")
+        elif "clacks" in headers and not isinstance(headers["clacks"], bool):
+            errors.append(
+                f"headers.clacks must be a boolean (true/false): '{headers['clacks']}'"
+            )
+
     # extra_files: list of {src (required, str), dest? (str), mode? (octal str)}
     extra_files = config.get("extra_files")
     if extra_files is not None:

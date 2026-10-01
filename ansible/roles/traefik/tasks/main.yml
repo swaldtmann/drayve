@@ -7,6 +7,7 @@
     acme_dns_env_vars: "{{ stack.acme_dns_env_vars | default(acme_dns_env_vars) | default(['HETZNER_API_TOKEN']) }}"
     auth_provider: "{{ auth.provider | default(auth_provider) | default('basic') }}"
     crowdsec_enabled: "{{ security.crowdsec | default(crowdsec_enabled) | default(true) | bool }}"
+    clacks_enabled: "{{ headers.clacks | default(clacks_enabled) | default(false) | bool }}"
   tags: [traefik]
 
 - name: Create Traefik directories
@@ -133,6 +134,32 @@
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
     mode: "0644"
+  tags: [traefik]
+
+# === X-Clacks-Overhead middleware (opt-in, headers.clacks) ===
+# Attached to the websecure entrypoint (config/traefik/traefik.yml.j2), so it
+# covers every router, same mechanism as crowdsec@file.
+- name: Deploy X-Clacks-Overhead middleware
+  ansible.builtin.copy:
+    dest: "{{ traefik_dynamic_dir }}/clacks.yml"
+    content: |
+      http:
+        middlewares:
+          clacks:
+            headers:
+              customResponseHeaders:
+                X-Clacks-Overhead: "GNU Terry Pratchett"
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0644"
+  when: clacks_enabled
+  tags: [traefik]
+
+- name: Remove X-Clacks-Overhead middleware when disabled
+  ansible.builtin.file:
+    path: "{{ traefik_dynamic_dir }}/clacks.yml"
+    state: absent
+  when: not (clacks_enabled)
   tags: [traefik]
 
 # === CrowdSec middleware ===

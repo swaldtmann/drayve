@@ -19,10 +19,15 @@ entryPoints:
           scheme: https
   websecure:
     address: ":443"
-{% if crowdsec_enabled | default(true) %}
+{% if crowdsec_enabled | default(true) or clacks_enabled | default(false) %}
     http:
       middlewares:
+{% if crowdsec_enabled | default(true) %}
         - crowdsec@file
+{% endif %}
+{% if clacks_enabled | default(false) %}
+        - clacks@file
+{% endif %}
 {% endif %}
     forwardedHeaders:
       trustedIPs:

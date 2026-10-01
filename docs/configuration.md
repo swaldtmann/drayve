@@ -61,6 +61,12 @@ Everything else has sensible defaults. This gives you: basic auth, full monitori
 |-----|------|---------|-------------|
 | `crowdsec` | bool | `true` | Deploy CrowdSec + Traefik bouncer plugin |
 
+### `headers`
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `clacks` | bool | `false` | Send `X-Clacks-Overhead: GNU Terry Pratchett` on every response served through Traefik (middleware `clacks@file` on the `websecure` entrypoint) |
+
 ### `secrets`
 
 | Key | Type | Default | Description |

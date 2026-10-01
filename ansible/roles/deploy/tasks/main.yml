@@ -46,6 +46,11 @@
     crowdsec_enabled: "{{ security.crowdsec | default(crowdsec_enabled) | default(true) | bool }}"
   tags: [deploy]
 
+- name: Resolve clacks_enabled from stack.yaml
+  ansible.builtin.set_fact:
+    clacks_enabled: "{{ headers.clacks | default(clacks_enabled) | default(false) | bool }}"
+  tags: [deploy]
+
 - name: Resolve backup_enabled from stack.yaml
   ansible.builtin.set_fact:
     backup_enabled: "{{ backup.enabled | default(backup_enabled) | default(false) | bool }}"

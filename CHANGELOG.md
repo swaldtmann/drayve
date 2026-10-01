@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **Opt-in `X-Clacks-Overhead: GNU Terry Pratchett` response header** — new
+  `stack.yaml` key `headers.clacks` (bool, default `false`). When `true`, the
+  traefik role writes `traefik/config/dynamic/clacks.yml` (middleware
+  `clacks@file`, `customResponseHeaders`) and the static config attaches it
+  to the `websecure` entrypoint, so every router gets the header (same
+  mechanism as `crowdsec@file`). With the default (`false`) the rendered
+  `traefik.yml` stays byte-identical to v0.8.3 and no `clacks.yml` is
+  written (a stale one is removed). `scripts/validate-stack.py` rejects a
+  non-boolean value. Replaces hand-editing `traefik.yml` after each deploy.
+
 ## [0.8.3] - 2026-09-25
 
 ### Added

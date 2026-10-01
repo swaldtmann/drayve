@@ -169,6 +169,16 @@ properties:
         description: Deploy CrowdSec + Traefik bouncer.
         default: true
 
+  headers:
+    type: object
+    properties:
+      clacks:
+        type: boolean
+        description: >
+          Send "X-Clacks-Overhead: GNU Terry Pratchett" on all responses
+          served through Traefik (websecure entrypoint middleware).
+        default: false
+
   secrets:
     type: object
     properties:
