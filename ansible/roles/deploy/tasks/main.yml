@@ -564,13 +564,13 @@
     msg: "{{ compose_ps.stdout }}"
   tags: [deploy]
 
-- name: Force-recreate CrowdSec on whitelist change
+- name: Force-recreate CrowdSec on whitelist or config.yaml.local change
   ansible.builtin.command:
     cmd: docker compose up -d --force-recreate crowdsec
     chdir: "{{ drayve_deploy_dir }}"
   become: true
   become_user: "{{ drayve_user }}"
-  when: crowdsec_whitelist.changed | default(false)
+  when: (crowdsec_whitelist.changed | default(false)) or (crowdsec_local_config.changed | default(false))
   tags: [deploy, crowdsec]
 
 # === CrowdSec bouncer registration ===

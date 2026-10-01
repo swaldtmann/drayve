@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **CrowdSec signal sharing off by default** — new role default
+  `crowdsec_signal_sharing: false` (`roles/traefik`). The role renders
+  `crowdsec/config.yaml.local` (`api.server.online_client.sharing`), mounted
+  read-only into the crowdsec container; the community blocklist is still
+  pulled (no `DISABLE_ONLINE_API`). The deploy role force-recreates crowdsec
+  when the file changes. Needs CrowdSec >= v1.6.4; CrowdSec's docs note the
+  sharing setting can change how many IPs the community blocklist delivers
+  (plan-dependent).
 - **14-day log retention** — Traefik access log and journald are now
   bounded. `roles/traefik` deploys `/etc/logrotate.d/drayve-traefik`
   (daily, `rotate` = `traefik_access_log_retention_days` - 1 = 13,

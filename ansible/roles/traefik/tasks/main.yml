@@ -219,6 +219,19 @@
   when: crowdsec_enabled
   tags: [traefik, crowdsec]
 
+# Overrides merged into /etc/crowdsec/config.yaml by CrowdSec (config.yaml.local
+# mechanism, also used by the official docker image). Only the keys we change.
+- name: Deploy CrowdSec config.yaml.local (signal sharing)
+  ansible.builtin.copy:
+    dest: "{{ drayve_deploy_dir }}/crowdsec/config.yaml.local"
+    content: "{{ lookup('template', 'crowdsec-config.yaml.local.j2') }}"
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0644"
+  when: crowdsec_enabled
+  register: crowdsec_local_config
+  tags: [traefik, crowdsec]
+
 - name: Deploy CrowdSec IP whitelist
   ansible.builtin.copy:
     dest: "{{ drayve_deploy_dir }}/crowdsec/whitelist.yaml"

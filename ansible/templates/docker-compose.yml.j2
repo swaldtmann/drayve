@@ -54,6 +54,7 @@ services:
       - crowdsec_db:/var/lib/crowdsec/data
       - traefik_logs:/var/log/traefik:ro
       - ./crowdsec/acquis.yaml:/etc/crowdsec/acquis.yaml:ro
+      - ./crowdsec/config.yaml.local:/etc/crowdsec/config.yaml.local:ro
 {% if security.crowdsec_whitelist | default([]) | length > 0 %}
       - ./crowdsec/whitelist.yaml:/etc/crowdsec/parsers/s02-enrich/whitelist.yaml:ro
 {% endif %}

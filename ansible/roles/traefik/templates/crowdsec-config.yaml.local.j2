@@ -1,0 +1,8 @@
+# {{ ansible_managed }}
+# Merged into /etc/crowdsec/config.yaml (config.yaml.local mechanism).
+# sharing: push signals to the CrowdSec Central API. Pulling the community
+# blocklist is unaffected (online_client.pull.*, default on).
+api:
+  server:
+    online_client:
+      sharing: {{ 'true' if crowdsec_signal_sharing | bool else 'false' }}

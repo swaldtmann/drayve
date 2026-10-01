@@ -39,6 +39,15 @@ acme_dns_propagation_delay: 30
 acme_dns_env_vars:
   - HETZNER_API_TOKEN
 
+# CrowdSec signal sharing to the Central API (api.server.online_client.sharing,
+# rendered into crowdsec/config.yaml.local). Default off: the instance does not
+# push signals. Pulling the community blocklist is a separate switch
+# (online_client.pull.*) and stays at CrowdSec's default (on). Needs CrowdSec
+# >= v1.6.4; older images ignore the key. Note (CrowdSec docs): the sharing
+# setting can affect how many IPs the community blocklist delivers, depending
+# on the CrowdSec plan.
+crowdsec_signal_sharing: false
+
 # CrowdSec whitelist — override per host
 crowdsec_whitelist_ips:
   - "127.0.0.1"

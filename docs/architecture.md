@@ -202,6 +202,7 @@ Both strategies coexist. When adding new services, container logs are picked up 
 
 - **Traefik access log** — rotated daily by host logrotate (`/etc/logrotate.d/drayve-traefik`, `roles/traefik`): `rotate 13` + `maxage 14`, controlled by `traefik_access_log_retention_days` (default `14`). The `traefik_logs` volume is excluded from the kedge backup (`backup_kedge_exclude_volumes`).
 - **journald** (incl. all container logs, since Docker uses `log-driver: journald`) — `MaxRetentionSec` via `journald_max_retention_sec` (default `14day`, `roles/common`).
+- **CrowdSec signal sharing** — off by default (`crowdsec_signal_sharing: false`, rendered as `crowdsec/config.yaml.local`, `api.server.online_client.sharing`). The community blocklist is still pulled; per CrowdSec's docs the sharing setting can affect how many IPs it delivers, depending on plan.
 
 ## Monitoring profiles
 
