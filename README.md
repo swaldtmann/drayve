@@ -215,7 +215,7 @@ See [docs/configuration.md](docs/configuration.md#extra_files) for the full refe
 
 ## Testing
 
-Role and integration tests use [Molecule](https://molecule.readthedocs.io/) with the Hetzner Cloud driver — they create real servers, run the roles, verify with Testinfra, and tear down.
+Role and integration tests use [Molecule](https://molecule.readthedocs.io/) — they create real VMs, run the roles, verify with Testinfra, and tear down. The scenarios under `molecule/` run on local [Incus](https://linuxcontainers.org/incus/) VMs by default; the Hetzner Cloud driver stays available (`DRAYVE_MOLECULE_DRIVER=molecule_hetznercloud`). Details: [docs/testing.md](docs/testing.md).
 
 > **Note:** After test failures, debug **before** running `molecule destroy` — the ephemeral SSH key in `~/.ansible/tmp/molecule.*/ssh_key` is deleted on destroy, so you can't SSH into the test instance afterwards.
 
@@ -233,12 +233,13 @@ Role and integration tests use [Molecule](https://molecule.readthedocs.io/) with
 | `sops` | basic | full | SOPS secrets |
 
 ```bash
-# One-time setup: copy the example and add your Hetzner Cloud API token
+# Scenario tests need a local Incus daemon (see docs/testing.md). For the
+# Hetzner driver and for the role-level scenarios below, copy the example and
+# add your Hetzner Cloud API token:
 cp .env.test.example .env.test
 # Edit .env.test — add your HCLOUD_TOKEN
-# ⚠ .env.test is required — without it, Molecule tests will fail.
 
-# Test a single role (uses uv if available)
+# Test a single role (Hetzner only; uses uv if available)
 make test-role NAME=common
 make test-role NAME=docker
 

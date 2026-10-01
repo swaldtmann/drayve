@@ -36,7 +36,12 @@ cp .env.test.example .env.test
 # Edit .env.test — add your HCLOUD_TOKEN
 
 make test-role NAME=common
-make test-integration
+```
+
+### Scenario Tests (Molecule + Incus)
+
+```bash
+make test-integration   # local Incus VM; see docs/testing.md
 ```
 
 ## Checklist: New deploy/ directories

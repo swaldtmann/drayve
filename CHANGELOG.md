@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- **Molecule scenarios under `molecule/` now start local Incus VMs by default**
+  (Ubuntu 24.04, 2 vCPU / 4 GiB / 20 GiB; `basic` and `light` 4 / 8 GiB). The
+  platform and driver part moved out of the ten `molecule.yml` into the shared
+  `.config/molecule/config.yml`; `DRAYVE_MOLECULE_DRIVER=molecule_hetznercloud`
+  selects the previous Hetzner driver. `make test-*` targets only require
+  `HCLOUD_TOKEN` for that value. Role-level scenarios (`common`, `docker`) are
+  unchanged. See `docs/testing.md`.
+
 ## [0.8.5] - 2026-10-01
 
 ### Changed
