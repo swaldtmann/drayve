@@ -11,9 +11,13 @@ backup_sftp_host: ""
 backup_sftp_path: ""
 
 # kedge target (backup_target: kedge) — delegates to kedge CLI
-# https://git.authbox.de/stephan/kedge
-backup_kedge_repo: "https://git.authbox.de/stephan/kedge.git"
-backup_kedge_version: "v0.3.4"
+# Upstream: https://github.com/swaldtmann/kedge
+# The default source is the public GitHub mirror: the Forge at git.authbox.de
+# requires a login, and hosts have no credentials, so a clone from there fails
+# (or, without GIT_TERMINAL_PROMPT=0, hangs on a username prompt). Sites can
+# override backup_kedge_repo, e.g. to a self-hosted mirror the host can read.
+backup_kedge_repo: "https://github.com/swaldtmann/kedge.git"
+backup_kedge_version: "v0.5.1"
 backup_kedge_install_dir: /opt/kedge
 backup_kedge_env_file: /root/.kedge.env
 backup_kedge_log_file: /var/log/kedge.log

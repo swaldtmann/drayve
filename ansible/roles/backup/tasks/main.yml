@@ -153,6 +153,10 @@
     version: "{{ backup_kedge_version }}"
     force: false
     update: true
+  # Never wait for credentials: an unreadable repo must fail fast with a clear
+  # message instead of hanging on a username prompt.
+  environment:
+    GIT_TERMINAL_PROMPT: "0"
   when:
     - backup_enabled | bool
     - backup_target == "kedge"

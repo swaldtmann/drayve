@@ -50,7 +50,9 @@ ansible-playbook playbooks/backup.yml -l <host> -e @../stack.yaml
 
 1. Installs `restic`, `jq`, `rsync`, `git`.
 2. Clones kedge to `/opt/kedge`, pinned to `backup_kedge_version`
-   (default `v0.3.1`). Updates on subsequent runs.
+   (default `v0.5.1`). Updates on subsequent runs; an existing
+   checkout whose `origin` points elsewhere is re-pointed to
+   `backup_kedge_repo` automatically (`git remote set-url`).
 3. Symlinks `/opt/kedge/backup.sh` → `/usr/local/bin/kedge`.
 4. Renders `/root/.kedge.env` from `host_secrets` (mode 0600,
    `no_log: true`).
@@ -68,8 +70,8 @@ stack:
 
 | Variable                          | Default                                              | Notes                                       |
 |-----------------------------------|------------------------------------------------------|---------------------------------------------|
-| `backup_kedge_repo`               | `https://github.com/swaldtmann/kedge.git`    | Mirror URL if you self-host kedge           |
-| `backup_kedge_version`            | `v0.3.4`                                             | Pin to a tag, never `main`                  |
+| `backup_kedge_repo`               | `https://github.com/swaldtmann/kedge.git`            | Public GitHub mirror (readable without login); override with a mirror the host can read |
+| `backup_kedge_version`            | `v0.5.1`                                             | Pin to a tag, never `main`                  |
 | `backup_kedge_install_dir`        | `/opt/kedge`                                         |                                             |
 | `backup_kedge_env_file`           | `/root/.kedge.env`                                   | mode 0600, root-owned                       |
 | `backup_kedge_log_file`           | `/var/log/kedge.log`                                 |                                             |

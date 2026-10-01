@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- **behaviour change: hosts move kedge to v0.5.1 on the next backup-playbook
+  run.** `backup_kedge_version` default `v0.3.4` -> `v0.5.1`; before, a run
+  would have reset a hand-updated `/opt/kedge` (e.g. `v0.5.0-17-gb43389e` on
+  `prod-genua`) back to `v0.3.4`. `backup_kedge_repo` default is now the
+  public GitHub mirror `https://github.com/swaldtmann/kedge.git` instead of
+  `https://git.authbox.de/stephan/kedge.git` — the Forge requires a login and
+  hosts have no credentials. Existing checkouts are re-pointed automatically
+  (`ansible.builtin.git` runs `git remote set-url origin` when `repo` differs
+  from the checkout's `origin`); `force: false` is kept, so local
+  modifications in `/opt/kedge` still fail the task instead of being
+  overwritten. Sites can override `backup_kedge_repo`/`backup_kedge_version`.
+
+### Fixed
+- **"Clone kedge repository" can no longer hang.** The task now sets
+  `GIT_TERMINAL_PROMPT=0`; an unreadable repo fails immediately with
+  `terminal prompts disabled` instead of waiting for a username (an
+  `ansible-playbook --check --diff` run hung 11 minutes on it).
+
 ## [0.8.4] - 2026-10-01
 
 ### Added

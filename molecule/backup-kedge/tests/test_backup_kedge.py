@@ -27,7 +27,7 @@ def test_kedge_repo_cloned(host):
 
 
 def test_kedge_repo_pinned_to_tag(host):
-    """Pinned to backup_kedge_version (v0.3.2) — never floating main."""
+    """Pinned to backup_kedge_version (set in molecule.yml) — never floating main."""
     cmd = host.run("git -C /opt/kedge describe --tags --exact-match 2>/dev/null || git -C /opt/kedge describe --tags")
     assert cmd.rc == 0
     assert cmd.stdout.strip().startswith("v0."), cmd.stdout

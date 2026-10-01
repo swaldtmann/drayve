@@ -290,6 +290,24 @@ def test_defaults_pin_kedge_version():
     )
 
 
+def test_defaults_kedge_version_and_source():
+    """v0.5.1 from the public GitHub mirror (the Forge needs a login)."""
+    defaults = yaml.safe_load(DEFAULTS_FILE.read_text())
+    assert defaults["backup_kedge_version"] == "v0.5.1"
+    assert defaults["backup_kedge_repo"] == "https://github.com/swaldtmann/kedge.git"
+
+
+def test_kedge_clone_never_prompts_for_credentials():
+    """Hosts have no git credentials; a prompt would hang the playbook."""
+    clone = [t for t in _load_tasks() if t.get("name") == "Clone kedge repository"]
+    assert len(clone) == 1
+    task = clone[0]
+    assert task["environment"]["GIT_TERMINAL_PROMPT"] == "0"
+    git = task["ansible.builtin.git"]
+    assert git["force"] is False  # never overwrite local changes on the host
+    assert git["update"] is True
+
+
 # ---- 10) tasks/main.yml gates legacy + kedge correctly ----
 
 def _load_tasks() -> list[dict]:
