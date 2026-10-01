@@ -92,6 +92,13 @@ def test_kedge_env_post_hook_wired(host):
     assert f.contains('BACKUP_POST_HOOK="touch /tmp/kedge-post-hook-marker"')
 
 
+def test_kedge_env_excludes_traefik_logs_volume(host):
+    """Traefik access logs are rotated away after 14 days — not backed up.
+    kedge matches the compose volume key, so no `drayve_` prefix."""
+    f = host.file("/root/.kedge.env")
+    assert f.contains('BACKUP_EXCLUDE_VOLUMES="traefik_logs"')
+
+
 # === /etc/cron.d/kedge-<stack> ===
 
 def test_kedge_cron_file_present(host):

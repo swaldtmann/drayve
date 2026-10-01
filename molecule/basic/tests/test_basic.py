@@ -90,3 +90,13 @@ def test_traefik_running(host):
     """Traefik should be running."""
     cmd = host.run("docker ps --filter name=traefik --format '{{.Status}}'")
     assert "Up" in cmd.stdout
+
+
+def test_traefik_access_log_logrotate_rule(host):
+    """Access log retention: daily, rotate 13 + maxage 14, USR1 to traefik."""
+    f = host.file("/etc/logrotate.d/drayve-traefik")
+    assert f.exists
+    assert f.contains("rotate 13")
+    assert f.contains("maxage 14")
+    assert f.contains("docker kill --signal=\"USR1\" traefik")
+    assert host.run("logrotate -d /etc/logrotate.d/drayve-traefik").rc == 0

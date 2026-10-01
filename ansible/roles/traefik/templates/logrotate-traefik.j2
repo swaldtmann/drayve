@@ -1,0 +1,16 @@
+# {{ ansible_managed }}
+# Traefik access log rotation — hard retention of {{ traefik_access_log_retention_days }} days.
+# rotate = retention - 1: live file + (retention - 1) rotated files stays under the bound.
+{{ traefik_access_log_path }} {
+    daily
+    rotate {{ (traefik_access_log_retention_days | int) - 1 }}
+    maxage {{ traefik_access_log_retention_days | int }}
+    missingok
+    notifempty
+    compress
+    delaycompress
+    sharedscripts
+    postrotate
+        docker kill --signal="USR1" {{ traefik_container_name }} >/dev/null 2>&1 || true
+    endscript
+}

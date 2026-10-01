@@ -77,6 +77,7 @@ stack:
 | `backup_kedge_restic_repository`  | *(empty — required via `host_secrets`)*              | restic repo URI                             |
 | `backup_kedge_stop_stack`         | `true`                                               | `false` = hot backup (see kedge README)     |
 | `backup_kedge_exclude_mounts`     | `""`                                                 | Space-separated paths to skip               |
+| `backup_kedge_exclude_volumes`    | `"traefik_logs"`                                     | Space-separated compose volume names to skip (no project prefix, exact match) |
 | `backup_kedge_healthcheck_url`    | `""`                                                 | Healthchecks.io / Uptime Kuma URL           |
 | `backup_kedge_pre_hook`           | `""`                                                 | Command run before kedge's own backup steps |
 | `backup_kedge_cron_wrapper`       | `""`                                                 | Cron wrapper, contract `<wrapper> <job-name> -- <cmd...>`. Wraps both the backup and prune cron line — e.g. a fail-signal helper. See "Fail-signal wrapper" below. |

@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **14-day log retention** — Traefik access log and journald are now
+  bounded. `roles/traefik` deploys `/etc/logrotate.d/drayve-traefik`
+  (daily, `rotate` = `traefik_access_log_retention_days` - 1 = 13,
+  `maxage 14`, USR1 to the `traefik` container); the log path is derived
+  from the compose project volume `drayve_traefik_logs` under Docker's
+  data-root (`docker_daemon_extra['data-root']`, default `/var/lib/docker`),
+  overridable via `traefik_access_log_path`. `roles/common` sets journald
+  `MaxRetentionSec` from `journald_max_retention_sec` (default `14day`).
+  `roles/backup` gains `backup_kedge_exclude_volumes` (rendered as
+  `BACKUP_EXCLUDE_VOLUMES`, default `traefik_logs`) so the access logs no
+  longer end up in restic snapshots; the misleading comment on
+  `backup_kedge_exclude_mounts` is corrected. Behaviour change on existing
+  hosts: journald restarts once (handler) and old journal/access-log data
+  beyond 14 days is deleted.
 - **Opt-in `X-Clacks-Overhead: GNU Terry Pratchett` response header** — new
   `stack.yaml` key `headers.clacks` (bool, default `false`). When `true`, the
   traefik role writes `traefik/config/dynamic/clacks.yml` (middleware

@@ -52,3 +52,22 @@ bouncer_watchdog_check_url: "https://{{ drayve_domain }}/"
 bouncer_watchdog_interval_seconds: 30
 bouncer_watchdog_threshold_seconds: 60
 bouncer_watchdog_curl_timeout: 10
+
+# Access-log retention (host-side logrotate, /etc/logrotate.d/drayve-traefik).
+# Hard upper bound in days: rotate = days - 1 (the live file plus N-1 rotated
+# files stays safely under the bound), maxage = days. Only rotated files are
+# affected; the live access.log is rotated daily.
+traefik_access_log_retention_days: 14
+
+# Host path of the access log. The compose volume `traefik_logs` lives under
+# the compose project name (`name: drayve` in ansible/templates/docker-compose.yml.j2)
+# and Docker's data-root, so the default is derived, not discovered:
+#   <data-root>/volumes/drayve_traefik_logs/_data/access.log
+# data-root follows docker_daemon_extra['data-root'] (docker role) and falls
+# back to Docker's default /var/lib/docker. Override this var if the host
+# deviates (e.g. data-root set outside docker_daemon_extra).
+traefik_access_log_path: "{{ (docker_daemon_extra | default({}))['data-root'] | default('/var/lib/docker') }}/volumes/drayve_traefik_logs/_data/access.log"
+
+# Container that receives USR1 (reopen log file) after rotation —
+# `container_name` in ansible/templates/docker-compose.yml.j2.
+traefik_container_name: traefik

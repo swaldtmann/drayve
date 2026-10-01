@@ -20,7 +20,13 @@ backup_kedge_log_file: /var/log/kedge.log
 backup_kedge_stack_dir: "{{ drayve_deploy_dir }}"
 backup_kedge_restic_repository: ""  # required when target=kedge, e.g. sftp:u1234@u1234.your-storagebox.de:/genua
 backup_kedge_stop_stack: true
-backup_kedge_exclude_mounts: ""  # space-separated paths, see kedge BACKUP_EXCLUDE_VOLUMES
+backup_kedge_exclude_mounts: ""  # space-separated bind-mount paths (kedge BACKUP_EXCLUDE_MOUNTS)
+# Space-separated volume names (kedge BACKUP_EXCLUDE_VOLUMES). kedge compares
+# against the compose top-level volume key, i.e. WITHOUT the project prefix
+# (`traefik_logs`, not `drayve_traefik_logs`) — exact match, no globbing.
+# Default: traefik access logs are rotated away after 14 days and must not
+# end up in restic snapshots.
+backup_kedge_exclude_volumes: "traefik_logs"
 backup_kedge_healthcheck_url: ""  # optional Healthchecks.io / Uptime Kuma URL
 backup_kedge_pre_hook: ""  # optional command, runs before kedge's own backup steps
 backup_kedge_post_hook: ""  # optional command, runs after a successful backup (e.g.

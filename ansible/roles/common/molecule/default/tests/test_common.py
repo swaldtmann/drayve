@@ -57,6 +57,12 @@ def test_journald_forward_to_syslog_disabled_by_default(host):
     assert journald_conf.contains("ForwardToSyslog=no")
 
 
+def test_journald_max_retention_14day(host):
+    """Journal (incl. docker log-driver=journald container logs) is bounded."""
+    journald_conf = host.file("/etc/systemd/journald.conf")
+    assert journald_conf.contains("^MaxRetentionSec=14day$")
+
+
 def test_ssh_password_auth_disabled(host):
     """SSH password authentication should be disabled."""
     sshd = host.file("/etc/ssh/sshd_config")

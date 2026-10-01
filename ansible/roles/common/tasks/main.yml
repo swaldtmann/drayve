@@ -97,6 +97,14 @@
   notify: Restart systemd-journald
   tags: [bootstrap]
 
+- name: Set journald MaxRetentionSec
+  ansible.builtin.lineinfile:
+    path: /etc/systemd/journald.conf
+    regexp: "^#?MaxRetentionSec"
+    line: "MaxRetentionSec={{ journald_max_retention_sec }}"
+  notify: Restart systemd-journald
+  tags: [bootstrap]
+
 # === SSH Hardening ===
 - name: Disable SSH password authentication
   ansible.builtin.lineinfile:

@@ -198,6 +198,11 @@ The stack uses two log collection strategies by design:
 
 Both strategies coexist. When adding new services, container logs are picked up by Promtail automatically. CrowdSec only watches Traefik.
 
+### Log retention (14 days)
+
+- **Traefik access log** — rotated daily by host logrotate (`/etc/logrotate.d/drayve-traefik`, `roles/traefik`): `rotate 13` + `maxage 14`, controlled by `traefik_access_log_retention_days` (default `14`). The `traefik_logs` volume is excluded from the kedge backup (`backup_kedge_exclude_volumes`).
+- **journald** (incl. all container logs, since Docker uses `log-driver: journald`) — `MaxRetentionSec` via `journald_max_retention_sec` (default `14day`, `roles/common`).
+
 ## Monitoring profiles
 
 | Profile | Containers | RAM | Use case |

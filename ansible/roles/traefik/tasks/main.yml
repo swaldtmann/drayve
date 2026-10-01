@@ -237,6 +237,19 @@
   when: crowdsec_enabled and (security.crowdsec_whitelist | default([]) | length == 0)
   tags: [traefik, crowdsec]
 
+# === Access-log retention ===
+# Traefik writes access.log into the named volume traefik_logs (no built-in
+# rotation). Host logrotate rotates it daily and signals USR1 so Traefik
+# reopens the file. Path/container: see defaults/main.yml.
+- name: Deploy logrotate rule for Traefik access log
+  ansible.builtin.template:
+    src: logrotate-traefik.j2
+    dest: /etc/logrotate.d/drayve-traefik
+    owner: root
+    group: root
+    mode: "0644"
+  tags: [traefik, logrotate]
+
 # === Bouncer-Watchdog ===
 # systemd-Timer + Self-Heal-Script gegen Plugin-fail-closed/Hold nach
 # LAPI-Restart oder akkumuliertem Stream-State.

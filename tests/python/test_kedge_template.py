@@ -36,6 +36,7 @@ REQUIRED_KEYS = {
     "BACKUP_KEEP_MONTHLY",
 }
 OPTIONAL_KEYS = {
+    "BACKUP_EXCLUDE_VOLUMES",
     "BACKUP_EXCLUDE_MOUNTS",
     "BACKUP_HEALTHCHECK_URL",
     "BACKUP_PRE_HOOK",
@@ -52,6 +53,7 @@ def _base_ctx(**overrides: object) -> dict[str, object]:
         "backup_restic_password": "supersecret",
         "backup_kedge_stop_stack": True,
         "backup_kedge_exclude_mounts": "",
+        "backup_kedge_exclude_volumes": "",
         "backup_retain_daily": 7,
         "backup_retain_weekly": 4,
         "backup_retain_monthly": 6,
@@ -126,6 +128,24 @@ def test_excludes_empty_does_not_render(render):
     rendered = render(backup_kedge_exclude_mounts="")
     parsed = _parse_env(rendered)
     assert "BACKUP_EXCLUDE_MOUNTS" not in parsed
+
+
+def test_exclude_volumes_empty_does_not_render(render):
+    parsed = _parse_env(render(backup_kedge_exclude_volumes=""))
+    assert "BACKUP_EXCLUDE_VOLUMES" not in parsed
+
+
+def test_exclude_volumes_set_renders_quoted_value(render):
+    rendered = render(backup_kedge_exclude_volumes="traefik_logs other_vol")
+    parsed = _parse_env(rendered)
+    assert parsed["BACKUP_EXCLUDE_VOLUMES"] == '"traefik_logs other_vol"'
+
+
+def test_default_excludes_traefik_logs_volume_without_project_prefix():
+    """kedge compares exact compose top-level volume keys (discovery.py
+    is_excluded_volume), so the name must NOT carry the `drayve_` prefix."""
+    defaults = yaml.safe_load(DEFAULTS_FILE.read_text())
+    assert defaults["backup_kedge_exclude_volumes"].split() == ["traefik_logs"]
 
 
 def test_excludes_set_renders_value(render):
@@ -253,6 +273,7 @@ def test_defaults_declare_all_kedge_vars():
         "backup_kedge_restic_repository",
         "backup_kedge_stop_stack",
         "backup_kedge_exclude_mounts",
+        "backup_kedge_exclude_volumes",
         "backup_kedge_healthcheck_url",
         "backup_kedge_pre_hook",
         "backup_kedge_cron_wrapper",
