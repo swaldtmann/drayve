@@ -51,6 +51,7 @@ Tunables (all optional):
 | `DRAYVE_MOLECULE_INCUS_CPUS` | `2` | `limits.cpu` |
 | `DRAYVE_MOLECULE_INCUS_MEMORY` | `4GiB` | `limits.memory` |
 | `DRAYVE_MOLECULE_INCUS_DISK` | `20GiB` | root disk size |
+| `DRAYVE_MOLECULE_REGISTRY_MIRROR` | empty (no mirror) | Docker Hub pull-through cache for the test VMs (`docker_registry_mirrors`, space-separated for several). The CI workflows set `http://10.99.0.1:5000`, the cache on the runner VM's inner bridge. Applies to every scenario via `.config/molecule/config.yml`. `scripts/list-ci-images.py` lists the images to warm it with |
 | `RESOURCE_NAMESPACE` | hash of the scenario directory | label used by `destroy` to find leftovers (same variable the Hetzner driver reads) |
 
 A platform entry may override `cpus`, `memory` and `disk` (`basic` and `light`

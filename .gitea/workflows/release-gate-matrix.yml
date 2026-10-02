@@ -24,6 +24,9 @@ jobs:
       # Image pre-loaded in the runner VM's inner Incus cache (alias u24c =
       # images:ubuntu/24.04/cloud); the VM is reset after every job.
       DRAYVE_MOLECULE_INCUS_IMAGE: u24c
+      # Docker Hub pull-through cache in the runner VM (inner Incus bridge address);
+      # the test VMs pull through it. Empty/unset outside CI = no mirror.
+      DRAYVE_MOLECULE_REGISTRY_MIRROR: http://10.99.0.1:5000
     strategy:
       fail-fast: false
       max-parallel: 1

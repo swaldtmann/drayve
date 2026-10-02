@@ -62,9 +62,6 @@ provisioner:
         node_exporter_image: prom/node-exporter:v1.10.2
         promtail_image: grafana/promtail:3.3.2
         # Memory limits
-        # --- Docker registry mirror (avoid rate limits) ---
-        docker_registry_mirrors:
-          - "http://192.0.2.10:5000"
         mem_traefik: 256m
         mem_crowdsec: 512m
         mem_node_exporter: 32m

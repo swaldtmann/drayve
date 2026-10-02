@@ -39,6 +39,9 @@ jobs:
       WORKDIR: /tmp/ci-drayve-${{ github.run_id }}-${{ inputs.scenario }}
       # Image pre-loaded in the runner VM's inner Incus cache (alias u24c).
       DRAYVE_MOLECULE_INCUS_IMAGE: u24c
+      # Docker Hub pull-through cache in the runner VM (inner Incus bridge address);
+      # the test VMs pull through it. Empty/unset outside CI = no mirror.
+      DRAYVE_MOLECULE_REGISTRY_MIRROR: http://10.99.0.1:5000
 
     steps:
       - name: Checkout

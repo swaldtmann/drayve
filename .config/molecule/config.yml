@@ -21,3 +21,11 @@ provisioner:
   playbooks:
     create: ../../.config/molecule/${DRAYVE_MOLECULE_DRIVER:-default}/create.yml
     destroy: ../../.config/molecule/${DRAYVE_MOLECULE_DRIVER:-default}/destroy.yml
+  inventory:
+    group_vars:
+      all:
+        # Docker Hub pull-through cache for the test VMs. Unset/empty = no mirror
+        # (local runs, Hetzner driver); the CI workflows set
+        # DRAYVE_MOLECULE_REGISTRY_MIRROR=http://10.99.0.1:5000 (the cache runs in
+        # the runner VM on the inner Incus bridge). Space-separated for several.
+        docker_registry_mirrors: "{{ (lookup('ansible.builtin.env', 'DRAYVE_MOLECULE_REGISTRY_MIRROR') | default('', true)).split() }}"

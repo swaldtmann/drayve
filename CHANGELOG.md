@@ -16,6 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `HCLOUD_TOKEN` for that value. Role-level scenarios (`common`, `docker`) are
   unchanged. See `docs/testing.md`.
 
+- **Molecule scenarios take the Docker registry mirror from
+  `DRAYVE_MOLECULE_REGISTRY_MIRROR`** (empty = no mirror) instead of the
+  hard-coded `http://192.0.2.10:5000` (a documentation address) in nine
+  `molecule.yml`; set once in `.config/molecule/config.yml`, so `integration`
+  gets it too. The release-gate workflows set it to the pull-through cache of
+  the runner VM. New `scripts/list-ci-images.py` lists the images to warm it.
+
 ## [0.8.5] - 2026-10-01
 
 ### Changed
