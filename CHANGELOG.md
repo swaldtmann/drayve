@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- **behaviour change: `backup_kedge_exclude_volumes` default is now
+  `"traefik_logs crowdsec_db loki_data"`** (was `"traefik_logs"`). The CrowdSec
+  database (alerts/decisions per IP) and Loki data (log lines) no longer end up
+  in restic snapshots. Both start empty after a restore; run the deploy with
+  `--tags secrets,deploy,crowdsec` afterwards so the Traefik bouncer key is
+  registered again. Existing snapshots are not touched.
+
+### Added
+- `backup_kedge_exclude_paths` (default empty), rendered as kedge's
+  `SYSTEM_PATHS_EXCLUDE`: restic `--exclude` patterns for paths below a bind
+  mount (e.g. `/data/grocy/log`).
+
 ## [0.8.5] - 2026-10-01
 
 ### Changed

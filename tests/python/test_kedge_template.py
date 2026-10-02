@@ -54,6 +54,7 @@ def _base_ctx(**overrides: object) -> dict[str, object]:
         "backup_kedge_stop_stack": True,
         "backup_kedge_exclude_mounts": "",
         "backup_kedge_exclude_volumes": "",
+        "backup_kedge_exclude_paths": "",
         "backup_retain_daily": 7,
         "backup_retain_weekly": 4,
         "backup_retain_monthly": 6,
@@ -141,11 +142,55 @@ def test_exclude_volumes_set_renders_quoted_value(render):
     assert parsed["BACKUP_EXCLUDE_VOLUMES"] == '"traefik_logs other_vol"'
 
 
-def test_default_excludes_traefik_logs_volume_without_project_prefix():
+def test_default_excludes_ip_volumes_without_project_prefix():
     """kedge compares exact compose top-level volume keys (discovery.py
-    is_excluded_volume), so the name must NOT carry the `drayve_` prefix."""
+    is_excluded_volume), so the names must NOT carry the `drayve_` prefix.
+    traefik_logs, crowdsec_db and loki_data hold visitor IP addresses."""
     defaults = yaml.safe_load(DEFAULTS_FILE.read_text())
-    assert defaults["backup_kedge_exclude_volumes"].split() == ["traefik_logs"]
+    assert defaults["backup_kedge_exclude_volumes"].split() == [
+        "traefik_logs", "crowdsec_db", "loki_data",
+    ]
+
+
+def test_default_rendered_exclude_volumes_lists_all_three(render):
+    """Render with the shipped default and check the value kedge will see."""
+    defaults = yaml.safe_load(DEFAULTS_FILE.read_text())
+    parsed = _parse_env(
+        render(backup_kedge_exclude_volumes=defaults["backup_kedge_exclude_volumes"])
+    )
+    assert parsed["BACKUP_EXCLUDE_VOLUMES"] == '"traefik_logs crowdsec_db loki_data"'
+
+
+def test_crowdsec_config_volume_stays_in_backup():
+    """crowdsec_config is not excluded: it holds the hub state and the CAPI
+    credentials, which stay valid for an empty crowdsec_db."""
+    defaults = yaml.safe_load(DEFAULTS_FILE.read_text())
+    assert "crowdsec_config" not in defaults["backup_kedge_exclude_volumes"].split()
+
+
+# ---- 4a) Path excludes (kedge SYSTEM_PATHS_EXCLUDE) ----
+
+def test_exclude_paths_empty_does_not_render(render):
+    parsed = _parse_env(render(backup_kedge_exclude_paths=""))
+    assert "SYSTEM_PATHS_EXCLUDE" not in parsed
+
+
+def test_exclude_paths_default_is_empty():
+    defaults = yaml.safe_load(DEFAULTS_FILE.read_text())
+    assert defaults["backup_kedge_exclude_paths"] == ""
+
+
+def test_exclude_paths_set_renders_quoted_and_sourceable(render):
+    import subprocess
+
+    rendered = render(backup_kedge_exclude_paths="/data/grocy/log /data/x/*.log")
+    assert _parse_env(rendered)["SYSTEM_PATHS_EXCLUDE"] == '"/data/grocy/log /data/x/*.log"'
+    result = subprocess.run(
+        ["bash", "-c", f"set -e; source /dev/stdin <<'EOF'\n{rendered}\nEOF\necho \"$SYSTEM_PATHS_EXCLUDE\""],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "/data/grocy/log /data/x/*.log"
 
 
 def test_excludes_set_renders_value(render):
@@ -274,6 +319,7 @@ def test_defaults_declare_all_kedge_vars():
         "backup_kedge_stop_stack",
         "backup_kedge_exclude_mounts",
         "backup_kedge_exclude_volumes",
+        "backup_kedge_exclude_paths",
         "backup_kedge_healthcheck_url",
         "backup_kedge_pre_hook",
         "backup_kedge_cron_wrapper",
