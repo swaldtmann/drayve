@@ -64,12 +64,21 @@
       ansible.builtin.set_fact:
         user_data: |
           #cloud-config
+          # The images:ubuntu/*/cloud images ship without sshd.
+          package_update: true
+          packages:
+            - openssh-server
           disable_root: false
           ssh_pwauth: false
           users:
             - name: root
               ssh_authorized_keys:
                 - {{ generated_ssh_key.public_key }}
+          # Root is locked in these images and their sshd (UsePAM no) then refuses
+          # key logins ("account is locked"); '*' is not a valid password, so it
+          # unlocks key auth without enabling password login.
+          runcmd:
+            - [usermod, -p, "*", root]
 
     # Written before launching, so `destroy` knows the names even if a later
     # step fails (address/user/port are filled in once the VM is up).
