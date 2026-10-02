@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.6] - 2026-10-02
+
 ### Changed
 - journald: set `MaxFileSec` (new variable `journald_max_file_sec`, default
   `1day`) so the 14-day `MaxRetentionSec` also holds on low-volume hosts;
