@@ -116,3 +116,15 @@ def test_common_journald_max_retention_default_and_task():
     assert lif["path"] == "/etc/systemd/journald.conf"
     assert lif["line"] == "MaxRetentionSec={{ journald_max_retention_sec }}"
     assert hits[0]["notify"] == "Restart systemd-journald"
+
+
+def test_common_journald_max_file_sec_default_and_task():
+    defaults = yaml.safe_load((COMMON_ROLE / "defaults" / "main.yml").read_text())
+    assert defaults["journald_max_file_sec"] == "1day"
+    tasks = yaml.safe_load((COMMON_ROLE / "tasks" / "main.yml").read_text())
+    hits = [t for t in tasks if t.get("name") == "Set journald MaxFileSec"]
+    assert len(hits) == 1
+    lif = hits[0]["ansible.builtin.lineinfile"]
+    assert lif["path"] == "/etc/systemd/journald.conf"
+    assert lif["line"] == "MaxFileSec={{ journald_max_file_sec }}"
+    assert hits[0]["notify"] == "Restart systemd-journald"

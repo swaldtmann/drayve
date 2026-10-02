@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Changed
+- journald: set `MaxFileSec` (new variable `journald_max_file_sec`, default
+  `1day`) so the 14-day `MaxRetentionSec` also holds on low-volume hosts;
+  journald deletes only whole archived files and would otherwise keep entries
+  up to a month in the active file.
 - **behaviour change: `backup_kedge_exclude_volumes` default is now
   `"traefik_logs crowdsec_db loki_data"`** (was `"traefik_logs"`). The CrowdSec
   database (alerts/decisions per IP) and Loki data (log lines) no longer end up

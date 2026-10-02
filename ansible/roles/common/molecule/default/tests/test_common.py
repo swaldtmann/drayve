@@ -63,6 +63,12 @@ def test_journald_max_retention_14day(host):
     assert journald_conf.contains("^MaxRetentionSec=14day$")
 
 
+def test_journald_max_file_sec_1day(host):
+    """Active journal file rotates daily so MaxRetentionSec can delete old files."""
+    journald_conf = host.file("/etc/systemd/journald.conf")
+    assert journald_conf.contains("^MaxFileSec=1day$")
+
+
 def test_ssh_password_auth_disabled(host):
     """SSH password authentication should be disabled."""
     sshd = host.file("/etc/ssh/sshd_config")

@@ -32,3 +32,9 @@ journald_forward_to_syslog: false
 # Docker's log-driver=journald means container logs live here, so this is the
 # container-log retention too. Accepts systemd time spans (e.g. 14day, 2week).
 journald_max_retention_sec: 14day
+
+# Time-based rotation of the active journal file (journald.conf MaxFileSec,
+# systemd default: 1 month). MaxRetentionSec only deletes whole archived files,
+# so without a short rotation interval a low-volume host keeps entries well
+# past the retention limit inside one long-lived file.
+journald_max_file_sec: 1day
