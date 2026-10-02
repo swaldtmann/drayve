@@ -17,6 +17,7 @@ monitoring
 secrets
 backup
 security
+headers
 services
 stack
 site
