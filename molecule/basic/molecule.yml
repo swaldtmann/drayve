@@ -1,12 +1,14 @@
 ---
 # Test: basic auth + full monitoring (no Authelia/LLDAP).
-driver:
-  name: molecule_hetznercloud
+# Larger host than the shared default in .config/molecule/config.yml
+# (cx33 = 4 vCPU / 8 GiB; the Incus VM gets the same via cpus/memory).
 platforms:
   - name: test-basic
     image: ubuntu-24.04
     server_type: cx33
     location: nbg1
+    cpus: 4
+    memory: 8GiB
 provisioner:
   name: ansible
   playbooks:
@@ -64,9 +66,6 @@ provisioner:
         grafana_image: grafana/grafana:12.3.6
         prometheus_image: prom/prometheus:v3.4.0
         # Memory limits
-        # --- Docker registry mirror (avoid rate limits) ---
-        docker_registry_mirrors:
-          - "http://192.0.2.10:5000"
         mem_traefik: 256m
         mem_crowdsec: 512m
         mem_prometheus: 512m

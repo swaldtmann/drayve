@@ -1,0 +1,31 @@
+---
+# Shared Molecule base config for the scenarios under molecule/ (picked up
+# automatically from the repository root). See docs/testing.md.
+#
+# DRAYVE_MOLECULE_DRIVER selects the test-host driver (a Molecule driver name):
+#   default                (unset) local Incus VMs, playbooks in ./default/
+#   molecule_hetznercloud  Hetzner Cloud servers, needs HCLOUD_TOKEN. The
+#                          create/destroy paths below do not exist for this
+#                          value, so Molecule falls back to the driver's own.
+driver:
+  name: ${DRAYVE_MOLECULE_DRIVER:-default}
+# One host per scenario, named test-<scenario>. The image/server_type/location
+# keys are only read by the Hetzner driver; cpus/memory/disk (Incus) default to
+# 2 vCPU / 4GiB / 20GiB in default/create.yml, i.e. cx23-sized.
+platforms:
+  - name: test-${MOLECULE_SCENARIO_NAME}
+    image: ubuntu-24.04
+    server_type: cx23
+    location: nbg1
+provisioner:
+  playbooks:
+    create: ../../.config/molecule/${DRAYVE_MOLECULE_DRIVER:-default}/create.yml
+    destroy: ../../.config/molecule/${DRAYVE_MOLECULE_DRIVER:-default}/destroy.yml
+  inventory:
+    group_vars:
+      all:
+        # Docker Hub pull-through cache for the test VMs. Unset/empty = no mirror
+        # (local runs, Hetzner driver); the CI workflows set
+        # DRAYVE_MOLECULE_REGISTRY_MIRROR=http://10.99.0.1:5000 (the cache runs in
+        # the runner VM on the inner Incus bridge). Space-separated for several.
+        docker_registry_mirrors: "{{ (lookup('ansible.builtin.env', 'DRAYVE_MOLECULE_REGISTRY_MIRROR') | default('', true)).split() }}"

@@ -11,9 +11,10 @@ env:
 
 jobs:
   test:
+    # Runner label `self-hosted` = host mode inside the one-job runner VM (runs
+    # as root; a `container:` key is ignored there). Tests only: no deploy, no
+    # release, no cloud resources.
     runs-on: self-hosted
-    container:
-      image: catthehacker/ubuntu:act-24.04
     steps:
       - name: Checkout
         env:
@@ -62,31 +63,15 @@ jobs:
       - name: Pytest unit tests (template + role contracts)
         run: cd $WORKDIR && python3 -m pytest tests/python/ -v
 
-      - name: Cleanup
-        if: always()
-        run: rm -rf $WORKDIR
-
-  # AFKI-W-197 — Push-statt-Pull: roter main-Run schickt EINE Nachricht an
-  # Stephans Messenger (#00_wooki). Gate: nur wenn `test` failt UND es ein
-  # push auf main war (PRs + Tags schweigen) — sonst stirbt die Flaeche.
-  # Runs #58-60 (16.05.-10.06.) waren rot und blieben einen Monat unbemerkt,
-  # weil das CI-UI ein Holschuld-Surface ist.
-  notify-failure:
-    needs: test
-    if: ${{ failure() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-    runs-on: self-hosted
-    container:
-      image: catthehacker/ubuntu:act-24.04
-    env:
-      NWORKDIR: /tmp/ci-drayve-notify-${{ github.run_id }}
-    steps:
-      - name: Checkout (nur fuer das Notify-Script)
-        env:
-          CI_TOKEN: ${{ github.token }}
-        run: |
-          rm -rf $NWORKDIR
-          git -c http.extraheader="Authorization: token ${CI_TOKEN}" clone --depth 1 -b ${GITHUB_REF_NAME} ${{ github.server_url }}/${{ github.repository }}.git $NWORKDIR
-      - name: Notify Slack (#00_wooki)
+      # AFKI-W-197 — Push-statt-Pull: roter main-Run schickt EINE Nachricht an
+      # Stephans Messenger (#00_wooki). Gate: nur wenn ein Schritt davor failt
+      # UND es ein push auf main war (PRs + Tags schweigen) — sonst stirbt die
+      # Flaeche. Runs #58-60 (16.05.-10.06.) waren rot und blieben einen Monat
+      # unbemerkt, weil das CI-UI ein Holschuld-Surface ist.
+      # Letzter Schritt im selben Job statt eigener Job: jeder Job kostet auf
+      # dem Ein-Job-Runner einen kompletten Reset-Zyklus (~140 s).
+      - name: Notify Slack (#00_wooki) on red main
+        if: ${{ failure() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           CI_REPO: ${{ github.repository }}
@@ -95,7 +80,8 @@ jobs:
           CI_REF: ${{ github.ref_name }}
           CI_SHA: ${{ github.sha }}
           CI_RUN_NUMBER: ${{ github.run_number }}
-        run: bash $NWORKDIR/scripts/notify-ci-failure.sh
+        run: bash $WORKDIR/scripts/notify-ci-failure.sh
+
       - name: Cleanup
         if: always()
-        run: rm -rf $NWORKDIR
+        run: rm -rf $WORKDIR

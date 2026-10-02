@@ -1,5 +1,5 @@
 ---
-# Authentik + LDAP Source integration test — real Hetzner server.
+# Authentik + LDAP Source integration test — real VM (Incus by default, see docs/testing.md).
 #
 # Uses LLDAP as lightweight LDAP backend to test end-to-end sync.
 # Creates a test user in LLDAP, syncs via Authentik LDAP source,
@@ -9,14 +9,7 @@
 #   make test-authentik-ldap  # or:
 #   molecule test -s authentik-ldap
 #
-# Cost: ~0.01 EUR per run (cx23 for a few minutes).
-driver:
-  name: molecule_hetznercloud
-platforms:
-  - name: test-authentik-ldap
-    image: ubuntu-24.04
-    server_type: cx23
-    location: nbg1
+# Cost: none with Incus; ~0.01 EUR per run on Hetzner (cx23 for a few minutes).
 provisioner:
   name: ansible
   playbooks:
@@ -110,9 +103,6 @@ provisioner:
         promtail_image: grafana/promtail:3.3.2
         grafana_image: grafana/grafana:12.3.6
         prometheus_image: prom/prometheus:v3.4.0
-        # --- Docker registry mirror (avoid rate limits) ---
-        docker_registry_mirrors:
-          - "http://192.0.2.10:5000"
         # --- Memory limits ---
         mem_traefik: 256m
         mem_crowdsec: 512m
