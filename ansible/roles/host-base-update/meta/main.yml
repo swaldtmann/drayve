@@ -6,7 +6,7 @@ galaxy_info:
     Installs and configures unattended-upgrades on Ubuntu hosts.
     Security-only by default, no auto-reboot — rolling reboot is the
     job of the host-update playbook (AFKI-W-122 Phase 3).
-  license: MIT
+  license: Apache-2.0
   min_ansible_version: "2.14"
   platforms:
     - name: Ubuntu
