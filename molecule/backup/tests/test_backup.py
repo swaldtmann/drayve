@@ -45,6 +45,13 @@ def test_backup_script_contains_restic(host):
     assert f.contains("restic forget")
 
 
+def test_backup_script_excludes_sqlite_journal(host):
+    """Volume backup must skip transient SQLite rollback journals."""
+    f = host.file("/opt/drayve/deploy/stack/backup.sh")
+    # plain substring match: File.contains() greps, and '*' / '.' are regex there
+    assert "--exclude '*.db-journal'" in f.content_string
+
+
 def test_backup_script_stops_services(host):
     """Backup script should stop services for consistency."""
     f = host.file("/opt/drayve/deploy/stack/backup.sh")
