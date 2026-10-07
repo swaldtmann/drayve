@@ -81,7 +81,7 @@ grafana_image: grafana/grafana:12.3.6
 prometheus_image: prom/prometheus:v3.4.0
 
 # === Authentik (pinned) ===
-authentik_image: ghcr.io/goauthentik/server:2025.2.4
+authentik_image: ghcr.io/goauthentik/server:2025.10.4
 authentik_pg_image: postgres:16-alpine
 authentik_redis_image: redis:7-alpine
 
