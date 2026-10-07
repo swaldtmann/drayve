@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.7] - 2026-10-07
+
 ### Fixed
+- **Role metadata of `host-base-update` states Apache-2.0**, matching `LICENSE`
+  (was `MIT` in `meta/main.yml`).
 - **Legacy backup script excludes transient SQLite rollback journals**
   (`--exclude '*.db-journal'` on the per-volume `restic backup`). CrowdSec's
   `crowdsec.db-journal` appears and vanishes during the live volume backup;
