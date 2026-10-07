@@ -6,19 +6,13 @@
 # Reboots are NOT triggered here — Phase 3 (host-update.yml) handles that.
 #
 # Inventory:
-#   Nutzt das zentrale tools/inventory-from-servers.sh (filtert ssh_alias,
+#   Nutzt ein zentrales Inventory-Skript (filtert ssh_alias,
 #   ki_freigabe=true, status!=retiring/decommissioned, patch.auto_update!=false).
 #
 # Aufruf:
-#   cd /Users/sw/claudes-welt/repos/drayve/ansible
-#   ansible-playbook -i /Users/sw/claudes-welt/tools/inventory-from-servers.sh \
+#   cd <drayve checkout>/ansible
+#   ansible-playbook -i <your inventory script or file> \
 #     playbooks/host-base-update.yml [--limit prod-genua] [--check --diff]
-#
-# Nach erfolgreichem Lauf (Sync-Pipeline, Schwarm-Futter):
-#   cd /Users/sw/claudes-welt
-#   ansible-playbook -i tools/inventory-from-servers.sh tools/scan-inventory.yml
-#   python3 tools/merge-inventar.py
-#   tools/push-inventory.sh
 #
 # Idempotenz-Beweis: zweiter Lauf erwartet `changed=0`.
 

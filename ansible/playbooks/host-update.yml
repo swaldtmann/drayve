@@ -4,13 +4,13 @@
 # AFKI-W-122 Phase 3. Pendant zu Phase 2 (host-base-update.yml): apt-Pakete
 # einmalig ausrollen, optional Reboot, Services vorher/nachher abgleichen.
 #
-# Nutzt das zentrale Inventory tools/inventory-from-servers.sh (Filter wie
+# Nutzt ein zentrales Inventory-Skript (Filter wie
 # Phase 2: ssh_alias + ki_freigabe + status != retiring/decommissioned/deleted/
 # destroyed + patch.auto_update != false).
 #
 # Aufruf (Pilot gegen einen Host):
-#   cd /Users/sw/claudes-welt/repos/drayve/ansible
-#   ansible-playbook -i /Users/sw/claudes-welt/tools/inventory-from-servers.sh \
+#   cd <drayve checkout>/ansible
+#   ansible-playbook -i <your inventory script or file> \
 #     playbooks/host-update.yml --limit kigulls-dev
 #
 # Rolling gegen viele Hosts (serial=1 ist im Play schon gesetzt):
