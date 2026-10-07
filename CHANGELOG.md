@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.8] - 2026-10-07
+
+### Fixed
+- **Release-gate matrix workflow could not check out the repository.** The
+  matrix value (a space-separated scenario list) went unquoted into the work
+  directory, so `git clone` aborted before any scenario ran. `v0.8.7` was
+  therefore tagged without a passed gate. No change to roles or templates.
+
 ## [0.8.7] - 2026-10-07
 
 ### Fixed
