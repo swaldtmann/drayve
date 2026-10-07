@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- **Legacy backup script excludes transient SQLite rollback journals**
+  (`--exclude '*.db-journal'` on the per-volume `restic backup`). CrowdSec's
+  `crowdsec.db-journal` appears and vanishes during the live volume backup;
+  restic then exits 3 (snapshot incomplete) and `set -e` failed the run
+  (Molecule scenario `backup`). `-wal`/`-shm` stay in the snapshot.
+
 ### Changed
 - **Molecule scenarios under `molecule/` now start local Incus VMs by default**
   (Ubuntu 24.04, 2 vCPU / 4 GiB / 20 GiB; `basic` and `light` 4 / 8 GiB). The

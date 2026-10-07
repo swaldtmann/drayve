@@ -45,6 +45,12 @@ def test_backup_script_contains_restic(host):
     assert f.contains("restic forget")
 
 
+def test_backup_script_excludes_sqlite_journal(host):
+    """Volume backup must skip transient SQLite rollback journals."""
+    f = host.file("/opt/drayve/deploy/stack/backup.sh")
+    assert f.contains("--exclude '*.db-journal'")
+
+
 def test_backup_script_stops_services(host):
     """Backup script should stop services for consistency."""
     f = host.file("/opt/drayve/deploy/stack/backup.sh")

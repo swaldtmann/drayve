@@ -88,7 +88,7 @@
       # Backup named volumes
       for vol in $(docker volume ls --filter name=drayve_ -q); do
         mountpoint=$(docker volume inspect "$vol" --format '{% raw %}{{.Mountpoint}}{% endraw %}')
-        restic backup --repo "$REPO" --tag "$vol" "$mountpoint"
+        restic backup --repo "$REPO" --tag "$vol" --exclude '*.db-journal' "$mountpoint"
       done
 
       # Backup deploy dir (configs, .env, compose)
