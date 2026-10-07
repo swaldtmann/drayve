@@ -5,6 +5,7 @@ Thanks for your interest in Drayve! Contributions are welcome.
 ## How to Contribute
 
 This repository is a read-only mirror; there is no public issue tracker and no pull-request workflow.
+Pull requests opened on the mirror are not merged here — the mirror is overwritten from the source of truth. Please send patches by e-mail instead.
 
 1. **Report a bug or idea** — send an e-mail to **security@waldtmann.de** (the same address as in [SECURITY.md](SECURITY.md)). Security issues: follow [SECURITY.md](SECURITY.md) and do not post them publicly.
 2. **Send a patch** — attach a `git format-patch` series against `main` to that e-mail. Describe what and why.
