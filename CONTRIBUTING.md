@@ -4,10 +4,10 @@ Thanks for your interest in Drayve! Contributions are welcome.
 
 ## How to Contribute
 
-1. **Open an issue** — Found a bug or have a feature idea? Open an issue on Codeberg first.
-2. **Fork + branch** — Fork the repo, create a feature branch (`feature/short-description`).
-3. **Make changes** — Write code, add tests.
-4. **Pull request** — Open a PR against `main`. Describe what and why.
+This repository is a read-only mirror; there is no public issue tracker and no pull-request workflow.
+
+1. **Report a bug or idea** — send an e-mail to **security@waldtmann.de** (the same address as in [SECURITY.md](SECURITY.md)). Security issues: follow [SECURITY.md](SECURITY.md) and do not post them publicly.
+2. **Send a patch** — attach a `git format-patch` series against `main` to that e-mail. Describe what and why.
 
 ## Git Conventions
 
