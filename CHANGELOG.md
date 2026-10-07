@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   (Molecule scenario `backup`). `-wal`/`-shm` stay in the snapshot.
 
 ### Changed
+- **Documentation prepared for the public read-only mirror**: README clone URL
+  and badge, CONTRIBUTING (e-mail reporting, no public issue tracker),
+  SECURITY supported versions (0.8.x), internal paths removed from comments;
+  internal `TODO.md` no longer tracked.
+
 - **Molecule scenarios under `molecule/` now start local Incus VMs by default**
   (Ubuntu 24.04, 2 vCPU / 4 GiB / 20 GiB; `basic` and `light` 4 / 8 GiB). The
   platform and driver part moved out of the ten `molecule.yml` into the shared

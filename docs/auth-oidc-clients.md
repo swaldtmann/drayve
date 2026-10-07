@@ -115,8 +115,3 @@ auth:
 
 To add Forgejo, drop the snippet above into `stack.yaml`, add
 `authelia_oidc_forgejo_secret: <plain>` to `secrets.yml`, run `make deploy`.
-
-For prod-genua specifically, see
-`/Users/sw/claudes-welt/repos/drayve-prod-genua/deploy/prod-genua/authelia-restore.sh`
-(obsolete after the W-144 stack.yaml migration — kept as a reference for the
-four drift points discovered in S328-Folge12).

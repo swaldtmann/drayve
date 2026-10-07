@@ -1,6 +1,6 @@
 # drayve
 
-[![Test & Lint](https://git.authbox.de/stephan/drayve/actions/workflows/test.yml/badge.svg)](https://git.authbox.de/stephan/drayve/actions?workflow=test.yml)
+> This GitHub repository is a read-only mirror; the source of truth lives elsewhere. There is no public issue tracker (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 
 Generic Ops framework for Docker stacks. Provision, deploy, monitor, secure, backup — from a single `stack.yaml`.
 
@@ -17,7 +17,7 @@ Works on any VPS, cloud instance, or bare metal server. Hetzner Cloud users get 
 **[Quickstart Guide](docs/quickstart.md)** — from zero to running stack in under 10 minutes.
 
 ```bash
-git clone https://git.authbox.de/stephan/drayve.git
+git clone https://github.com/swaldtmann/drayve.git
 cd drayve
 pip install pyyaml ansible
 
