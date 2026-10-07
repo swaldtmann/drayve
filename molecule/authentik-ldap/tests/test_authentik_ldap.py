@@ -148,7 +148,6 @@ def test_ldap_sync_trigger(host):
         "os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'authentik.root.settings'); "
         "django.setup(); "
         "from authentik.sources.ldap.models import LDAPSource; "
-        "from authentik.sources.ldap.tasks import ldap_sync_single; "
         "s = LDAPSource.objects.get(slug='drayve-ldap'); "
         "print(f'source={s.slug} enabled={s.enabled}')\""
     )
