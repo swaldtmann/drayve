@@ -67,7 +67,7 @@ provisioner:
         auth_basic_user: admin
         auth_basic_password: test-basic-pw
         # --- Images (pinned) ---
-        authentik_image: ghcr.io/goauthentik/server:2025.2.4
+        authentik_image: ghcr.io/goauthentik/server:2025.10.4
         authentik_pg_image: postgres:16-alpine
         authentik_redis_image: redis:7-alpine
         node_exporter_image: prom/node-exporter:v1.10.2

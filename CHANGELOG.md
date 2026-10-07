@@ -23,6 +23,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   gets it too. The release-gate workflows set it to the pull-through cache of
   the runner VM. New `scripts/list-ci-images.py` lists the images to warm it.
 
+- **behaviour change: `authentik_image` default is now
+  `ghcr.io/goauthentik/server:2025.10.4`** (was `:2025.2.4`; compose template
+  fallback, `vars.yml` and both Authentik Molecule scenarios). `2025.2.4` is
+  published for arm64 only, so `molecule/authentik` and `molecule/authentik-ldap`
+  could not start the server on an amd64 host; `2025.10.4` is a multi-arch index
+  (linux/amd64 + linux/arm64). Existing hosts must NOT jump straight from
+  2025.2.x: upstream requires upgrading through every release line
+  (2025.4, 2025.6, 2025.8, 2025.10, latest patch each) with a database backup
+  before each step. Pin `authentik_image` in the site repo to the next line
+  first and walk up, then drop the pin. Since 2025.10 authentik no longer uses
+  Redis; the `authentik-redis` container is still rendered but now unused
+  (`AUTHENTIK_REDIS__*` is ignored) and authentik opens ~50% more PostgreSQL
+  connections.
+
 ## [0.8.6] - 2026-10-02
 
 ### Changed

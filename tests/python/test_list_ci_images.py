@@ -124,6 +124,6 @@ def test_cli_all_prints_both(mini_repo):
 def test_real_repo_contains_known_scenario_images():
     images = lci.collect_images(REPO_ROOT)
     for ref in ("traefik:v3.6", "grafana/loki:3.3.2", "postgres:16-alpine", "nginx:alpine",
-                "authelia/authelia:4.39", "ghcr.io/goauthentik/server:2025.2.4"):
+                "authelia/authelia:4.39", "ghcr.io/goauthentik/server:2025.10.4"):
         assert ref in images
     assert all(":" in i for i in images)
