@@ -20,7 +20,7 @@ jobs:
   molecule:
     runs-on: self-hosted
     env:
-      WORKDIR: /tmp/ci-drayve-${{ github.run_id }}-${{ matrix.group }}
+      WORKDIR: /tmp/ci-drayve-${{ github.run_id }}-${{ matrix.name }}
       # Image pre-loaded in the runner VM's inner Incus cache (alias u24c =
       # images:ubuntu/24.04/cloud); the VM is reset after every job.
       DRAYVE_MOLECULE_INCUS_IMAGE: u24c
@@ -31,21 +31,24 @@ jobs:
       fail-fast: false
       max-parallel: 1
       matrix:
-        group:
-          - "basic auth-none authelia authentik authentik-ldap"
-          - "light sops backup backup-kedge integration"
+        # `name` goes into WORKDIR (no spaces), `group` is the scenario list.
+        include:
+          - name: g1
+            group: "basic auth-none authelia authentik authentik-ldap"
+          - name: g2
+            group: "light sops backup backup-kedge integration"
 
     steps:
       - name: Checkout
         env:
           CI_TOKEN: ${{ github.token }}
         run: |
-          rm -rf $WORKDIR
-          git -c http.extraheader="Authorization: token ${CI_TOKEN}" clone --depth 1 -b ${GITHUB_REF_NAME} ${{ github.server_url }}/${{ github.repository }}.git $WORKDIR
+          rm -rf "$WORKDIR"
+          git -c http.extraheader="Authorization: token ${CI_TOKEN}" clone --depth 1 -b ${GITHUB_REF_NAME} ${{ github.server_url }}/${{ github.repository }}.git "$WORKDIR"
 
       - name: Install dependencies
         run: |
-          cd $WORKDIR
+          cd "$WORKDIR"
           python3 -m pip install -q --break-system-packages -r requirements.txt
           ansible-galaxy collection install -r ansible/requirements.yml
 
@@ -55,7 +58,7 @@ jobs:
         # No safety-destroy step: the inner Incus VMs die with the runner VM,
         # which is reset to its clean snapshot after the job.
         run: |
-          cd $WORKDIR
+          cd "$WORKDIR"
           failed=""
           for s in ${{ matrix.group }}; do
             echo "::group::molecule test -s $s"
