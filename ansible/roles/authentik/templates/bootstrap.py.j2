@@ -28,6 +28,12 @@ LDAP_START_TLS = {{ authentik_ldap_start_tls | bool | ternary('True', 'False') }
 MAX_RETRIES = 3
 RETRY_DELAY = 2
 
+FLOW_AUTH_IMPLICIT = "default-provider-authorization-implicit-consent"
+FLOW_AUTH_EXPLICIT = "default-provider-authorization-explicit"
+FLOW_INVALIDATION = "default-provider-invalidation-flow"
+# Seconds to wait for the implicit-consent flow before falling back to explicit.
+IMPLICIT_GRACE = 60
+
 
 def log(msg):
     print(f"[bootstrap] {msg}", file=sys.stderr)
@@ -140,6 +146,35 @@ def get_flow(api, slug):
     resp = api.get(f"/flows/instances/?slug={slug}&page_size=50")
     results = resp.get("results", [])
     return results[0]["pk"] if results else None
+
+
+def wait_for_flows(api, timeout=300, interval=5):
+    """Wait until the default flows exist; return (authorization_pk, invalidation_pk).
+
+    authentik creates them asynchronously via blueprints after /-/health/ready/.
+    Implicit consent is preferred; explicit consent is used only if implicit is
+    still missing after IMPLICIT_GRACE seconds.
+    """
+    start = time.time()
+    deadline = start + timeout
+    while True:
+        auth_flow = get_flow(api, FLOW_AUTH_IMPLICIT)
+        if not auth_flow and time.time() - start >= IMPLICIT_GRACE:
+            auth_flow = get_flow(api, FLOW_AUTH_EXPLICIT)
+            if auth_flow:
+                log("WARNING: Implicit consent flow not found — using explicit consent")
+        inval_flow = get_flow(api, FLOW_INVALIDATION)
+        if auth_flow and inval_flow:
+            return auth_flow, inval_flow
+        if time.time() >= deadline:
+            break
+        time.sleep(interval)
+    missing = []
+    if not auth_flow:
+        missing.append(f"{FLOW_AUTH_IMPLICIT} / {FLOW_AUTH_EXPLICIT}")
+    if not inval_flow:
+        missing.append(FLOW_INVALIDATION)
+    raise RuntimeError(f"Authentik flows missing after {timeout}s: {', '.join(missing)}")
 
 
 def get_embedded_outpost(api):
@@ -399,14 +434,9 @@ def main():
     log("API token ready.")
     api = AuthentikAPI(base_url, token)
 
-    # 3. Get flows
-    auth_flow = get_flow(api, "default-provider-authorization-implicit-consent")
-    if not auth_flow:
-        log("WARNING: Implicit consent flow not found — using explicit consent")
-        auth_flow = get_flow(api, "default-provider-authorization-explicit")
+    # 3. Get flows (blueprints apply them asynchronously — wait, never continue with None)
+    auth_flow, inval_flow = wait_for_flows(api)
     log(f"Authorization flow: {auth_flow}")
-
-    inval_flow = get_flow(api, "default-provider-invalidation-flow")
     log(f"Invalidation flow: {inval_flow}")
 
     # 4. Get embedded outpost

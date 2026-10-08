@@ -20,6 +20,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   message if the old name is defined (even empty), instead of ignoring it.
   Rename it in your site config.
 
+### Fixed
+- **authentik bootstrap no longer races the default flows.** The script waited
+  only for `/-/health/ready/`, but authentik creates the default flows
+  asynchronously via blueprints. A single early lookup could return no
+  authorization flow and the script then sent `POST /providers/proxy/` with
+  `authorization_flow: None` (HTTP error, converge failed). `bootstrap.py.j2`
+  now polls (300 s limit, 5 s interval) until the authorization flow and the
+  invalidation flow exist, falls back to explicit consent only after implicit
+  consent has been missing for 60 s, and fails with a clear message naming the
+  missing flow instead of creating a provider with an empty flow. No extra wait
+  when the flows are already there.
+
 ## [0.8.10] - 2026-10-08
 
 ### Fixed
