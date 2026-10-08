@@ -55,6 +55,7 @@ def _base_ctx(**overrides: object) -> dict[str, object]:
         "backup_kedge_exclude_mounts": "",
         "backup_kedge_exclude_volumes": "",
         "backup_kedge_exclude_paths": "",
+        "backup_kedge_system_paths": "",
         "backup_retain_daily": 7,
         "backup_retain_weekly": 4,
         "backup_retain_monthly": 6,
@@ -191,6 +192,53 @@ def test_exclude_paths_set_renders_quoted_and_sourceable(render):
     )
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == "/data/grocy/log /data/x/*.log"
+
+
+# ---- 4a2) Backed-up system paths (kedge SYSTEM_PATHS) ----
+
+def test_system_paths_set_renders_quoted(render):
+    rendered = render(backup_kedge_system_paths="/etc /usr")
+    assert _parse_env(rendered)["SYSTEM_PATHS"] == '"/etc /usr"'
+    assert 'SYSTEM_PATHS="/etc /usr"' in rendered
+
+
+def test_system_paths_empty_does_not_render(render):
+    parsed = _parse_env(render(backup_kedge_system_paths=""))
+    assert "SYSTEM_PATHS" not in parsed
+
+
+def test_system_paths_default_is_empty():
+    defaults = yaml.safe_load(DEFAULTS_FILE.read_text())
+    assert defaults["backup_kedge_system_paths"] == ""
+
+
+def test_exclude_paths_renders_exactly_one_exclude_line(render):
+    """SYSTEM_PATHS and SYSTEM_PATHS_EXCLUDE are independent keys; the
+    exclude key must appear exactly once (no duplicate key in the env file)."""
+    rendered = render(
+        backup_kedge_system_paths="/etc /var",
+        backup_kedge_exclude_paths="/var/cache",
+    )
+    lines = [l for l in rendered.splitlines() if l.startswith("SYSTEM_PATHS_EXCLUDE=")]
+    assert lines == ['SYSTEM_PATHS_EXCLUDE="/var/cache"']
+    assert len([l for l in rendered.splitlines() if l.startswith("SYSTEM_PATHS=")]) == 1
+
+
+def test_renamed_exclude_var_aborts_early():
+    """backup_kedge_system_paths_exclude was renamed to
+    backup_kedge_exclude_paths; a site still setting it must fail, not be
+    silently ignored — and before the env file is written."""
+    tasks = _load_tasks()
+    names = [t.get("name") for t in tasks]
+    guard = [t for t in tasks if "backup_kedge_system_paths_exclude" in str(t.get("when", ""))]
+    assert len(guard) == 1, "expected one task guarding the renamed variable"
+    t = guard[0]
+    assert "ansible.builtin.fail" in t
+    assert "backup_kedge_exclude_paths" in t["ansible.builtin.fail"]["msg"]
+    whens = " ".join(_task_when(t))
+    assert "is defined" in whens
+    assert 'backup_target == "kedge"' in whens
+    assert names.index(t["name"]) < names.index("Deploy kedge environment file")
 
 
 def test_excludes_set_renders_value(render):

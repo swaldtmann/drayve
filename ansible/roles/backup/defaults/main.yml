@@ -38,6 +38,10 @@ backup_kedge_exclude_mounts: ""  # space-separated bind-mount paths (kedge BACKU
 # After a restore, run the deploy with `--tags secrets,deploy,crowdsec` (or
 # `cscli bouncers add` by hand) so the Traefik bouncer key exists again.
 backup_kedge_exclude_volumes: "traefik_logs crowdsec_db loki_data"
+# Space-separated absolute paths backed up in addition to the stack (kedge
+# SYSTEM_PATHS), e.g. "/etc /usr /opt /srv /var /root" for host-level state
+# outside Docker. Empty = SYSTEM_PATHS is not written to the env file.
+backup_kedge_system_paths: ""
 # Space-separated restic --exclude patterns (kedge SYSTEM_PATHS_EXCLUDE). Despite
 # the kedge name, restic applies them to the WHOLE backup run, so this also
 # prunes paths below a bind mount (e.g. "/data/grocy/log"). kedge drops an entry

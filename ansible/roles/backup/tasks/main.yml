@@ -30,6 +30,18 @@
     - backup_target == "kedge"
   tags: [backup]
 
+- name: Reject renamed variable backup_kedge_system_paths_exclude
+  ansible.builtin.fail:
+    msg: >-
+      backup_kedge_system_paths_exclude was renamed to backup_kedge_exclude_paths
+      (kedge SYSTEM_PATHS_EXCLUDE). Rename it in your site config; the old name
+      is no longer read and would silently drop your excludes.
+  when:
+    - backup_enabled | bool
+    - backup_target == "kedge"
+    - backup_kedge_system_paths_exclude is defined
+  tags: [backup]
+
 - name: Install restic (legacy targets local/sftp)
   ansible.builtin.apt:
     name: restic

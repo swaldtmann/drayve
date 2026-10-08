@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- `backup_kedge_system_paths` (default empty), rendered as kedge's
+  `SYSTEM_PATHS` in `/root/.kedge.env` when non-empty. Before, a site setting
+  it had the value silently ignored, and a role run removed a hand-written
+  `SYSTEM_PATHS` line from the host.
+
+### Changed
+- **Sites:** `backup_kedge_system_paths_exclude` is NOT a drayve variable; the
+  exclude list is `backup_kedge_exclude_paths` (kedge `SYSTEM_PATHS_EXCLUDE`).
+  With `backup_target: kedge`, the backup role now aborts early with a clear
+  message if the old name is defined (even empty), instead of ignoring it.
+  Rename it in your site config.
+
 ## [0.8.10] - 2026-10-08
 
 ### Fixed
