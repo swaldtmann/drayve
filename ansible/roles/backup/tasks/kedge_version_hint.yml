@@ -9,13 +9,14 @@
 #
 # The settings are resolved the same way as in tasks/main.yml, but without
 # set_fact, so nothing leaks into the facts of the deploy run.
-- name: kedge version hint (backup enabled, target kedge)
+- name: Kedge version hint (backup enabled, target kedge)
   when:
     - (backup.enabled | default(backup_enabled) | default(false) | bool)
     - (backup.target | default(backup_target) | default('local')) == 'kedge'
   tags: [backup]
   block:
-    - name: Read kedge version on the host (read-only)
+    # git module cannot describe without touching the checkout; this is read-only.
+    - name: Read kedge version on the host (read-only)  # noqa: command-instead-of-module
       ansible.builtin.command:
         cmd: "git -C {{ backup_kedge_install_dir }} describe --tags"
       register: kedge_hint_probe
@@ -30,7 +31,7 @@
           - "The deploy playbook does not run the backup role. Run: make backup-deploy"
       when: kedge_hint_probe.rc != 0 or (kedge_hint_probe.stdout | trim) != backup_kedge_version
 
-    - name: kedge version matches
+    - name: Kedge version matches
       ansible.builtin.debug:
         msg: "kedge on {{ inventory_hostname }} is {{ kedge_hint_probe.stdout | trim }} (as expected)"
       when: kedge_hint_probe.rc == 0 and (kedge_hint_probe.stdout | trim) == backup_kedge_version

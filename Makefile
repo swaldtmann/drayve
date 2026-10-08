@@ -77,7 +77,7 @@ validate: _require-stack  ## Validate stack.yaml for a host (NAME=)
 
 lint:  ## Lint playbooks + roles
 	@echo "==> Running ansible-lint..."
-	@cd $(ANSIBLE_DIR) && $(CURDIR)/$(ANSIBLE_LINT) playbooks/ roles/ 2>&1 | grep -v "^WARNING" | sed 's/^/    /'
+	@set -o pipefail; cd $(ANSIBLE_DIR) && $(CURDIR)/$(ANSIBLE_LINT) playbooks/ roles/ 2>&1 | grep -v "^WARNING" | sed 's/^/    /'
 	@echo "==> Lint passed"
 
 provision: _require-name _require-stack _require-inventory validate  ## Provision + deploy server (NAME=)
