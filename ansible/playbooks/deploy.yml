@@ -50,3 +50,11 @@
     - auth
     - monitoring
     - deploy
+
+  post_tasks:
+    # The backup role is not part of this playbook on purpose (a deploy must not
+    # switch kedge on the side). Read-only hint if the host's kedge is stale.
+    - name: Hint if kedge on the host differs from the expected version
+      ansible.builtin.include_role:
+        name: backup
+        tasks_from: kedge_version_hint
