@@ -80,6 +80,7 @@ stack:
 | `backup_kedge_stop_stack`         | `true`                                               | `false` = hot backup (see kedge README)     |
 | `backup_kedge_exclude_mounts`     | `""`                                                 | Space-separated paths to skip               |
 | `backup_kedge_exclude_volumes`    | `"traefik_logs crowdsec_db loki_data"`               | Space-separated compose volume names to skip (no project prefix, exact match). Default skips the volumes holding visitor IPs, see below |
+| `backup_kedge_system_paths`       | `""`                                                 | Space-separated absolute host paths backed up in addition to the stack (kedge `SYSTEM_PATHS`), e.g. `/etc /usr /opt /srv /var /root`; empty = not written |
 | `backup_kedge_exclude_paths`      | `""`                                                 | Space-separated restic `--exclude` patterns (kedge `SYSTEM_PATHS_EXCLUDE`), applied to the whole run — for paths *below* a bind mount, e.g. `/data/grocy/log` |
 | `backup_kedge_healthcheck_url`    | `""`                                                 | Healthchecks.io / Uptime Kuma URL           |
 | `backup_kedge_pre_hook`           | `""`                                                 | Command run before kedge's own backup steps |
