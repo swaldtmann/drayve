@@ -65,7 +65,7 @@ CHECK_DEPS  := vendor
 endif
 
 help:  ## Show targets
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS=":.*?## "}; {printf "  %-22s %s\n", $$1, $$2}'
+	@grep -hE '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS=":.*?## "}; {printf "  %-22s %s\n", $$1, $$2}'
 
 age-key-link:  ## Create deploy/.age-key.txt symlink (drayve secrets role expects it)
 	@ln -sf $(SOPS_AGE_KEY_FILE) deploy/.age-key.txt
