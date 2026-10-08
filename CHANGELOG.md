@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.10] - 2026-10-08
+
+### Fixed
+- **`make lint` reported "Lint passed" even when ansible-lint failed.** The
+  target piped ansible-lint through `grep`/`sed` without `pipefail`, so the
+  exit status was always that of `sed`. It now fails when ansible-lint does.
+- **ansible-lint failures in `roles/backup/tasks/kedge_version_hint.yml`**
+  (`name[casing]` twice, `command-instead-of-module`), which made the
+  `Test & Lint` workflow fail for `v0.8.9`. No change in behaviour.
+- **`make help` in a site repo printed file paths instead of target names.**
+  With more than one makefile in `MAKEFILE_LIST`, `grep` prefixed each line
+  with the file name and the target column was lost; `consumer.mk` now uses
+  `grep -h`. The test for `backup-deploy` in `make help` only passed because
+  the checkout path happened to contain the string.
+
 ## [0.8.9] - 2026-10-08
 
 ### Added
