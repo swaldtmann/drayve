@@ -507,6 +507,15 @@
   register: compose_up
   tags: [deploy]
 
+# Why did Compose create/recreate something? Without this the stderr of the
+# step above is lost (CI flake: traefik recreated in the idempotence run).
+# Only container/network/volume names and states appear there. Never changed.
+- name: Show docker compose up output
+  ansible.builtin.debug:
+    var: compose_up.stderr_lines
+  when: compose_up is changed
+  tags: [deploy]
+
 - name: Force-recreate Traefik on config change
   ansible.builtin.command:
     cmd: docker compose up -d --force-recreate traefik
@@ -565,12 +574,18 @@
   tags: [deploy]
 
 - name: Force-recreate CrowdSec on whitelist or config.yaml.local change
+  # Skipped when "Docker compose up" already created/recreated crowdsec in this
+  # run (first rollout: new mount, new config) -- a second rebuild would only
+  # cost another ~30 s of HTTP 403 (traefik waits for crowdsec healthy).
+  # compose_up is undefined in tag-scoped runs (--tags crowdsec): then recreate.
   ansible.builtin.command:
     cmd: docker compose up -d --force-recreate crowdsec
     chdir: "{{ drayve_deploy_dir }}"
   become: true
   become_user: "{{ drayve_user }}"
-  when: (crowdsec_whitelist.changed | default(false)) or (crowdsec_local_config.changed | default(false))
+  when: >-
+    ((crowdsec_whitelist.changed | default(false)) or (crowdsec_local_config.changed | default(false)))
+    and not (((compose_up | default({})).stderr | default('')) is regex('Container crowdsec\s+(Created|Recreated)'))
   tags: [deploy, crowdsec]
 
 # === CrowdSec bouncer registration ===

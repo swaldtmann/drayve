@@ -32,6 +32,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   missing flow instead of creating a provider with an empty flow. No extra wait
   when the flows are already there.
 
+### Fixed
+- **First rollout rebuilt the CrowdSec container twice.** `config.yaml.local`
+  is newly created on the first run, `docker compose up` creates `crowdsec`
+  anyway, and the unconditional "Force-recreate CrowdSec" task then rebuilt it
+  a second time (about 30 s of HTTP 403 on all services, since Traefik waits
+  for CrowdSec to be healthy). The force-recreate is now skipped when
+  `compose up` created or recreated `crowdsec` in the same run. Unchanged: a
+  whitelist/config change with CrowdSec untouched by `compose up` still
+  recreates it.
+
+### Changed
+- **The deploy role prints the stderr of `docker compose up`** (new task
+  "Show docker compose up output", only when the step reports a change), so a
+  surprise recreate such as `traefik` in an idempotence run can be explained
+  from the log.
+
 ## [0.8.10] - 2026-10-08
 
 ### Fixed
