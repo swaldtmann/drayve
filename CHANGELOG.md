@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **`make backup-deploy` in `ansible/consumer.mk`** runs `playbooks/backup.yml`
+  for a host (same arguments as `deploy-prod`, `CONFIRM=y` skips the prompt,
+  `EXTRA_ANSIBLE_VARS="--check --diff"` for a dry run, no pre-snapshot). The
+  deploy playbook does not run the backup role, so this is the way to move
+  kedge to the version a release pins.
+- **`deploy.yml` hints when kedge on the host is stale.** At the end of the
+  deploy a read-only check (`roles/backup/tasks/kedge_version_hint.yml`)
+  compares the host's kedge checkout with `backup_kedge_version` (site
+  overrides respected) and points to `make backup-deploy` on a mismatch or a
+  missing checkout. Only for hosts with backup enabled and target `kedge`;
+  never fails the deploy and changes nothing on the host.
+
 ## [0.8.8] - 2026-10-07
 
 ### Fixed

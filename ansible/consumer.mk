@@ -29,11 +29,11 @@
 #   SOPS_AGE_KEY_FILE — $(HOME)/.config/sops/age/drayve-$(NAME).txt
 #   SNAPSHOT_HOST     — $(NAME)
 #   AGE_KEY_LINK      — leer = aus, "1" = symlink deploy/.age-key.txt anlegen
-#                       (in deploy-prod/-check als Prerequisite)
+#                       (in deploy-prod/-check/backup-deploy als Prerequisite)
 #   PROD_SNAPSHOT     — Pfad zum prod-snapshot-Wrapper
 #   DRAYVE_REF        — git-ref fuer vendor (kommt aus Konsument)
-#   EXTRA_ANSIBLE_VARS — leer = aus, sonst an deploy-prod/-check/-check-fast
-#                       angehaengt, gilt fuer alle drei Targets identisch
+#   EXTRA_ANSIBLE_VARS — leer = aus, sonst an deploy-prod/-check/-check-fast/
+#                       backup-deploy angehaengt, gilt fuer alle Targets identisch
 #                       (CW-W-172). Dateibasiert setzen, nicht inline-JSON —
 #                       z.B. -e @override.yml (inline "-e '{"a":{"b":"c"}}'"
 #                       zerbricht an Shell-Quoting, sobald Make die
@@ -82,6 +82,10 @@ deploy-prod: $(DEPLOY_DEPS)  ## Deploy DRAYVE_REF to host (CONFIRM=y to skip pro
 	@[ "$(CONFIRM)" = "y" ] || { printf "Deploy $(DRAYVE_REF) to $(NAME) PRODUCTION? [y/N] "; read ans; [ "$$ans" = "y" ] || exit 1; }
 	$(ANSIBLE) playbooks/deploy.yml -l $(NAME) -e deploy_ref=$(DRAYVE_REF) -e ops_secrets_root=$(CURDIR) -e @$(CURDIR)/stack.yaml $(EXTRA_ANSIBLE_VARS)
 
+backup-deploy: $(CHECK_DEPS)  ## Apply backup.yml to host: installs/updates kedge at the pinned version (CONFIRM=y skips prompt, EXTRA_ANSIBLE_VARS="--check --diff" for a dry run)
+	@[ "$(CONFIRM)" = "y" ] || { printf "Apply backup config ($(DRAYVE_REF)) to $(NAME) PRODUCTION? [y/N] "; read ans; [ "$$ans" = "y" ] || exit 1; }
+	$(ANSIBLE) playbooks/backup.yml -l $(NAME) -e deploy_ref=$(DRAYVE_REF) -e ops_secrets_root=$(CURDIR) -e @$(CURDIR)/stack.yaml $(EXTRA_ANSIBLE_VARS)
+
 deploy-check: $(CHECK_DEPS)  ## Deep dry-run: deploy.yml --check (KNOWN-BROKEN in v0.4.x, prefer deploy-check-fast — W-131)
 	$(ANSIBLE) playbooks/deploy.yml -l $(NAME) -e deploy_ref=$(DRAYVE_REF) -e ops_secrets_root=$(CURDIR) -e @$(CURDIR)/stack.yaml --check $(EXTRA_ANSIBLE_VARS)
 
@@ -97,4 +101,4 @@ secrets-edit-env:  ## Edit ENV_FILE via sops (dotenv-Typ explizit)
 ping:  ## Ansible ping target host
 	@cd $(DRAYVE_DIR)/ansible && ansible -i $(CURDIR)/hosts.yaml -m ping $(NAME)
 
-.PHONY: help age-key-link pre-snapshot deploy-prod deploy-check deploy-check-fast secrets-edit secrets-edit-env ping
+.PHONY: help age-key-link pre-snapshot deploy-prod backup-deploy deploy-check deploy-check-fast secrets-edit secrets-edit-env ping

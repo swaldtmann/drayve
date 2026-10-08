@@ -1,0 +1,36 @@
+---
+# Read-only hint, included at the end of playbooks/deploy.yml via
+# `include_role: name=backup tasks_from=kedge_version_hint`.
+#
+# deploy.yml deliberately does not run the backup role, so the kedge checkout
+# on a host only moves when backup.yml is run. This file compares the checkout
+# with the effective backup_kedge_version (role default or site override) and
+# says so when they differ. It never fails and never changes the host.
+#
+# The settings are resolved the same way as in tasks/main.yml, but without
+# set_fact, so nothing leaks into the facts of the deploy run.
+- name: kedge version hint (backup enabled, target kedge)
+  when:
+    - (backup.enabled | default(backup_enabled) | default(false) | bool)
+    - (backup.target | default(backup_target) | default('local')) == 'kedge'
+  tags: [backup]
+  block:
+    - name: Read kedge version on the host (read-only)
+      ansible.builtin.command:
+        cmd: "git -C {{ backup_kedge_install_dir }} describe --tags"
+      register: kedge_hint_probe
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Warn that kedge on the host differs from the expected version
+      ansible.builtin.debug:
+        msg:
+          - "WARNING: kedge on {{ inventory_hostname }} is {{ (kedge_hint_probe.stdout | trim) if kedge_hint_probe.rc == 0 else 'not installed' }}, this drayve release expects {{ backup_kedge_version }} (backup_kedge_version)."
+          - "The deploy playbook does not run the backup role. Run: make backup-deploy"
+      when: kedge_hint_probe.rc != 0 or (kedge_hint_probe.stdout | trim) != backup_kedge_version
+
+    - name: kedge version matches
+      ansible.builtin.debug:
+        msg: "kedge on {{ inventory_hostname }} is {{ kedge_hint_probe.stdout | trim }} (as expected)"
+      when: kedge_hint_probe.rc == 0 and (kedge_hint_probe.stdout | trim) == backup_kedge_version

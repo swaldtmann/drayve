@@ -121,7 +121,7 @@ vendor:  ## Clone or update vendored drayve at DRAYVE_REF
 -include $(DRAYVE_DIR)/ansible/consumer.mk
 ```
 
-After `make vendor`, the include picks up `ansible/consumer.mk` from the vendored copy and provides: `help`, `pre-snapshot`, `deploy-prod`, `deploy-check`, `deploy-check-fast`, `secrets-edit`, `secrets-edit-env`, `ping`, `age-key-link`. Run `make help` to see the full list.
+After `make vendor`, the include picks up `ansible/consumer.mk` from the vendored copy and provides: `help`, `pre-snapshot`, `deploy-prod`, `backup-deploy`, `deploy-check`, `deploy-check-fast`, `secrets-edit`, `secrets-edit-env`, `ping`, `age-key-link`. Run `make help` to see the full list. `deploy-prod` does not run the backup role; use `make backup-deploy` to apply backup configuration and move kedge to the pinned version (the deploy prints a hint when the host's kedge differs).
 
 > **Routine validation:** prefer `make deploy-check-fast` — fast static check of `stack.yaml` + secrets, no host contact. The deep `make deploy-check` (`deploy.yml --check`) is structurally broken in v0.4.x (Ansible skips `command:` tasks without `check_mode: false`, downstream logic blows up on empty values); deep dry-run sanitation is tracked in W-132.
 
