@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.9] - 2026-10-08
+
 ### Added
 - **`make backup-deploy` in `ansible/consumer.mk`** runs `playbooks/backup.yml`
   for a host (same arguments as `deploy-prod`, `CONFIRM=y` skips the prompt,
