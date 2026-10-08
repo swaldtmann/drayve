@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.11] - 2026-10-08
+
 ### Added
 - `backup_kedge_system_paths` (default empty), rendered as kedge's
   `SYSTEM_PATHS` in `/root/.kedge.env` when non-empty. Before, a site setting
@@ -19,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   With `backup_target: kedge`, the backup role now aborts early with a clear
   message if the old name is defined (even empty), instead of ignoring it.
   Rename it in your site config.
+- **The deploy role prints the stderr of `docker compose up`** (new task
+  "Show docker compose up output", only when the step reports a change), so a
+  surprise recreate such as `traefik` in an idempotence run can be explained
+  from the log.
 
 ### Fixed
 - **authentik bootstrap no longer races the default flows.** The script waited
@@ -31,8 +37,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   consent has been missing for 60 s, and fails with a clear message naming the
   missing flow instead of creating a provider with an empty flow. No extra wait
   when the flows are already there.
-
-### Fixed
 - **First rollout rebuilt the CrowdSec container twice.** `config.yaml.local`
   is newly created on the first run, `docker compose up` creates `crowdsec`
   anyway, and the unconditional "Force-recreate CrowdSec" task then rebuilt it
@@ -41,12 +45,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `compose up` created or recreated `crowdsec` in the same run. Unchanged: a
   whitelist/config change with CrowdSec untouched by `compose up` still
   recreates it.
-
-### Changed
-- **The deploy role prints the stderr of `docker compose up`** (new task
-  "Show docker compose up output", only when the step reports a change), so a
-  surprise recreate such as `traefik` in an idempotence run can be explained
-  from the log.
 
 ## [0.8.10] - 2026-10-08
 
