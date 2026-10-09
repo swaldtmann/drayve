@@ -39,7 +39,7 @@ if [[ "${DRY_RUN:-0}" == "1" ]]; then
 fi
 
 if [[ -z "${SLACK_BOT_TOKEN:-}" ]]; then
-  echo "notify-ci-failure: SLACK_BOT_TOKEN fehlt (Codeberg-Repo-Secret)" >&2
+  echo "notify-ci-failure: SLACK_BOT_TOKEN fehlt (Repo-Secret)" >&2
   exit 1
 fi
 
