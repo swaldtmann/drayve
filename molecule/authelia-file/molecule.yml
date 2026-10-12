@@ -112,14 +112,11 @@ provisioner:
             default_policy: deny
             rules: "{{ af_base_rules + af_extra_rules }}"
           users: "{{ af_users + af_extra_users }}"
-          oidc_clients:
-            - id: grafana
-              name: Grafana
-              authorization_policy: one_factor
-              consent_mode: implicit
-              redirect_uris:
-                - "https://grafana.test.drayve.local/login/generic_oauth"
-              scopes: [openid, profile, email, groups]
+          # No own oidc_clients list: the scenario runs the default Grafana client
+          # as shipped (with its claims_policy), which is what a new user gets.
+        # TEST ONLY: the VM has no publicly valid certificate for the Authelia
+        # name, Grafana's OIDC back channel goes through Traefik over HTTPS.
+        grafana_oauth_tls_skip_verify: true
         # --- Monitoring (as in the authelia scenario; Grafana is part of the checks) ---
         monitoring_profile: full
         # --- Security ---
@@ -138,7 +135,7 @@ provisioner:
         cadvisor_image: ghcr.io/google/cadvisor:0.56.2
         loki_image: grafana/loki:3.3.2
         promtail_image: grafana/promtail:3.3.2
-        grafana_image: grafana/grafana:12.3.6
+        grafana_image: grafana/grafana:12.4.12
         prometheus_image: prom/prometheus:v3.4.0
         # --- Memory limits ---
         mem_traefik: 256m

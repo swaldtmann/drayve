@@ -17,7 +17,7 @@ import pytest
 # unexpected pass into a failure, which is the reminder to flip this flag.
 # Also set the test-only TLS variable of that fix in molecule.yml if it needs one
 # (planned name: grafana_oauth_tls_skip_verify), because the VM has no valid certificate.
-GRAFANA_BACKCHANNEL_FIXED = False
+GRAFANA_BACKCHANNEL_FIXED = True
 
 grafana_expected_red = pytest.mark.xfail(
     not GRAFANA_BACKCHANNEL_FIXED,
