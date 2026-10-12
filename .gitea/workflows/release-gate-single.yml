@@ -7,10 +7,10 @@ name: Release Gate — Single (manual)
 # Runs on the self-hosted runner VM (one job per cycle, Incus test VM nested in
 # it, see docs/testing.md). Tests only: no cloud credentials.
 #
-# Pick one of: basic | auth-none | authelia | authentik | authentik-ldap
-#              | light | sops | backup | backup-kedge | integration
+# Pick one of: basic | auth-none | authelia | authelia-file | authentik
+#              | authentik-ldap | light | sops | backup | backup-kedge | integration
 #
-# For a full gate (all 10 scenarios) push a v* tag — see release-gate-matrix.yml.
+# For a full gate (all 11 scenarios) push a v* tag — see release-gate-matrix.yml.
 
 on:
   workflow_dispatch:
@@ -24,6 +24,7 @@ on:
           - basic
           - auth-none
           - authelia
+          - authelia-file
           - authentik
           - authentik-ldap
           - light

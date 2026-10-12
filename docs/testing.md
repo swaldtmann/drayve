@@ -1,8 +1,8 @@
 # Testing with Molecule
 
-The scenarios under `molecule/` (`auth-none`, `authelia`, `authentik`,
-`authentik-ldap`, `backup`, `backup-kedge`, `basic`, `integration`, `light`,
-`sops`) converge the roles on a real VM, check idempotence, verify with
+The scenarios under `molecule/` (`auth-none`, `authelia`, `authelia-file`,
+`authentik`, `authentik-ldap`, `backup`, `backup-kedge`, `basic`, `integration`,
+`light`, `sops`) converge the roles on a real VM, check idempotence, verify with
 Testinfra and tear the VM down again.
 
 Where the VM comes from is chosen by one environment variable,
@@ -86,6 +86,33 @@ Molecule falls back to the driver's). Each scenario creates a server named
 Switching the driver for a scenario that already has Molecule state needs
 `molecule reset -s <scenario>` first; Molecule refuses to change drivers
 silently (state lives in `~/.ansible/tmp/molecule.*.<scenario>`).
+
+## The `authelia-file` scenario
+
+`molecule test -s authelia-file` (or `make test-authelia-file`, about an hour;
+paths below are relative to `molecule/authelia-file/`) signs in through a real Authelia with the file user backend (`auth.lldap: false`,
+users and group rules in the scenario variables, argon2id hashes as test values).
+There is no browser: `tests/authelia_probe.py` talks to Authelia's API and the
+OIDC code flow from the controller and pins `*.test.drayve.local` to the VM.
+It checks the redirect from a protected page to the portal (the Location header,
+not the portal's own 200), first factor, TOTP second factor (registered with
+Authelia's CLI, the API route needs a one-time code from the notifier file),
+the group rules (`admins`: two factors everywhere, `viewers`: one domain, else
+403), and what a redeploy does: no change on an unchanged deploy, TOTP
+registrations survive a config change, a new user can sign in, a rotated OIDC
+client secret is accepted at the token endpoint, and a partial
+`--tags secrets,deploy` run keeps the Grafana client secret in `.env`. The Grafana
+sign-in over OIDC (alice Admin, bob Viewer) is marked as an expected failure until
+the Grafana back channel fix is merged; the switch is `GRAFANA_BACKCHANNEL_FIXED`
+in `tests/test_20_grafana_oidc.py`.
+
+The redeploys are run by the tests themselves (`deploy` fixture in
+`tests/conftest.py`), because Molecule runs `verify` once and the checks need the
+state after each deploy. The default `idempotence` step is left out for that
+reason; the scenario checks it for the Authelia role instead. The pure logic of
+the probes (TOTP, redirect evaluation, Ansible output parsing) is unit-tested
+without a VM in `tests/python/test_authelia_file_probe.py`. Re-run the whole
+`molecule test`, not a bare `molecule verify`, on a VM the tests already changed.
 
 ## Role-level scenarios
 
