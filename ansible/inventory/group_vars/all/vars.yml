@@ -91,8 +91,23 @@ lldap_image: lldap/lldap:v0.6.3
 
 # === Authentik (pinned) ===
 authentik_image: ghcr.io/goauthentik/server:2025.10.4
-authentik_pg_image: postgres:16-alpine
-authentik_redis_image: redis:7-alpine
+# Postgres and Redis belong to Authentik: stay inside the major line (16.x, 7.x).
+# A Postgres major change needs a data migration, it is not a plain bump.
+# Both = what `postgres:16-alpine` / `redis:7-alpine` pointed to on 2026-10-12
+# (same digests, Docker Hub API https://hub.docker.com/v2/repositories/library/<name>/tags/<tag>).
+authentik_pg_image: postgres:16.15-alpine
+authentik_redis_image: redis:7.4.11-alpine
+
+# === Other framework images (pinned) ===
+# Each = what the former floating tag pointed to on 2026-10-12 (same digest,
+# Docker Hub API https://hub.docker.com/v2/repositories/<repo>/tags/<tag>;
+# linux/amd64 + linux/arm64 present). Keep the compose fallback in
+# ansible/templates/docker-compose.yml.j2 in sync (traefik_image lives in
+# ansible/roles/traefik/defaults/main.yml).
+# crowdsecurity/crowdsec:latest -> v1.8.1
+crowdsec_image: crowdsecurity/crowdsec:v1.8.1
+# nginx:alpine -> 1.31.6-alpine
+landing_image: nginx:1.31.6-alpine
 
 # === Memory limits ===
 mem_traefik: 256m
