@@ -131,6 +131,32 @@ def validate(config):
                         f"the cookie domain '{cookie}' (auth.cookie_domain)"
                     )
 
+    # authelia: a custom auth.oidc_clients list REPLACES the default list, but
+    # Grafana is always rendered with the Authelia OAuth block (login form off).
+    # Keep the message core in sync with ansible/tasks/auth_preflight.yml.
+    if auth.get("provider") == "authelia" and auth.get("oidc_clients") is not None:
+        clients = auth["oidc_clients"]
+        monitoring = config.get("monitoring")
+        profile = (monitoring.get("profile") if isinstance(monitoring, dict) else None) or "full"
+        grafana_on = config.get("monitoring_grafana")
+        if grafana_on is None:
+            grafana_on = profile == "full"
+        has_grafana = isinstance(clients, list) and any(
+            isinstance(c, dict) and c.get("id") == "grafana" for c in clients
+        )
+        if grafana_on and not has_grafana:
+            domain = get_nested(config, "stack.domain") or "<domain>"
+            errors.append(
+                "auth.oidc_clients replaces the default client list and has no client "
+                "with id: grafana, but Grafana is deployed with auth.provider=authelia "
+                "and signs in only through that client (login form disabled). Add it "
+                "to your list, e.g.: {id: grafana, name: Grafana, "
+                "authorization_policy: one_factor, consent_mode: implicit, "
+                f'redirect_uris: ["https://grafana.{domain}/login/generic_oauth"], '
+                "scopes: [openid, profile, email, groups]}. "
+                "See docs/auth-oidc-clients.md"
+            )
+
     # headers.clacks: boolean opt-in
     headers = config.get("headers")
     if headers is not None:
