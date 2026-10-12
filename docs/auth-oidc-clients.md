@@ -43,6 +43,26 @@ auth:
       id_token: [groups, email, preferred_username, name]
 ```
 
+> **A custom `auth.oidc_clients` list replaces the default, it does not extend
+> it.** The default list contains the `grafana` client. Grafana is always
+> deployed with Authelia sign-in (login form off) when `auth.provider: authelia`,
+> so once you set your own list you must list `grafana` yourself — otherwise
+> nobody can sign in to Grafana. `make validate` and the deploy pre-flight abort
+> with an error if the client is missing (unless Grafana is not deployed, i.e.
+> `monitoring.profile` is `light`/`none`). Copy this entry into your list
+> (replace `example.com` with your `stack.domain`; the secret is not part of the
+> list, it comes from `authelia_oidc_grafana_secret` in `secrets.yml`):
+>
+> ```yaml
+> - id: grafana
+>   name: Grafana
+>   authorization_policy: one_factor
+>   consent_mode: implicit
+>   redirect_uris:
+>     - "https://grafana.example.com/login/generic_oauth"
+>   scopes: [openid, profile, email, groups]
+> ```
+
 ### Client fields
 
 | Field | Required | Default | Notes |

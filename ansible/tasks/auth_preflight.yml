@@ -11,6 +11,11 @@
 #   auth.provider = authelia, with auth.cookie_domain and/or auth.portal_url set
 #     - portal host must equal the cookie domain or be a subdomain of it
 #       (https://www.authelia.com/configuration/session/introduction/)
+#   auth.provider = authelia, Grafana deployed, auth.oidc_clients set
+#     - the list replaces the default one, so it must contain id: grafana
+#       (Grafana is always rendered with the Authelia OAuth block, login form off).
+#       "Grafana deployed" mirrors roles/monitoring: monitoring_grafana, else
+#       monitoring.profile / monitoring_profile == full.
 
 - name: Drayve auth preflight — authelia_remote needs auth.remote.forward_auth_url
   ansible.builtin.assert:
@@ -58,4 +63,24 @@
   when:
     - (auth.provider | default('basic')) == 'authelia'
     - (auth.cookie_domain | default('')) | length > 0 or (auth.portal_url | default('')) | length > 0
+  tags: [always]
+
+- name: Drayve auth preflight — custom auth.oidc_clients must keep the grafana client
+  ansible.builtin.assert:
+    that:
+      - (auth.oidc_clients | selectattr('id', 'defined') | selectattr('id', 'equalto', 'grafana') | list | length) > 0
+    fail_msg: >-
+      auth.oidc_clients replaces the default client list and has no client with
+      id: grafana, but Grafana is deployed with auth.provider=authelia and signs
+      in only through that client (login form disabled). Add it to your list,
+      e.g.: {id: grafana, name: Grafana, authorization_policy: one_factor,
+      consent_mode: implicit,
+      redirect_uris: ["https://grafana.{{ drayve_domain }}/login/generic_oauth"],
+      scopes: [openid, profile, email, groups]}.
+      See docs/auth-oidc-clients.md
+  when:
+    - (auth | default({})).provider | default('basic') == 'authelia'
+    - (auth | default({})).oidc_clients is defined
+    - (auth | default({})).oidc_clients is not none
+    - monitoring_grafana | default(((monitoring | default({})).profile | default(monitoring_profile | default('full'))) == 'full') | bool
   tags: [always]
