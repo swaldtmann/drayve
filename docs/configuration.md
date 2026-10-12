@@ -226,6 +226,26 @@ Beyond `stack.yaml`, Ansible role defaults can be overridden in `ansible/invento
 | `mem_*` | varies | Memory limits per container (e.g. `mem_grafana: 256m`) |
 | `authelia_reset_db_on_key_change` | `false` | Authelia: a config change never deletes `db.sqlite3` (2FA registrations, sessions). A changed `storage_encryption_key` is detected via `.storage_encryption_key.sha256` next to the DB and aborts the deploy. Set to `true` to delete the DB instead (all users must re-register their second factor) |
 
+## Pinned images and how to bump them
+
+Authelia, lldap and Grafana are pinned to exact versions, not to floating tags. A floating tag lets a breaking change in unannounced: Authelia 4.39.19 arrived through the `4.39` line in 2026-05 and rejected the password hashes drayve generated at the time; a floating `lldap:stable` was involved in an auth outage in 2026-07.
+
+| Image | Pinned to | Where the version lives |
+|-------|-----------|-------------------------|
+| Authelia | `authelia/authelia:4.39.28` | `authelia_image` in `ansible/roles/auth/defaults/main.yml` and `ansible/roles/authelia/defaults/main.yml`; fallback in `ansible/templates/docker-compose.yml.j2` |
+| lldap | `lldap/lldap:v0.6.3` | `lldap_image` in `ansible/inventory/group_vars/all/vars.yml`; fallback in `ansible/templates/docker-compose.yml.j2`; `molecule/authentik-ldap/molecule.yml` |
+| Grafana | `grafana/grafana:12.4.12` | `grafana_image` in `ansible/inventory/group_vars/all/vars.yml` and every `molecule/*/molecule.yml` |
+
+To bump one:
+
+1. Change the version in every place listed above (default, compose fallback, molecule scenarios).
+2. Check the tag exists exactly like that, for `linux/amd64` and `linux/arm64`, e.g. `https://hub.docker.com/v2/repositories/<repo>/tags/<tag>` (`images[].architecture`). If one architecture is missing, do not bump.
+3. Run the matching Molecule scenario (`authelia` for Authelia, `authentik-ldap` for lldap, `authelia` for Grafana login) — see `docs/testing.md`.
+4. Add a line to `CHANGELOG.md` including the upgrade note for existing hosts.
+5. `pytest tests/python/test_pinned_auth_images.py` rejects `latest`, `stable`, bare minor lines (`4.39`) and default/fallback mismatches.
+
+Consequence: security fixes in these images no longer arrive by themselves. Watching upstream releases and bumping is now a manual job.
+
 ## Examples
 
 - `deploy/_example/stack.yaml` — default template (used by `make init`)

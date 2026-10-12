@@ -68,7 +68,7 @@ services:
 
 {% if auth_lldap | default(false) | bool %}
   lldap:
-    image: {{ lldap_image | default('lldap/lldap:stable') }}
+    image: {{ lldap_image | default('lldap/lldap:v0.6.3') }}
     container_name: lldap
     restart: unless-stopped
     mem_limit: {{ mem_lldap }}
@@ -115,7 +115,7 @@ services:
 
 {% if auth_provider == 'authelia' %}
   authelia:
-    image: {{ authelia_image | default('authelia/authelia:4.39') }}
+    image: {{ authelia_image | default('authelia/authelia:4.39.28') }}
     container_name: authelia
     restart: unless-stopped
     mem_limit: {{ mem_authelia }}

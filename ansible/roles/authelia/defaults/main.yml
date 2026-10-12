@@ -1,5 +1,5 @@
 ---
 authelia_config_dir: "{{ drayve_deploy_dir }}/authelia"
 authelia_data_dir: "{{ drayve_deploy_dir }}/authelia/data"
-authelia_image: authelia/authelia:4.39
+authelia_image: authelia/authelia:4.39.28
 authelia_reset_db_on_key_change: false
