@@ -113,6 +113,31 @@ or `claims_policy: <name>`.
 `subject` values are passed through verbatim — Authelia's group/oneOf syntax
 (`["group:foo"]`, `[["group:a", "group:b"]]`) all works.
 
+## Grafana: OIDC back channel runs through Traefik
+
+Grafana talks to Authelia over the public name for all four addresses
+(`AUTH_URL`, `TOKEN_URL`, `API_URL`, sign-out): `auth.portal_url`, default
+`https://auth.<stack.domain>`. It does **not** use `http://authelia:9091`.
+
+Why: Authelia (4.39 in our measurements) derives the issuer of a request from
+the request itself and rejects plain HTTP without `X-Forwarded-Proto: https`
+(`invalid X-Forwarded-Proto header value 'http'`, token exchange fails with
+`failed to exchange code to token`). Authelia expects exactly these headers
+from a reverse proxy, see
+<https://www.authelia.com/integration/proxies/introduction/> (section "Authelia
+itself", checked 2026-10-12). Traefik sets them, a direct container-to-container
+call does not.
+
+To keep the call on the Docker network, the Traefik service carries the portal
+hostname as a network alias in the compose default network, where Grafana sits
+as well. The name resolves to Traefik internally; the ACME certificate of the
+public name is verified as usual.
+
+`grafana_oauth_tls_skip_verify` (default `false`) sets
+`GF_AUTH_GENERIC_OAUTH_TLS_SKIP_VERIFY_INSECURE=true`. **Test environments
+only**, for stacks without a valid certificate for the Authelia name. Never
+enable it on a stack with real users.
+
 ## Forgejo gotchas (S328-Folge12 anlass)
 
 These caused a silent 8-day Forgejo-SSO outage and are now documented in
