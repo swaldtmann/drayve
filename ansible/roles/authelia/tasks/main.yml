@@ -41,7 +41,7 @@
   no_log: true
   tags: [authelia]
 
-# W-144: per-client OIDC secret + hash. One PBKDF2-SHA512 hash file per client
+# W-144: per-client OIDC secret + hash. One Argon2id hash file per client
 # under <data>/.oidc_<id>_hash. Plain secret comes from host_secrets via the
 # convention `authelia_oidc_<id>_secret`. The legacy variable
 # `authelia_oidc_grafana_secret` keeps working through that convention.
@@ -85,6 +85,45 @@
     label: "{{ item.id }}"
   tags: [authelia]
 
+# The hash must follow the plain secret: the plain secret reaches the client on
+# every run, so a rotated secret needs a new hash. A sha256 checksum of the
+# plain secret (never the secret itself) sits next to the hash file; the hash is
+# regenerated when it is missing (upgrade case) or differs. Unchanged secret =
+# unchanged hash, so the rendered Authelia config stays stable.
+- name: Check for OIDC client secret checksum file (per client)
+  ansible.builtin.stat:
+    path: "{{ authelia_data_dir }}/.oidc_{{ item.id }}_secret.sha256"
+  register: _oidc_sum_files
+  loop: "{{ authelia_oidc_clients }}"
+  loop_control:
+    label: "{{ item.id }}"
+  tags: [authelia]
+
+- name: Read OIDC client secret checksums (per client)
+  ansible.builtin.slurp:
+    src: "{{ authelia_data_dir }}/.oidc_{{ item.item.id }}_secret.sha256"
+  register: _oidc_sum_raws
+  when: item.stat.exists
+  loop: "{{ _oidc_sum_files.results }}"
+  loop_control:
+    label: "{{ item.item.id }}"
+  no_log: true
+  tags: [authelia]
+
+- name: Build stored OIDC client secret checksum map
+  ansible.builtin.set_fact:
+    _oidc_sum_stored: >-
+      {{ _oidc_sum_stored | default({}) | combine({
+           item.item.item.id: (item.content | default('') | b64decode | trim)
+         })
+      }}
+  when: item.skipped is not defined
+  loop: "{{ _oidc_sum_raws.results }}"
+  loop_control:
+    label: "{{ item.item.item.id | default('skipped') }}"
+  no_log: true
+  tags: [authelia]
+
 - name: Generate Argon2id hash for OIDC client secret (per client)
   # HUB-W-003: argon2id via Authelia-CLI, kein Python-pwhash mehr.
   ansible.builtin.shell:
@@ -101,7 +140,12 @@
   register: _oidc_hash_generated
   changed_when: false
   no_log: true
-  when: not item.stat.exists
+  when:
+    - authelia_oidc_client_secrets[item.item.id] | length > 0
+    - >-
+      (not item.stat.exists)
+      or ((_oidc_sum_stored | default({})).get(item.item.id, '')
+          != (authelia_oidc_client_secrets[item.item.id] | hash('sha256')))
   loop: "{{ _oidc_hash_files.results }}"
   loop_control:
     label: "{{ item.item.id }}"
@@ -111,6 +155,20 @@
   ansible.builtin.copy:
     content: "{{ item.stdout }}"
     dest: "{{ authelia_data_dir }}/.oidc_{{ item.item.item.id }}_hash"
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0600"
+  when: item.skipped is not defined
+  loop: "{{ _oidc_hash_generated.results }}"
+  loop_control:
+    label: "{{ item.item.item.id | default('skipped') }}"
+  no_log: true
+  tags: [authelia]
+
+- name: Store OIDC client secret checksum (per client)
+  ansible.builtin.copy:
+    content: "{{ authelia_oidc_client_secrets[item.item.item.id] | hash('sha256') }}\n"
+    dest: "{{ authelia_data_dir }}/.oidc_{{ item.item.item.id }}_secret.sha256"
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
     mode: "0600"

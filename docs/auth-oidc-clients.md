@@ -64,11 +64,20 @@ For each client `<id>` the plain OIDC client secret must live in
 `deploy/<name>/secrets.yml` under the key `authelia_oidc_<id>_secret`. Drayve
 will:
 
-1. PBKDF2-SHA512 hash the secret on the host (one-shot, file:
-   `<authelia-data>/.oidc_<id>_hash`).
+1. Argon2id hash the secret on the host (file:
+   `<authelia-data>/.oidc_<id>_hash`). A sha256 checksum of the plain secret
+   is kept next to it (`.oidc_<id>_secret.sha256`, mode `0600`; never the
+   secret itself) to detect a changed secret.
 2. Reference the hash in Authelia's `clients[].client_secret`.
 3. Emit the plain secret as `AUTHELIA_OIDC_<ID>_SECRET` in `.env` so the
    downstream service can read it.
+
+**Rotating a secret:** change `authelia_oidc_<id>_secret` in `secrets.yml` and
+run a normal deploy. The checksum no longer matches, so the hash is regenerated
+and both sides pick up the new secret. An unchanged secret keeps its hash, so
+the rendered Authelia configuration (and the container) stay untouched. No
+manual deletion of `.oidc_<id>_hash` is needed any more. On the first deploy
+after upgrading, the hash is regenerated once because no checksum exists yet.
 
 The legacy variable name `authelia_oidc_grafana_secret` still works and feeds
 the `id: grafana` client — existing v0.1.x deployments do not need to rename
