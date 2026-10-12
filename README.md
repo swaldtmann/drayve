@@ -135,7 +135,7 @@ Variant points (set before the include):
 | `SOPS_AGE_KEY_FILE` | `~/.config/sops/age/drayve-$(NAME).txt` | private age key |
 | `SNAPSHOT_HOST` | `$(NAME)` | hcloud snapshot target |
 | `AGE_KEY_LINK` | empty | `1` adds `age-key-link` to deploy prereqs |
-| `PROD_SNAPSHOT` | `tools/prod-snapshot` path | pre-deploy snapshot wrapper |
+| `PROD_SNAPSHOT` | empty | optional pre-deploy snapshot command, called as `<cmd> <host> --reason <text>` (may include arguments); empty = no snapshot |
 
 ## Documentation
 

@@ -30,7 +30,9 @@
 #   SNAPSHOT_HOST     — $(NAME)
 #   AGE_KEY_LINK      — leer = aus, "1" = symlink deploy/.age-key.txt anlegen
 #                       (in deploy-prod/-check/backup-deploy als Prerequisite)
-#   PROD_SNAPSHOT     — Pfad zum prod-snapshot-Wrapper
+#   PROD_SNAPSHOT     — optionaler Befehl, wird als
+#                       `<cmd> <host> --reason <text>` aufgerufen (darf eigene
+#                       Argumente enthalten); leer = kein Snapshot
 #   DRAYVE_REF        — git-ref fuer vendor (kommt aus Konsument)
 #   EXTRA_ANSIBLE_VARS — leer = aus, sonst an deploy-prod/-check/-check-fast/
 #                       backup-deploy angehaengt, gilt fuer alle Targets identisch
@@ -47,7 +49,7 @@ SECRETS_FILE      ?= secrets.yml
 ENV_FILE          ?= env.override
 SOPS_AGE_KEY_FILE ?= $(HOME)/.config/sops/age/drayve-$(NAME).txt
 SNAPSHOT_HOST     ?= $(NAME)
-PROD_SNAPSHOT     ?= /Users/sw/claudes-welt/tools/prod-snapshot
+PROD_SNAPSHOT     ?=
 SKIP_SNAPSHOT     ?=
 EXTRA_ANSIBLE_VARS ?=
 
@@ -71,9 +73,11 @@ age-key-link:  ## Create deploy/.age-key.txt symlink (drayve secrets role expect
 	@ln -sf $(SOPS_AGE_KEY_FILE) deploy/.age-key.txt
 	@echo "deploy/.age-key.txt -> $(SOPS_AGE_KEY_FILE)"
 
-pre-snapshot:  ## Pre-Deploy hcloud-Snapshot (AFKI-W-125, SKIP_SNAPSHOT=1 ueberspringt)
+pre-snapshot:  ## Pre-Deploy snapshot via PROD_SNAPSHOT (SKIP_SNAPSHOT=1 ueberspringt)
 	@if [ -n "$(SKIP_SNAPSHOT)" ]; then \
 		echo "pre-snapshot: SKIP_SNAPSHOT gesetzt — uebersprungen (Notfall-Override)"; \
+	elif [ -z "$(PROD_SNAPSHOT)" ]; then \
+		echo "pre-snapshot: PROD_SNAPSHOT not set — no pre-deploy snapshot taken"; \
 	else \
 		$(PROD_SNAPSHOT) $(SNAPSHOT_HOST) --reason "drayve-deploy-$(DRAYVE_REF)"; \
 	fi

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- **Behaviour change, `consumer.mk`:** `PROD_SNAPSHOT` no longer defaults to a
+  fixed path; the default is empty. With it empty, `pre-snapshot` prints
+  `PROD_SNAPSHOT not set` and continues without a snapshot (exit 0).
+  Consumers that relied on the old default must now set `PROD_SNAPSHOT`
+  themselves (a command called as `<cmd> <host> --reason <text>`; it may
+  contain its own arguments). `SKIP_SNAPSHOT=1` behaves as before.
+
 ## [0.8.11] - 2026-10-08
 
 ### Added

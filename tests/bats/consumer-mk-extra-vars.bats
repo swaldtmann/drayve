@@ -95,3 +95,32 @@ teardown() {
     [ "$status" -eq 0 ]
     [[ "$output" == *"-e @${FIXTURE}/override.yml"* ]]
 }
+
+# pre-snapshot: PROD_SNAPSHOT is an optional command, empty = no snapshot.
+
+@test "pre-snapshot with empty PROD_SNAPSHOT prints a notice and exits 0" {
+    cd "${FIXTURE}"
+    run make pre-snapshot PROD_SNAPSHOT=
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"PROD_SNAPSHOT not set"* ]]
+}
+
+@test "pre-snapshot calls PROD_SNAPSHOT as <cmd> <host> --reason <text>" {
+    cd "${FIXTURE}"
+    run make pre-snapshot PROD_SNAPSHOT="echo SNAP"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"SNAP test-target --reason drayve-deploy-test"* ]]
+}
+
+@test "pre-snapshot honours SKIP_SNAPSHOT" {
+    cd "${FIXTURE}"
+    run make pre-snapshot PROD_SNAPSHOT="echo SNAP" SKIP_SNAPSHOT=1
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"SKIP_SNAPSHOT"* ]]
+    [[ "$output" != *"SNAP test-target"* ]]
+}
+
+@test "consumer.mk has no hard-wired default for PROD_SNAPSHOT" {
+    run grep -nE '^PROD_SNAPSHOT[[:space:]]*\?=[[:space:]]*$' "${DRAYVE_ROOT}/ansible/consumer.mk"
+    [ "$status" -eq 0 ]
+}
