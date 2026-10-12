@@ -1,0 +1,47 @@
+# Authelia with the file user backend (no LLDAP) and group-based access control.
+#
+# Picture: members of "admins" reach every domain with a second factor,
+# members of "viewers" reach exactly one domain, everything else is denied.
+#
+# Password hashes are NOT stored here. They go into secrets.yml:
+#
+#   authelia_user_password_hashes:
+#     alice: '$argon2id$v=19$m=65536,t=3,p=4$...'
+#     bob: '$argon2id$v=19$m=65536,t=3,p=4$...'
+#
+# Generate a hash with: authelia crypto hash generate argon2
+
+drayve_version: "0.1.0"
+
+stack:
+  name: portal
+  domain: example.com
+  acme_email: admin@example.com
+
+auth:
+  provider: authelia
+  lldap: false            # file backend, users from auth.users below
+
+  access_control:
+    default_policy: deny
+    # First matching rule wins — keep the broad admin rule first, the narrow
+    # viewer rule after it. Anything no rule matches falls to default_policy.
+    rules:
+      - domain:
+          - example.com
+          - "*.example.com"
+        policy: two_factor
+        groups: [admins]
+      - domain: grafana.example.com
+        policy: one_factor
+        groups: [viewers]
+
+  users:
+    - name: alice
+      displayname: Alice Admin
+      email: alice@example.com
+      groups: [admins]
+    - name: bob
+      displayname: Bob Viewer
+      email: bob@example.com
+      groups: [viewers]

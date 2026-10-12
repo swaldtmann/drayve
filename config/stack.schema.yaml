@@ -103,6 +103,73 @@ properties:
         type: string
         description: LDAP base DN for LLDAP (only with auth.lldap=true).
         default: "DC=drayve,DC=local"
+      access_control:
+        type: object
+        description: >
+          Authelia access control (only with auth.provider=authelia). Rules are
+          evaluated in order, the first matching rule wins; requests no rule
+          matches get default_policy. A rule with groups cannot use "bypass".
+        properties:
+          default_policy:
+            type: string
+            enum: [deny, one_factor, two_factor, bypass]
+            default: one_factor
+          rules:
+            type: array
+            items:
+              type: object
+              required: [domain, policy]
+              properties:
+                domain:
+                  description: Domain pattern or list of patterns (e.g. "*.example.com").
+                  oneOf:
+                    - type: string
+                    - type: array
+                      items:
+                        type: string
+                      minItems: 1
+                policy:
+                  type: string
+                  enum: [deny, one_factor, two_factor, bypass]
+                groups:
+                  type: array
+                  description: Rule matches members of any of these groups (Authelia subject "group:<name>").
+                  items:
+                    type: string
+                resources:
+                  type: array
+                  description: Path regular expressions (Authelia "resources").
+                  items:
+                    type: string
+                networks:
+                  type: array
+                  description: Source networks in CIDR notation (Authelia "networks").
+                  items:
+                    type: string
+      users:
+        type: array
+        description: >
+          Users for the Authelia file backend (only with auth.provider=authelia
+          and auth.lldap=false). Password hashes are NOT set here: put an
+          argon2id hash per user under authelia_user_password_hashes.<name> in
+          secrets.yml (generate with `authelia crypto hash generate argon2`).
+        items:
+          type: object
+          required: [name, email]
+          properties:
+            name:
+              type: string
+              description: Login name (key in Authelia's users file).
+            displayname:
+              type: string
+              description: Display name. Defaults to name.
+            email:
+              type: string
+            groups:
+              type: array
+              items:
+                type: string
+              default: []
       ldap:
         type: object
         description: External LDAP source for Authentik (only with auth.provider=authentik).

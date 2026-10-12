@@ -27,6 +27,16 @@
   when: auth_provider == "authelia"
   tags: [auth]
 
+# Access-control rules + file-backend users from stack.yaml. Password hashes
+# come from secrets.yml (authelia_user_password_hashes), handled in roles/authelia.
+- name: Resolve Authelia access control and file-backend users from stack.yaml
+  ansible.builtin.set_fact:
+    authelia_access_control_default_policy: "{{ auth.access_control.default_policy | default('one_factor') }}"
+    authelia_access_control_rules: "{{ auth.access_control.rules | default([]) }}"
+    authelia_users: "{{ auth.users | default([]) }}"
+  when: auth_provider == "authelia"
+  tags: [auth]
+
 - name: Auth provider none — no auth containers
   ansible.builtin.debug:
     msg: "Auth provider: none — skipping auth setup"

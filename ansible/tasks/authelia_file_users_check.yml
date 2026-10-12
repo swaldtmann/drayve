@@ -1,0 +1,45 @@
+---
+# Fail early for the Authelia file user backend (auth.provider=authelia and
+# auth.lldap=false): at least one user in stack.yaml (auth.users) and a password
+# hash in secrets.yml (authelia_user_password_hashes) for every one of them.
+#
+# Included from roles/authelia (before the config is deployed) and from
+# playbooks/validate.yml. Reads `auth_provider` and `auth_lldap` (set by roles/auth;
+# validate.yml passes its own values via `vars:`), `auth.users` and `host_secrets`.
+#
+# Messages name users only, never a hash.
+
+- name: Authelia file backend — users and password hashes
+  when:
+    - auth_provider | default('basic') == 'authelia'
+    - not (auth_lldap | default(false) | bool)
+  block:
+    - name: Collect users without a password hash
+      ansible.builtin.set_fact:
+        _authelia_file_users_count: "{{ ((auth | default({})).users | default([])) | length }}"
+        _authelia_users_without_hash: >-
+          {{ ((auth | default({})).users | default([]) | map(attribute='name') | list)
+             | difference(
+                 (host_secrets | default({})).authelia_user_password_hashes | default({})
+                 | dict2items | selectattr('value') | map(attribute='key') | list
+               ) }}
+      no_log: true
+
+    - name: Fail — file backend needs at least one user
+      ansible.builtin.assert:
+        that:
+          - _authelia_file_users_count | int > 0
+        fail_msg: >-
+          auth.provider=authelia with auth.lldap=false uses the file user backend,
+          but stack.yaml defines no auth.users. Add at least one user
+          (name, displayname, email, groups) or set auth.lldap: true.
+
+    - name: Fail — every file-backend user needs a password hash
+      ansible.builtin.assert:
+        that:
+          - _authelia_users_without_hash | length == 0
+        fail_msg: >-
+          No password hash in secrets.yml (authelia_user_password_hashes) for
+          user(s): {{ _authelia_users_without_hash | join(', ') }}.
+          Generate one with: authelia crypto hash generate argon2
+          and add it under authelia_user_password_hashes.<username>.

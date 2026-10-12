@@ -171,6 +171,13 @@
           docker-template default and pw-hash isolation is broken.
       when: _auth_lldap
 
+    - name: Assert Authelia file-backend users and password hashes (auth.lldap=false)
+      ansible.builtin.import_tasks:
+        file: ../tasks/authelia_file_users_check.yml
+      vars:
+        auth_provider: "{{ _auth_provider }}"
+        auth_lldap: "{{ _auth_lldap }}"
+
     - name: Assert kedge backup prerequisites (backup.target=kedge)
       ansible.builtin.assert:
         that:

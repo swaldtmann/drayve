@@ -101,12 +101,30 @@ Do not store the backup next to your repo. Do not put it in the same cloud stora
 | `authelia_ldap_password` | Authelia | LDAP bind password |
 | `authelia_oidc_hmac_secret` | Authelia | OIDC HMAC signing |
 | `authelia_oidc_grafana_secret` | Authelia | Grafana OIDC client secret |
+| `authelia_user_password_hashes` | Authelia (file backend) | Mapping `username` → argon2id hash. **Not generated** — you supply it, see below |
 | `authentik_secret_key` | Authentik | Internal encryption key |
 | `authentik_pg_pass` | Authentik | PostgreSQL password |
 | `authentik_bootstrap_password` | Authentik | Initial admin password |
 | `authentik_bootstrap_token` | Authentik | API token for zero-touch bootstrap |
 | `authentik_oidc_grafana_secret` | Authentik | Grafana OIDC client secret |
 | `backup_restic_password` | Restic | Backup repository encryption |
+
+### Authelia file-backend user hashes
+
+With `auth.provider: authelia` and `auth.lldap: false`, users are listed in `stack.yaml` (`auth.users`) and their password hashes live in `secrets.yml` — never the plaintext password. Every user in `auth.users` needs an entry; a missing hash aborts `make validate` and the deploy, naming the user.
+
+```yaml
+# secrets.yml
+authelia_user_password_hashes:
+  alice: '$argon2id$v=19$m=65536,t=3,p=4$...'
+  bob: '$argon2id$v=19$m=65536,t=3,p=4$...'
+```
+
+Generate a hash (the password is read from the prompt, not from the shell history):
+
+```bash
+docker run --rm -it authelia/authelia:4.39 authelia crypto hash generate argon2
+```
 
 ## App-level secrets via `env.override`
 
