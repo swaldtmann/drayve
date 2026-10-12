@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Authelia access rules and a file user backend from `stack.yaml`.**
+  `auth.access_control.default_policy` and `auth.access_control.rules`
+  (`groups` become `subject: group:<name>`; `resources` and `networks` pass
+  through) render into Authelia's `access_control`. With `auth.lldap: false`,
+  `auth.users` plus `authelia_user_password_hashes` in the host secrets render
+  `authelia/users_database.yml` (mode 0600, mounted read-only into the
+  container only when lldap is off; Authelia may not write it back, password
+  change and reset are disabled). A missing user or hash aborts the run before
+  anything is written. Without the new keys the lldap-mode output is
+  unchanged. See `examples/stack-authelia-file.yaml`.
+- **`auth.provider: authelia_remote`** for a host without its own Authelia:
+  Traefik's `auth@file` forwardAuth middleware points at
+  `auth.remote.forward_auth_url`; no `authelia`/`lldap` container and no
+  Authelia secrets on that host. `auth.remote.forward_auth_url` and
+  `auth.remote.portal_url` are required (`forward_auth_url` must be a plain
+  `https://` URL). Examples: `examples/stack-authelia-remote.yaml`,
+  `examples/stack-authelia-two-hosts.yaml`.
+- **`auth.cookie_domain` and `auth.portal_url`** feed Authelia's
+  `session.cookies[]` (defaults: `drayve_domain` and `https://auth.<domain>`).
+  The portal host must equal the cookie domain or lie under it, and must use
+  `https://`; otherwise the run aborts.
+- **`authelia_reset_db_on_key_change`** (default `false`) and
+  **`grafana_oauth_tls_skip_verify`** (default `false`, tests only), see below.
+- **Built-in `claims_policies.grafana`** (ID token claims `email`, `name`,
+  `groups`, `preferred_username`), merged under `auth.claims_policies`; a
+  policy of the same name in `stack.yaml` wins.
+- **`crowdsec_image`, `landing_image`** in `group_vars/all/vars.yml`
+  (CrowdSec and the landing-page nginx were hard-coded in the compose
+  template). `lldap_image` now has a default there as well.
+- **New CI scenario `molecule/authelia-file/`** (`make test-authelia-file`,
+  part of the tag-push release gate, about an hour): signs in through Authelia
+  without a browser (redirect to the portal, first factor, TOTP, group access
+  rules), checks the Grafana OIDC sign-in with the shipped client, and what
+  redeploys do (unchanged run, TOTP survives a config change, a new user,
+  a rotated client secret, `--tags secrets,deploy`). Tests and workflows only.
+
 ### Changed
 - **Behaviour change, `consumer.mk`:** `PROD_SNAPSHOT` no longer defaults to a
   fixed path; the default is empty. With it empty, `pre-snapshot` prints
@@ -14,6 +51,91 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Consumers that relied on the old default must now set `PROD_SNAPSHOT`
   themselves (a command called as `<cmd> <host> --reason <text>`; it may
   contain its own arguments). `SKIP_SNAPSHOT=1` behaves as before.
+- **Grafana's Authelia OIDC back channel goes through Traefik over HTTPS.**
+  `AUTH_URL`, `TOKEN_URL`, `API_URL` and the sign-out URL now all use
+  `auth.portal_url` (default `https://auth.<domain>`) instead of
+  `http://authelia:9091`. Traefik carries the portal host as a network alias
+  in the default network, so the name resolves inside the compose network.
+  The alias exists only with `auth.provider: authelia` and Grafana deployed.
+- **Images pinned to exact versions** (no floating tags left): Authelia
+  `4.39` -> `4.39.28`, lldap `stable` -> `v0.6.3`, Grafana `12.3.6` ->
+  `12.4.12` (the hold on 12.3.6 is lifted; login via Authelia measured with
+  12.4.12 on 2026-10-12), Traefik `v3.6` -> `v3.6.25`, CrowdSec `latest` ->
+  `v1.8.1`, landing-page nginx `alpine` -> `1.31.6-alpine`, Authentik's
+  Postgres `16-alpine` -> `16.15-alpine` and Redis `7-alpine` ->
+  `7.4.11-alpine`. The new tags are what the old floating tags pointed to on
+  2026-10-12. A guard test (`tests/python/test_pinned_images.py`) fails on any
+  floating image reference; `docs/configuration.md` describes how to bump.
+- **The Authelia database is no longer deleted on a configuration change**
+  (see Fixed). The guard against tag-scoped runs now recommends
+  `--tags secrets,auth` (`--tags secrets,authelia` ran no Authelia task).
+- **docs:** the OIDC client hash is Argon2id, not PBKDF2 as documented before.
+
+### Fixed
+- **Grafana sign-in through Authelia OIDC failed on a fresh host out of the
+  box** ("Failed to get token from provider"). Fixed by the combination of:
+  the HTTPS back channel through Traefik (Authelia 4.39 derives the issuer
+  from the request and rejects plain HTTP without `X-Forwarded-Proto:
+  https`); a `claims_policy` on the default Grafana client (without it the ID
+  token carries no `groups`, so `lldap_admin` members became Viewer).
+- **A changed `configuration.yml` deleted the Authelia database**, and with it
+  every TOTP/2FA registration and session. The database is now kept. Only a
+  changed `storage_encryption_key` (detected by a sha256 marker next to the
+  database, never the key itself) aborts the deploy; set
+  `authelia_reset_db_on_key_change: true` to delete the database on purpose.
+  An empty rendered key never counts as a change.
+- **A rotated OIDC client secret broke the login.** The hash was generated
+  only when its file did not exist, while the plain secret reaches the client
+  on every run. A sha256 checksum of the plain secret now sits next to the
+  hash; the hash is regenerated when the checksum differs or is missing.
+  Rotation works with a normal deploy.
+- **`--tags secrets,deploy` rendered `AUTHELIA_OIDC_<ID>_SECRET` empty** in
+  `.env` (Grafana lost its client secret). Client list and plain secrets are
+  now resolved in `roles/deploy` as well. A configured client without a
+  secret aborts before `.env` is written (message names the client id only).
+- **A custom `auth.oidc_clients` list without `id: grafana` locked everyone
+  out of Grafana** (the list replaces the default, Grafana has the login form
+  off). Validation and the playbook preflight now abort with a copyable client
+  example; an own `grafana` client without `claims_policy` only warns.
+- **First deploy with lldap crash-looped Authelia** (LDAP code 49): the bind
+  user did not exist yet when Authelia started. The deploy now starts lldap
+  first, waits until it is healthy, verifies the admin password, creates the
+  bind user, and only then runs the full `docker compose up`.
+
+### Upgrade notes
+- **No new required variable.** Existing `stack.yaml` files run without
+  changes; all new keys (`auth.access_control`, `auth.users`,
+  `auth.cookie_domain`, `auth.portal_url`, `auth.remote.*`) are optional, and
+  without them the rendered Authelia access control and session settings are
+  unchanged. The one exception: with `auth.provider: authelia`, Grafana
+  deployed and an own `auth.oidc_clients` list, the list must contain
+  `id: grafana`, otherwise the run now aborts (see Fixed).
+- **First deploy after the upgrade, `auth.provider: authelia`:**
+  - Authelia's `configuration.yml` changes once (the built-in
+    `claims_policies.grafana` and its reference from the Grafana client; the
+    client hashes below) and the Authelia container is recreated, also
+    because of the image change.
+  - Each OIDC client hash is regenerated once, because no checksum file
+    exists yet. The checksum files `<authelia data dir>/.oidc_<id>_secret.sha256`
+    are created (mode 0600), and `<authelia data dir>/.storage_encryption_key.sha256`
+    is written next to the existing database, which is kept.
+  - With Grafana deployed, the Traefik container is recreated once (it gets the
+    network alias for the portal host), together with the image change to
+    `v3.6.25`.
+- **Grafana now reaches Authelia over HTTPS through Traefik.** The certificate
+  for `auth.portal_url` must be valid for Grafana, otherwise the token
+  exchange fails. Test environments without a valid certificate can set
+  `grafana_oauth_tls_skip_verify: true`; do not use it in production.
+- **Image changes recreate containers** (Authelia, lldap, Grafana, Traefik,
+  CrowdSec, landing page, and Authentik's Postgres and Redis where they run),
+  so these services are briefly unavailable during the first deploy.
+  Grafana moves from 12.3.6 to 12.4.12 (minor version). Postgres and Redis
+  stay inside their major line. Sites that set an image variable themselves
+  (`grafana_image`, `authelia_image`, `traefik_image`, ...) keep their value.
+- **Behaviour change:** a changed Authelia `storage_encryption_key` now aborts
+  the deploy instead of silently deleting the database. Restore the old key,
+  or set `authelia_reset_db_on_key_change: true` for one deploy and accept
+  that all TOTP/2FA registrations are lost.
 
 ## [0.8.11] - 2026-10-08
 
