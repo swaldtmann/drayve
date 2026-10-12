@@ -2,6 +2,13 @@
 # Template: ansible/templates/docker-compose.yml.j2
 name: drayve
 
+{# Public Authelia base (same default as config/authelia/configuration.yml.j2).
+   Grafana's OIDC back channel uses it too: Authelia >= 4.39 derives the issuer
+   from the request and needs X-Forwarded-Proto: https, which only Traefik sets.
+   The host is validated as https:// by ansible/tasks/auth_preflight.yml. #}
+{% set _authelia_base = ((auth | default({})).portal_url | default('https://auth.' ~ drayve_domain, true)) | trim('/') %}
+{% set _authelia_host = _authelia_base[8:].split('/')[0].split(':')[0] %}
+{% set _grafana_authelia_oidc = auth_provider == 'authelia' and (monitoring_services.grafana | default(false) | bool) %}
 services:
   traefik:
     image: {{ traefik_image | default('traefik:v3.6') }}
@@ -38,6 +45,15 @@ services:
     depends_on:
       crowdsec:
         condition: service_healthy
+{% endif %}
+{% if _grafana_authelia_oidc %}
+    # Grafana resolves the public Authelia name to Traefik inside the compose
+    # network (no detour via the internet or the host), so its OIDC token and
+    # userinfo calls reach Authelia through Traefik with X-Forwarded-Proto: https.
+    networks:
+      default:
+        aliases:
+          - {{ _authelia_host }}
 {% endif %}
 
 {% if crowdsec_enabled %}
@@ -324,9 +340,9 @@ services:
       - GF_AUTH_GENERIC_OAUTH_CLIENT_ID=grafana
       - GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET=${AUTHELIA_OIDC_GRAFANA_SECRET}
       - GF_AUTH_GENERIC_OAUTH_SCOPES=openid profile email groups
-      - GF_AUTH_GENERIC_OAUTH_AUTH_URL=https://auth.{{ drayve_domain }}/api/oidc/authorization
-      - GF_AUTH_GENERIC_OAUTH_TOKEN_URL=http://authelia:9091/api/oidc/token
-      - GF_AUTH_GENERIC_OAUTH_API_URL=http://authelia:9091/api/oidc/userinfo
+      - GF_AUTH_GENERIC_OAUTH_AUTH_URL={{ _authelia_base }}/api/oidc/authorization
+      - GF_AUTH_GENERIC_OAUTH_TOKEN_URL={{ _authelia_base }}/api/oidc/token
+      - GF_AUTH_GENERIC_OAUTH_API_URL={{ _authelia_base }}/api/oidc/userinfo
       - GF_AUTH_GENERIC_OAUTH_LOGIN_ATTRIBUTE_PATH=preferred_username
       - GF_AUTH_GENERIC_OAUTH_NAME_ATTRIBUTE_PATH=name
       - GF_AUTH_GENERIC_OAUTH_EMAIL_ATTRIBUTE_PATH=email
@@ -334,7 +350,11 @@ services:
       - GF_AUTH_GENERIC_OAUTH_ALLOW_SIGN_UP=true
       - GF_AUTH_GENERIC_OAUTH_AUTO_LOGIN=true
       - GF_AUTH_OAUTH_ALLOW_INSECURE_EMAIL_LOOKUP=true
-      - GF_AUTH_SIGNOUT_REDIRECT_URL=https://auth.{{ drayve_domain }}/logout
+      - GF_AUTH_SIGNOUT_REDIRECT_URL={{ _authelia_base }}/logout
+{% if grafana_oauth_tls_skip_verify | default(false) | bool %}
+      # TEST ONLY: environments without a valid certificate for the Authelia name.
+      - GF_AUTH_GENERIC_OAUTH_TLS_SKIP_VERIFY_INSECURE=true
+{% endif %}
 {% endif %}
 {% if auth_provider == 'authentik' %}
       - GF_SECURITY_ADMIN_USER=grafana-builtin-admin
