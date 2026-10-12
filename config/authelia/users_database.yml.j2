@@ -1,0 +1,15 @@
+---
+# Authelia users database (file backend) — managed by Ansible.
+# Template: config/authelia/users_database.yml.j2
+# Source of truth: stack.yaml (auth.users) + secrets.yml (authelia_user_password_hashes).
+# Do not edit on the host; the next deploy overwrites this file.
+
+users:
+{% for u in authelia_users | default([]) %}
+  {{ u.name | to_json }}:
+    disabled: false
+    displayname: {{ u.displayname | default(u.name) | to_json }}
+    password: {{ authelia_user_password_hashes[u.name] | to_json }}
+    email: {{ u.email | to_json }}
+    groups: {{ u.groups | default([]) | to_json }}
+{% endfor %}

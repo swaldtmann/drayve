@@ -152,6 +152,31 @@
   no_log: true
   tags: [authelia]
 
+# File user backend (auth.lldap=false): stack.yaml (auth.users) + secrets.yml
+# (authelia_user_password_hashes) are the only source of truth. Fail before
+# anything is written if a user or its hash is missing.
+- name: Check file-backend users and password hashes
+  ansible.builtin.import_tasks: ../../../tasks/authelia_file_users_check.yml
+  tags: [authelia]
+
+- name: Resolve file-backend password hashes
+  ansible.builtin.set_fact:
+    authelia_user_password_hashes: "{{ (host_secrets | default({})).get('authelia_user_password_hashes', {}) }}"
+  when: not (auth_lldap | default(false) | bool)
+  no_log: true
+  tags: [authelia]
+
+- name: Deploy Authelia users database (file backend)
+  ansible.builtin.template:
+    src: "{{ ops_deploy_root }}/config/authelia/users_database.yml.j2"
+    dest: "{{ authelia_config_dir }}/users_database.yml"
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0600"
+  when: not (auth_lldap | default(false) | bool)
+  no_log: true
+  tags: [authelia]
+
 - name: Deploy Authelia configuration
   ansible.builtin.template:
     src: "{{ ops_deploy_root }}/config/authelia/configuration.yml.j2"

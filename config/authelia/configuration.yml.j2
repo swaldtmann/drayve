@@ -25,10 +25,46 @@ authentication_backend:
 {% else %}
   file:
     path: /config/users_database.yml
+    watch: true
+  # stack.yaml + secrets.yml are the only source of truth for users in file
+  # mode; Authelia must never write the file back.
+  password_change:
+    disable: true
+  password_reset:
+    disable: true
 {% endif %}
 
 access_control:
-  default_policy: one_factor
+  default_policy: {{ authelia_access_control_default_policy | default('one_factor') }}
+{% set _ac_rules = authelia_access_control_rules | default([]) %}
+{% if _ac_rules %}
+  rules:
+{%   for r in _ac_rules %}
+    - domain:
+{%     for d in ([r.domain] if r.domain is string else r.domain) %}
+        - {{ d | to_json }}
+{%     endfor %}
+      policy: {{ r.policy }}
+{%     if r.groups | default([]) %}
+      subject:
+{%       for g in r.groups %}
+        - {{ ('group:' ~ g) | to_json }}
+{%       endfor %}
+{%     endif %}
+{%     if r.resources | default([]) %}
+      resources:
+{%       for res in r.resources %}
+        - {{ res | to_json }}
+{%       endfor %}
+{%     endif %}
+{%     if r.networks | default([]) %}
+      networks:
+{%       for n in r.networks %}
+        - {{ n | to_json }}
+{%       endfor %}
+{%     endif %}
+{%   endfor %}
+{% endif %}
 
 session:
   secret: "{{ authelia_session_secret }}"

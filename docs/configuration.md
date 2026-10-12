@@ -40,6 +40,33 @@ Everything else has sensible defaults. This gives you: basic auth, full monitori
 | `provider` | string | `basic` | `none` — no auth. `basic` — HTTP basic auth. `authelia` — full SSO with web portal. `authentik` — enterprise SSO (planned) |
 | `lldap` | bool | `false` | Deploy LLDAP as user backend (authelia only) |
 | `lldap_base_dn` | string | `DC=drayve,DC=local` | LDAP base DN (authelia + lldap only) |
+| `access_control.default_policy` | string | `one_factor` | Authelia policy for requests no rule matches: `deny`, `one_factor`, `two_factor`, `bypass` (authelia only) |
+| `access_control.rules` | list | — | Authelia access rules, see below (authelia only) |
+| `users` | list | — | File-backend users: `name`, `email` (required), `displayname`, `groups`. Authelia with `lldap: false` only; hashes go in `secrets.yml` |
+
+#### Access control (`auth.access_control`)
+
+Each rule has `domain` (string or list, `*.example.com` matches subdomains), `policy`, and optionally `groups` (matches members of any listed group), `resources` (path regexes) and `networks` (CIDR). **The first matching rule wins**, so put broad rules for privileged groups before narrow ones. A rule with `groups` cannot use `policy: bypass` (Authelia needs a login to know the group). Without `access_control`, Authelia keeps `default_policy: one_factor` and no rules, as before.
+
+```yaml
+auth:
+  provider: authelia
+  access_control:
+    default_policy: deny
+    rules:
+      - domain: ["example.com", "*.example.com"]   # admins: everything, with 2FA
+        policy: two_factor
+        groups: [admins]
+      - domain: grafana.example.com                # viewers: this one domain only
+        policy: one_factor
+        groups: [viewers]
+```
+
+Full example: `examples/stack-authelia-file.yaml`. Reference: <https://www.authelia.com/configuration/security/access-control/>.
+
+#### File user backend (`lldap: false`)
+
+`auth.users` plus `authelia_user_password_hashes` in `secrets.yml` (see `docs/secrets.md`) are the only source: each deploy rewrites `authelia/users_database.yml` (mode `0600`), and Authelia reloads it (`watch: true`). Password change and password reset are switched off in Authelia, otherwise it would write the file back and the next deploy would overwrite the change. A missing user or hash fails `make validate` and the deploy before anything is written. Hash generation: `authelia crypto hash generate argon2` (command in `docs/secrets.md`). References: <https://www.authelia.com/configuration/first-factor/file/>, <https://www.authelia.com/configuration/first-factor/introduction/>.
 
 ### `monitoring`
 

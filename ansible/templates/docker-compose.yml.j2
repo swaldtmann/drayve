@@ -123,6 +123,9 @@ services:
       - ./authelia/configuration.yml:/config/configuration.yml:ro
       - ./authelia/data:/data
       - ./authelia/jwks.pem:/config/jwks.pem:ro
+{% if not (auth_lldap | default(false) | bool) %}
+      - ./authelia/users_database.yml:/config/users_database.yml:ro
+{% endif %}
 {% if auth_lldap | default(false) | bool %}
     depends_on:
       lldap:
