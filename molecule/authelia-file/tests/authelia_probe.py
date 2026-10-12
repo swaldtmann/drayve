@@ -152,8 +152,9 @@ def extract_oidc_code(location: str) -> str | None:
 
 
 def oidc_secret_mismatch(status: int, body: str) -> bool:
-    """Authelia's rejection of a wrong client secret ("... client secret did not match ...")."""
-    return status != 200 and "secret did not match" in (body or "").lower()
+    """Authelia's rejection of a wrong client secret: ``invalid_client`` (the "did not match" detail is log-only)."""
+    text = (body or "").lower()
+    return status in (400, 401) and ("invalid_client" in text or "secret did not match" in text)
 
 
 # ------------------------------------------------------------- Ansible output

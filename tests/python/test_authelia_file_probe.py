@@ -219,6 +219,15 @@ def test_secret_mismatch_detected_from_authelia_error_body():
     assert probe.oidc_secret_mismatch(401, body) is True
 
 
+def test_short_invalid_client_answer_is_a_secret_mismatch():
+    # What Authelia 4.39.28 really sends for a wrong client secret (CI run, task 63):
+    # the "did not match" detail only goes to its log.
+    body = json.dumps({"error": "invalid_client",
+                       "error_description": "Client authentication failed (e.g., unknown client, no client "
+                                            "authentication included, or unsupported authentication method)."})
+    assert probe.oidc_secret_mismatch(401, body) is True
+
+
 def test_other_token_errors_are_not_a_secret_mismatch():
     body = json.dumps({"error": "invalid_request",
                        "error_description": "Error occurred determining the effective issuer"})
