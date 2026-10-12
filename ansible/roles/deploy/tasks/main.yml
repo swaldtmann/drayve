@@ -351,6 +351,14 @@
       vollen Lauf ohne Tag-Scoping fahren.
   tags: [deploy]
 
+# Client list + client secrets behind AUTHELIA_OIDC_<ID>_SECRET in env.j2.
+# Resolved here as well (not only in roles/auth, tag [auth]) so a tag-scoped
+# run such as `--tags secrets,deploy` does not render those lines empty.
+# Fails (client id only) if a configured client has no secret.
+- name: Resolve authelia_oidc_clients and client secrets for .env
+  ansible.builtin.import_tasks: ../../../tasks/authelia_oidc_resolve.yml
+  tags: [deploy]
+
 - name: Template .env
   ansible.builtin.template:
     src: "{{ ops_deploy_root }}/ansible/templates/env.j2"

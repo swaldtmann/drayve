@@ -1,0 +1,69 @@
+---
+# Resolves the Authelia OIDC client list and the per-client plain secrets that
+# templates/env.j2 renders as AUTHELIA_OIDC_<ID>_SECRET.
+#
+# Imported from BOTH roles/auth (tag [auth]) and roles/deploy (tag [deploy]),
+# always with the importing task's tag, so every run that renders `.env` —
+# including the recommended `--tags secrets,deploy` — has the client list and
+# secrets available. Before this file existed the facts came only from
+# roles/auth + roles/authelia (tag [auth]); a run without that tag rendered
+# `.env` without the OIDC lines and Grafana lost its client secret.
+#
+# Needs: auth_provider (resolved by the importing role beforehand) and, for the
+# secrets, host_secrets / authelia_oidc_<id>_secret from roles/secrets
+# (tag [secrets]). Idempotent: re-running yields the same facts.
+
+# W-144: declarative OIDC clients. stack.yaml supplies a list of clients;
+# fallback is the legacy single Grafana client (back-compat for v0.1.x stacks).
+- name: Resolve authelia_oidc_clients from stack.yaml
+  ansible.builtin.set_fact:
+    authelia_oidc_clients: >-
+      {{ auth.oidc_clients
+         | default(authelia_oidc_clients | default(authelia_oidc_clients_default))
+      }}
+    authelia_oidc_authorization_policies: >-
+      {{ auth.authorization_policies
+         | default(authelia_oidc_authorization_policies | default({}))
+      }}
+    authelia_oidc_claims_policies: >-
+      {{ auth.claims_policies
+         | default(authelia_oidc_claims_policies | default({}))
+      }}
+  when: auth_provider == "authelia"
+
+# W-144: per-client OIDC plain secret. Plain secret comes from host_secrets via
+# the convention `authelia_oidc_<id>_secret`. The legacy variable
+# `authelia_oidc_grafana_secret` keeps working through that convention.
+- name: Resolve per-client OIDC plain secrets
+  ansible.builtin.set_fact:
+    authelia_oidc_client_secrets: >-
+      {{ authelia_oidc_client_secrets | default({}) | combine({
+           item.id: (host_secrets | default({})).get(
+             'authelia_oidc_' ~ item.id ~ '_secret',
+             lookup('vars', 'authelia_oidc_' ~ item.id ~ '_secret', default='')
+           )
+         })
+      }}
+  loop: "{{ authelia_oidc_clients }}"
+  loop_control:
+    label: "{{ item.id }}"
+  when: auth_provider == "authelia"
+  no_log: true
+
+# Safety net: never render `.env` (or deploy Authelia) with an empty client
+# secret — that silently breaks a working OIDC login. The message names the
+# client id only; the assertion reads the secret's length, never its value.
+- name: Fail when any OIDC client is missing a plain secret
+  ansible.builtin.assert:
+    that:
+      - authelia_oidc_client_secrets[item.id] | length > 0
+    fail_msg: >-
+      No plain OIDC secret found for client '{{ item.id }}'.
+      Set host_secrets.authelia_oidc_{{ item.id }}_secret in
+      deploy/{{ inventory_hostname }}/secrets.yml (run with the `secrets`
+      tag, e.g. --tags secrets,deploy, or a full deploy).
+    quiet: true
+  loop: "{{ authelia_oidc_clients }}"
+  loop_control:
+    label: "{{ item.id }}"
+  when: auth_provider == "authelia"
