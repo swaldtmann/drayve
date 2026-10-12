@@ -4,13 +4,14 @@
 import sys
 import yaml
 import re
+from urllib.parse import urlsplit
 
 SCHEMA_PATH = "config/stack.schema.yaml"
 
 ENUMS = {
     "drayve_version": ["0.1.0"],
     "provider.type": ["hetzner", "manual"],
-    "auth.provider": ["none", "basic", "authelia", "authentik"],
+    "auth.provider": ["none", "basic", "authelia", "authelia_remote", "authentik"],
     "monitoring.profile": ["full", "light", "none"],
     "secrets.mode": ["quickstart", "sops"],
     "backup.target": ["kedge", "local", "sftp"],
@@ -19,6 +20,7 @@ ENUMS = {
 NAME_PATTERN = re.compile(r"^[a-z][a-z0-9-]*$")
 PLACEHOLDER_EMAILS = {"you@example.com", "admin@example.com", ""}
 MODE_PATTERN = re.compile(r"^0?[0-7]{3,4}$")
+HTTPS_URL_PATTERN = re.compile(r"""^https://[^\s"']+$""")
 
 
 def get_nested(data, path):
@@ -87,6 +89,47 @@ def validate(config):
         errors.append(
             "auth.ldap requires auth.provider=authentik"
         )
+
+    # authelia_remote: forward-auth against the Authelia of another drayve host
+    if auth.get("provider") == "authelia_remote":
+        remote = auth.get("remote")
+        remote = remote if isinstance(remote, dict) else {}
+        forward_url = remote.get("forward_auth_url")
+        if not forward_url:
+            errors.append(
+                "auth.provider=authelia_remote requires auth.remote.forward_auth_url"
+            )
+        elif not HTTPS_URL_PATTERN.match(str(forward_url)):
+            errors.append(
+                "auth.remote.forward_auth_url must start with https:// "
+                f"(no whitespace or quotes): '{forward_url}'"
+            )
+        if not remote.get("portal_url"):
+            errors.append(
+                "auth.provider=authelia_remote requires auth.remote.portal_url"
+            )
+
+    # authelia: portal must sit under the session cookie domain
+    # (https://www.authelia.com/configuration/session/introduction/)
+    if auth.get("provider") == "authelia" and (
+        auth.get("cookie_domain") or auth.get("portal_url")
+    ):
+        domain = get_nested(config, "stack.domain")
+        cookie_domain = auth.get("cookie_domain") or domain
+        portal_url = auth.get("portal_url") or (f"https://auth.{domain}" if domain else None)
+        if cookie_domain and portal_url:
+            if not str(portal_url).startswith("https://"):
+                errors.append(
+                    f"auth.portal_url must start with https:// (Authelia requirement): '{portal_url}'"
+                )
+            else:
+                host = urlsplit(str(portal_url)).hostname or ""
+                cookie = str(cookie_domain)
+                if host != cookie and not host.endswith("." + cookie):
+                    errors.append(
+                        f"auth.portal_url host '{host}' must equal or be a subdomain of "
+                        f"the cookie domain '{cookie}' (auth.cookie_domain)"
+                    )
 
     # headers.clacks: boolean opt-in
     headers = config.get("headers")

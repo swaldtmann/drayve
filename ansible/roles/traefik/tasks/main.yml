@@ -39,6 +39,10 @@
   when: auth_provider == "basic"
   tags: [traefik, auth]
 
+# authelia: the Authelia container on this host.
+# authelia_remote: the Authelia of another drayve host (auth.remote.forward_auth_url).
+# Same file for both — only one of them is ever active, and the file defines
+# the middleware `auth`, which must exist exactly once.
 - name: Deploy forwardAuth middleware (authelia)
   ansible.builtin.copy:
     dest: "{{ traefik_dynamic_dir }}/auth-authelia.yml"
@@ -47,7 +51,7 @@
         middlewares:
           auth:
             forwardAuth:
-              address: http://authelia:9091/api/authz/forward-auth
+              address: "{{ auth.remote.forward_auth_url if auth_provider == 'authelia_remote' else 'http://authelia:9091/api/authz/forward-auth' }}"
               trustForwardHeader: true
               authResponseHeaders:
                 - Remote-User
@@ -56,7 +60,7 @@
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
     mode: "0644"
-  when: auth_provider == "authelia"
+  when: auth_provider in ["authelia", "authelia_remote"]
   tags: [traefik, auth]
 
 - name: Deploy forwardAuth middleware (authentik)
@@ -110,7 +114,7 @@
     - auth-none.yml
   when: >-
     (item == 'auth-basic.yml' and auth_provider != 'basic') or
-    (item == 'auth-authelia.yml' and auth_provider != 'authelia') or
+    (item == 'auth-authelia.yml' and auth_provider not in ['authelia', 'authelia_remote']) or
     (item == 'auth-authentik.yml' and auth_provider != 'authentik') or
     (item == 'auth-none.yml' and auth_provider != 'none')
   tags: [traefik, auth]

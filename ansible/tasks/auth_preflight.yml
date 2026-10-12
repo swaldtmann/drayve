@@ -1,0 +1,61 @@
+---
+# Drayve auth preflight — fail early on inconsistent Authelia settings.
+# Included from deploy.yml and validate.yml next to preflight_vars.yml.
+# Mirrors the checks in scripts/validate-stack.py (that one runs on stack.yaml
+# alone, this one inside the playbooks, where consumer repos call deploy/validate).
+#
+#   auth.provider = authelia_remote
+#     - auth.remote.forward_auth_url and auth.remote.portal_url must be set
+#     - forward_auth_url must start with https:// (no whitespace, no quotes —
+#       it is written into a Traefik file-provider YAML)
+#   auth.provider = authelia, with auth.cookie_domain and/or auth.portal_url set
+#     - portal host must equal the cookie domain or be a subdomain of it
+#       (https://www.authelia.com/configuration/session/introduction/)
+
+- name: Drayve auth preflight — authelia_remote needs auth.remote.forward_auth_url
+  ansible.builtin.assert:
+    that:
+      - (auth.remote.forward_auth_url | default('')) | length > 0
+    fail_msg: "auth.provider=authelia_remote requires auth.remote.forward_auth_url (full endpoint, e.g. https://auth.<host>/api/authz/forward-auth)"
+  when: (auth.provider | default('basic')) == 'authelia_remote'
+  tags: [always]
+
+- name: Drayve auth preflight — authelia_remote needs auth.remote.portal_url
+  ansible.builtin.assert:
+    that:
+      - (auth.remote.portal_url | default('')) | length > 0
+    fail_msg: "auth.provider=authelia_remote requires auth.remote.portal_url (e.g. https://auth.<host>)"
+  when: (auth.provider | default('basic')) == 'authelia_remote'
+  tags: [always]
+
+- name: Drayve auth preflight — auth.remote.forward_auth_url must be a plain https:// URL
+  ansible.builtin.assert:
+    that:
+      - >-
+        (auth.remote.forward_auth_url | string).startswith('https://')
+        and (auth.remote.forward_auth_url | string) is not search('\s')
+        and '"' not in (auth.remote.forward_auth_url | string)
+        and "'" not in (auth.remote.forward_auth_url | string)
+    fail_msg: "auth.remote.forward_auth_url must start with https:// (no whitespace or quotes): {{ auth.remote.forward_auth_url }}"
+  when:
+    - (auth.provider | default('basic')) == 'authelia_remote'
+    - (auth.remote.forward_auth_url | default('')) | length > 0
+  tags: [always]
+
+- name: Drayve auth preflight — portal must sit under the Authelia cookie domain
+  ansible.builtin.assert:
+    that:
+      - (auth.portal_url | default('https://auth.' ~ drayve_domain, true)).startswith('https://')
+      - >-
+        (auth.portal_url | default('https://auth.' ~ drayve_domain, true) | urlsplit('hostname'))
+        == (auth.cookie_domain | default(drayve_domain, true))
+        or (auth.portal_url | default('https://auth.' ~ drayve_domain, true) | urlsplit('hostname'))
+        .endswith('.' ~ (auth.cookie_domain | default(drayve_domain, true)))
+    fail_msg: >-
+      auth.portal_url ({{ auth.portal_url | default('https://auth.' ~ drayve_domain, true) }})
+      must use https:// and its host must equal or be a subdomain of the cookie domain
+      auth.cookie_domain ({{ auth.cookie_domain | default(drayve_domain, true) }}).
+  when:
+    - (auth.provider | default('basic')) == 'authelia'
+    - (auth.cookie_domain | default('')) | length > 0 or (auth.portal_url | default('')) | length > 0
+  tags: [always]

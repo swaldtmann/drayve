@@ -93,8 +93,37 @@ properties:
           - none
           - basic
           - authelia
+          - authelia_remote
           - authentik
         default: basic
+      cookie_domain:
+        type: string
+        description: >
+          Authelia session cookie domain (only with auth.provider=authelia).
+          Set it to a shared parent domain so other hosts below it can use this
+          Authelia (see auth.provider=authelia_remote). Defaults to stack.domain.
+      portal_url:
+        type: string
+        description: >
+          Public URL of the Authelia portal, rendered as session.cookies[].authelia_url
+          (only with auth.provider=authelia). Must be https:// and its host must equal
+          or be a subdomain of the cookie domain. Defaults to https://auth.<stack.domain>.
+      remote:
+        type: object
+        description: Authelia of another drayve host (required with auth.provider=authelia_remote).
+        properties:
+          forward_auth_url:
+            type: string
+            description: >
+              Full forward-auth endpoint of the other host's Authelia, must start with
+              https:// (e.g. https://auth.node01.example.org/api/authz/forward-auth).
+              Traefik's auth@file middleware calls it.
+          portal_url:
+            type: string
+            description: >
+              Portal URL of the other host's Authelia (e.g. https://auth.node01.example.org).
+              Only used for the link on the landing page; the login redirect comes from
+              the Authelia host's own session.cookies[].authelia_url.
       lldap:
         type: boolean
         description: Deploy LLDAP as user backend (only with auth.provider=authelia).
