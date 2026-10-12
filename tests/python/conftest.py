@@ -18,6 +18,7 @@ test_kedge_template.py duplicated the ``bool``/``to_json`` stubs.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Callable
 
@@ -69,6 +70,15 @@ def _install_ansible_filters(env: Environment) -> None:
     env.filters["to_nice_yaml"] = lambda v, **_: yaml.safe_dump(v, default_flow_style=False)
     env.filters["combine"] = _ansible_combine
     env.filters["mandatory"] = _ansible_mandatory
+
+
+# Tests run Ansible task files through throwaway wrapper playbooks in tmp dirs.
+# Real playbooks find ansible/playbooks/filter_plugins/ next to themselves; the
+# wrappers do not, so point Ansible at it (inherited by every subprocess).
+os.environ.setdefault(
+    "ANSIBLE_FILTER_PLUGINS",
+    str(Path(__file__).resolve().parents[2] / "ansible" / "playbooks" / "filter_plugins"),
+)
 
 
 @pytest.fixture

@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Validate a stack.yaml against the Drayve schema."""
 
+import importlib.util
 import sys
 import yaml
 import re
+from pathlib import Path
 from urllib.parse import urlsplit
 
 SCHEMA_PATH = "config/stack.schema.yaml"
@@ -21,6 +23,21 @@ NAME_PATTERN = re.compile(r"^[a-z][a-z0-9-]*$")
 PLACEHOLDER_EMAILS = {"you@example.com", "admin@example.com", ""}
 MODE_PATTERN = re.compile(r"^0?[0-7]{3,4}$")
 HTTPS_URL_PATTERN = re.compile(r"""^https://[^\s"']+$""")
+
+
+def _load_auth_checks():
+    """Load the auth rules shared with ansible/tasks/auth_preflight.yml."""
+    path = (
+        Path(__file__).resolve().parent.parent
+        / "ansible" / "playbooks" / "filter_plugins" / "drayve_auth.py"
+    )
+    spec = importlib.util.spec_from_file_location("drayve_auth", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.check_auth
+
+
+check_auth = _load_auth_checks()
 
 
 def get_nested(data, path):
@@ -108,6 +125,11 @@ def validate(config):
             errors.append(
                 "auth.provider=authelia_remote requires auth.remote.portal_url"
             )
+
+    # access_control / users / remote: rules shared with the Ansible preflight
+    auth_errors, auth_warnings = check_auth(auth)
+    errors.extend(auth_errors)
+    warnings.extend(auth_warnings)
 
     # authelia: portal must sit under the session cookie domain
     # (https://www.authelia.com/configuration/session/introduction/)

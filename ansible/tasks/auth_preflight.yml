@@ -16,6 +16,9 @@
 #       (Grafana is always rendered with the Authelia OAuth block, login form off).
 #       "Grafana deployed" mirrors roles/monitoring: monitoring_grafana, else
 #       monitoring.profile / monitoring_profile == full.
+#   auth.access_control / auth.users / auth.remote (types, policy enum, default_policy
+#   required with rules, group existence in file mode, forward-auth path, ...)
+#     - see the last task and ansible/playbooks/filter_plugins/drayve_auth.py
 
 - name: Drayve auth preflight — authelia_remote needs auth.remote.forward_auth_url
   ansible.builtin.assert:
@@ -101,4 +104,24 @@
     - (auth.oidc_clients | selectattr('id', 'defined') | selectattr('id', 'equalto', 'grafana')
        | rejectattr('claims_policy', 'defined') | list | length) > 0
     - monitoring_grafana | default(((monitoring | default({})).profile | default(monitoring_profile | default('full'))) == 'full') | bool
+  tags: [always]
+
+# Access control, file-backend users and the forward-auth endpoint. The rules
+# live in ansible/playbooks/filter_plugins/drayve_auth.py, the same code that
+# scripts/validate-stack.py runs, so `make validate` and the playbooks cannot
+# drift apart. Findings name the key path, never a value that could be a secret.
+- name: Drayve auth preflight — access control, users and remote endpoint
+  ansible.builtin.assert:
+    that:
+      - (auth | default({})) | drayve_auth_errors | length == 0
+    fail_msg: |-
+      auth settings in stack.yaml are not accepted:
+        - {{ (auth | default({})) | drayve_auth_errors | join('\n  - ') }}
+  tags: [always]
+
+# Warnings only (no abort).
+- name: Drayve auth preflight — warnings for access control and remote endpoint
+  ansible.builtin.debug:
+    msg: "WARNING: {{ item }}"
+  loop: "{{ (auth | default({})) | drayve_auth_warnings }}"
   tags: [always]

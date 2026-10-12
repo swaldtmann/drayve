@@ -35,7 +35,10 @@ authentication_backend:
 {% endif %}
 
 access_control:
-  default_policy: {{ authelia_access_control_default_policy | default('one_factor') }}
+{% set _ac_default = authelia_access_control_default_policy | default('one_factor') %}
+{# Valid names stay bare (byte-identical output); anything else is JSON-quoted so a
+   newline can never add YAML structure. Validation rejects it before this point. #}
+  default_policy: {{ _ac_default if _ac_default in ['deny', 'one_factor', 'two_factor', 'bypass'] else _ac_default | to_json }}
 {% set _ac_rules = authelia_access_control_rules | default([]) %}
 {% if _ac_rules %}
   rules:
@@ -44,7 +47,7 @@ access_control:
 {%     for d in ([r.domain] if r.domain is string else r.domain) %}
         - {{ d | to_json }}
 {%     endfor %}
-      policy: {{ r.policy }}
+      policy: {{ r.policy | to_json }}
 {%     if r.groups | default([]) %}
       subject:
 {%       for g in r.groups %}
