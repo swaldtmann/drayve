@@ -103,7 +103,7 @@ provisioner:
         cadvisor_image: ghcr.io/google/cadvisor:0.56.2
         loki_image: grafana/loki:3.3.2
         promtail_image: grafana/promtail:3.3.2
-        grafana_image: grafana/grafana:12.3.6
+        grafana_image: grafana/grafana:12.4.12
         prometheus_image: prom/prometheus:v3.4.0
         # --- Memory limits ---
         mem_traefik: 256m

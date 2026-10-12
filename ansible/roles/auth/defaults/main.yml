@@ -9,7 +9,7 @@ auth_basic_user: admin
 
 # Authelia settings (used when auth_provider=authelia)
 auth_lldap: false
-authelia_image: authelia/authelia:4.39
+authelia_image: authelia/authelia:4.39.28
 
 # W-144: default OIDC client list when stack.yaml omits auth.oidc_clients.
 # Keeps v0.1.x stacks (Grafana-only SSO) working without schema changes.

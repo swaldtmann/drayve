@@ -74,11 +74,20 @@ cadvisor_image: ghcr.io/google/cadvisor:0.56.2
 # Keep Loki + Promtail on the same minor version to avoid feature mismatch
 loki_image: grafana/loki:3.3.2
 promtail_image: grafana/promtail:3.3.2
-# GUARD: Grafana 12.4.x breaks Authelia OIDC integration (blank login page).
-# Do NOT upgrade past 12.3.6 until https://github.com/grafana/grafana/issues/XXXXX is resolved.
-# See: drayve#7
-grafana_image: grafana/grafana:12.3.6
+# Grafana was held at 12.3.6 after a never-diagnosed login incident with Authelia
+# OIDC (2026-03). On 2026-10-12, 12.4.12 and 13.2.3 were tested against Authelia
+# v4.39.28 and the login worked (no blank page); the incident did not reproduce.
+# Only the login was measured. Major 13 was deliberately not adopted.
+# How to bump: docs/configuration.md "Pinned images and how to bump them".
+grafana_image: grafana/grafana:12.4.12
 prometheus_image: prom/prometheus:v3.4.0
+
+# === Auth images (pinned) ===
+# lldap v0.6.3 = what `lldap/lldap:stable` pointed to on 2026-10-12 (same digest
+# sha256:2a8454b668c1..., Docker Hub API
+# https://hub.docker.com/v2/repositories/lldap/lldap/tags/v0.6.3). Keep the
+# compose fallback in ansible/templates/docker-compose.yml.j2 in sync.
+lldap_image: lldap/lldap:v0.6.3
 
 # === Authentik (pinned) ===
 authentik_image: ghcr.io/goauthentik/server:2025.10.4
