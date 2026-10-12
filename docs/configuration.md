@@ -40,13 +40,17 @@ Everything else has sensible defaults. This gives you: basic auth, full monitori
 | `provider` | string | `basic` | `none` — no auth. `basic` — HTTP basic auth. `authelia` — full SSO with web portal. `authelia_remote` — no Authelia on this host, use the one of another drayve host (see below). `authentik` — enterprise SSO (planned) |
 | `lldap` | bool | `false` | Deploy LLDAP as user backend (authelia only) |
 | `lldap_base_dn` | string | `DC=drayve,DC=local` | LDAP base DN (authelia + lldap only) |
-| `access_control.default_policy` | string | `one_factor` | Authelia policy for requests no rule matches: `deny`, `one_factor`, `two_factor`, `bypass` (authelia only) |
+| `access_control.default_policy` | string | `one_factor` | Authelia policy for requests no rule matches: exactly `deny`, `one_factor`, `two_factor`, `bypass` (authelia only). **Required as soon as `rules` are set** (recommended: `deny`) |
 | `access_control.rules` | list | — | Authelia access rules, see below (authelia only) |
 | `users` | list | — | File-backend users: `name`, `email` (required), `displayname`, `groups`. Authelia with `lldap: false` only; hashes go in `secrets.yml` |
+| `cookie_domain` | string | `stack.domain` | Authelia session cookie domain (authelia only). Use a shared parent domain when other hosts below it use this Authelia |
+| `portal_url` | string | `https://auth.<stack.domain>` | Authelia portal URL, rendered as `session.cookies[].authelia_url` (authelia only). `https://`, host must equal or sit below `cookie_domain` |
+| `remote.forward_auth_url` | string | — | Full forward-auth endpoint of the other host's Authelia: `https://` and the path exactly `/api/authz/forward-auth` (a query is allowed). The portal root or `/api/health` is refused: they answer 200 and would let every request through. **Required** for `authelia_remote` |
+| `remote.portal_url` | string | — | Portal URL of the other host's Authelia, `https://` only. **Required** for `authelia_remote`; used for the landing-page link |
 
 #### Access control (`auth.access_control`)
 
-Each rule has `domain` (string or list, `*.example.com` matches subdomains), `policy`, and optionally `groups` (matches members of any listed group), `resources` (path regexes) and `networks` (CIDR). **The first matching rule wins**, so put broad rules for privileged groups before narrow ones. A rule with `groups` cannot use `policy: bypass` (Authelia needs a login to know the group). Without `access_control`, Authelia keeps `default_policy: one_factor` and no rules, as before.
+Each rule has `domain` (string or list, `*.example.com` matches subdomains), `policy`, and optionally `groups` (matches members of any listed group), `resources` (path regexes) and `networks` (CIDR). `groups`, `resources` and `networks` are **lists**; a plain string is an error, not converted. **The first matching rule wins**, so put broad rules for privileged groups before narrow ones. A rule with `groups` cannot use `policy: bypass` (Authelia needs a login to know the group). Without `access_control`, Authelia keeps `default_policy: one_factor` and no rules, as before.
 
 ```yaml
 auth:
@@ -62,16 +66,20 @@ auth:
         groups: [viewers]
 ```
 
+Checked by `make validate` and again before the first write of every deploy (types, policy names, group names):
+
+- **`default_policy` is mandatory once `rules` exist.** A request that matches no rule gets the default; with the old implicit `one_factor`, a rule that failed to match (typo in a group, `*.example.com` does not cover `example.com` itself) silently dropped the second factor.
+- **Groups must exist** (file backend, `lldap: false`): every group named in a rule must be in `groups` of at least one `auth.users` entry, spelled exactly the same (case-sensitive). With LLDAP the groups live outside `stack.yaml` and are not checked.
+- **Anchor `resources` regexes.** `resources: ["/public"]` with `bypass` also matches `/secret?x=/public` and `/admin/public`. Write `resources: ["^/public/"]`. An unanchored `bypass` regex only produces a warning.
+- Warnings (no abort): `bypass` on a wildcard domain without `groups`/`resources`; `*.example.com` without `example.com` in the same rule.
+- Names (domains, groups, resources, user names) must not contain `{{` or `{%`.
+
 Full example: `examples/stack-authelia-file.yaml`. Reference: <https://www.authelia.com/configuration/security/access-control/>.
 
 #### File user backend (`lldap: false`)
 
-`auth.users` plus `authelia_user_password_hashes` in `secrets.yml` (see `docs/secrets.md`) are the only source: each deploy rewrites `authelia/users_database.yml` (mode `0600`), and Authelia reloads it (`watch: true`). Password change and password reset are switched off in Authelia, otherwise it would write the file back and the next deploy would overwrite the change. A missing user or hash fails `make validate` and the deploy before anything is written. Hash generation: `authelia crypto hash generate argon2` (command in `docs/secrets.md`). References: <https://www.authelia.com/configuration/first-factor/file/>, <https://www.authelia.com/configuration/first-factor/introduction/>.
+`auth.users` plus `authelia_user_password_hashes` in `secrets.yml` (see `docs/secrets.md`) are the only source: each deploy rewrites `authelia/users_database.yml` (mode `0600`), and Authelia reloads it (`watch: true`). Password change and password reset are switched off in Authelia, otherwise it would write the file back and the next deploy would overwrite the change. A missing user or hash, a value in `authelia_user_password_hashes` that does not start with `$argon2` (a plain password), duplicate user names (case-insensitive) or an unknown key under `auth.users[]` fails `make validate` and the deploy before anything is written. There is no `disabled` switch: to lock a user out, **remove the entry from `auth.users`**. Hash generation: `authelia crypto hash generate argon2` (command in `docs/secrets.md`). References: <https://www.authelia.com/configuration/first-factor/file/>, <https://www.authelia.com/configuration/first-factor/introduction/>.
 
-| `cookie_domain` | string | `stack.domain` | Authelia session cookie domain (authelia only). Use a shared parent domain when other hosts below it use this Authelia |
-| `portal_url` | string | `https://auth.<stack.domain>` | Authelia portal URL, rendered as `session.cookies[].authelia_url` (authelia only). `https://`, host must equal or sit below `cookie_domain` |
-| `remote.forward_auth_url` | string | — | Full forward-auth endpoint of the other host's Authelia, `https://` only. **Required** for `authelia_remote` |
-| `remote.portal_url` | string | — | Portal URL of the other host's Authelia. **Required** for `authelia_remote`; used for the landing-page link |
 
 #### One Authelia for two hosts
 
@@ -117,7 +125,7 @@ Notes:
 - Reachability: the Traefik of the `authelia_remote` host calls `forward_auth_url` over HTTPS,
   so that host must reach the Authelia host's Traefik.
 - `make validate`, `deploy-check-fast` and `deploy.yml` abort when a URL is missing, when
-  `forward_auth_url` is not `https://`, or when `portal_url` lies outside `cookie_domain`.
+  `forward_auth_url` is not `https://`, when its path is not `/api/authz/forward-auth`, or when `portal_url` lies outside `cookie_domain`.
 
 ### `monitoring`
 

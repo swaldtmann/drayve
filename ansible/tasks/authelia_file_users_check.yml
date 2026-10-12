@@ -23,6 +23,19 @@
                  (host_secrets | default({})).authelia_user_password_hashes | default({})
                  | dict2items | selectattr('value') | map(attribute='key') | list
                ) }}
+        _authelia_users_bad_hash_format: >-
+          {{ ((auth | default({})).users | default([]) | map(attribute='name') | list)
+             | intersect(
+                 (
+                   (host_secrets | default({})).authelia_user_password_hashes | default({})
+                   | dict2items | selectattr('value') | rejectattr('value', 'string')
+                   | map(attribute='key') | list
+                 ) + (
+                   (host_secrets | default({})).authelia_user_password_hashes | default({})
+                   | dict2items | selectattr('value') | selectattr('value', 'string')
+                   | rejectattr('value', 'match', '^[$]argon2') | map(attribute='key') | list
+                 )
+               ) }}
       no_log: true
 
     - name: Fail — file backend needs at least one user
@@ -43,3 +56,13 @@
           user(s): {{ _authelia_users_without_hash | join(', ') }}.
           Generate one with: authelia crypto hash generate argon2
           and add it under authelia_user_password_hashes.<username>.
+
+    - name: Fail — password hashes must be argon2 hashes, not plain passwords
+      ansible.builtin.assert:
+        that:
+          - _authelia_users_bad_hash_format | length == 0
+        fail_msg: >-
+          The value in secrets.yml (authelia_user_password_hashes) for user(s)
+          {{ _authelia_users_bad_hash_format | join(', ') }} is not an argon2 hash
+          (it must start with $argon2). A plain password is not accepted here.
+          Generate a hash with: authelia crypto hash generate argon2

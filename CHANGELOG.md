@@ -72,6 +72,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **docs:** the OIDC client hash is Argon2id, not PBKDF2 as documented before.
 
 ### Fixed
+- **Fail-closed validation of `auth.access_control`, `auth.users` and `auth.remote`** (external review of v0.8.12, F1/F2/F3/F5/F6/F7, N1-N4, N6). `make validate` and the playbook preflight (same code: `ansible/playbooks/filter_plugins/drayve_auth.py`) now abort on a string where a list is expected (it was rendered character by character, e.g. `resources: "^/public"` became a bypass for the whole domain), unknown policies, a missing `default_policy` next to rules, rule groups that no user has (file backend), a `forward_auth_url` that is the portal root or `/api/health` (answers 200, lets everything through), a non-`https` `remote.portal_url`, template syntax in names, duplicate user names ignoring case and unknown `auth.users[]` keys. Plain-text passwords in `authelia_user_password_hashes` (not `$argon2...`) abort the file-backend check; the message names the user, never the value. Warnings: `bypass` on a wildcard domain without `groups`/`resources`, `*.x` without `x` in the same rule, unanchored `bypass` regex in `resources` (use `^/public/`), forward-auth host outside the portal domain. The Authelia template now renders `policy` JSON-quoted, so a value with a newline cannot add a rule. Limit: Ansible evaluates `{{ }}` in extra vars before any task sees it, so raw template syntax in a name is caught by `make validate` only.
 - **Grafana sign-in through Authelia OIDC failed on a fresh host out of the
   box** ("Failed to get token from provider"). Fixed by the combination of:
   the HTTPS back channel through Traefik (Authelia 4.39 derives the issuer
@@ -136,6 +137,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   the deploy instead of silently deleting the database. Restore the old key,
   or set `authelia_reset_db_on_key_change: true` for one deploy and accept
   that all TOTP/2FA registrations are lost.
+- **`auth.access_control.default_policy` is now required as soon as `auth.access_control.rules` are set.** A request that matches no rule used to fall back to a silent `one_factor`, which turned every rule that failed to match (typo in a group, wildcard without the bare domain) into a 2FA downgrade. Add `default_policy: deny` (recommended). Without `rules` nothing changes. Also stricter now: `rules[].groups`/`resources`/`networks` and `auth.users[].groups` must be lists (not strings), policies must be exactly `deny|one_factor|two_factor|bypass`, every rule group must exist in `auth.users` (file backend), user names are unique ignoring case, `auth.users[]` accepts only `name|displayname|email|groups` (remove a user from the list instead of `disabled`), `auth.remote.forward_auth_url` must end in `/api/authz/forward-auth`.
 
 ## [0.8.11] - 2026-10-08
 
