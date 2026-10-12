@@ -198,6 +198,10 @@ test-authelia: _require-test-driver  ## Authelia + LLDAP integration test (Incus
 	@echo "==> Running Authelia integration test (creates a test VM)"
 	@$(MOLECULE) test -s authelia
 
+test-authelia-file: _require-test-driver  ## Authelia file-backend sign-in test: login, 2FA, access rules, redeploys (Incus VM, ~1 h; Hetzner needs HCLOUD_TOKEN)
+	@echo "==> Running Authelia file-backend sign-in test (creates a test VM)"
+	@$(MOLECULE) test -s authelia-file
+
 test-authentik: _require-test-driver  ## Authentik integration test (Incus VM; Hetzner needs HCLOUD_TOKEN)
 	@echo "==> Running Authentik integration test (creates a test VM)"
 	@$(MOLECULE) test -s authentik

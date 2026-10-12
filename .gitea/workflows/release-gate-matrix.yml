@@ -1,13 +1,14 @@
 name: Release Gate — Matrix (tag-push)
 
-# Real-VM molecule scenarios on tag-push (v*). All 10 scenarios run, on Incus
+# Real-VM molecule scenarios on tag-push (v*). All 11 scenarios run, on Incus
 # test VMs nested inside the self-hosted runner VM (default molecule driver, see
 # docs/testing.md). Tests only: no cloud credentials, no deploy, no release.
 #
 # The runner takes exactly ONE job per cycle and is reset afterwards (~140 s
 # overhead per job), so scenarios are not one job each. They run one after the
-# other inside a job; two jobs (5 + 5 scenarios) keep each job well below the
-# runner's 2 h job timeout.
+# other inside a job; two jobs (5 + 6 scenarios) keep each job well below the
+# runner's 2 h job timeout. authelia-file (about an hour: it redeploys five
+# times) sits in g2, the group without the Authentik stacks.
 #
 # For single-scenario manual runs use release-gate-single.yml (workflow_dispatch).
 
@@ -36,7 +37,7 @@ jobs:
           - name: g1
             group: "basic auth-none authelia authentik authentik-ldap"
           - name: g2
-            group: "light sops backup backup-kedge integration"
+            group: "light sops backup backup-kedge integration authelia-file"
 
     steps:
       - name: Checkout

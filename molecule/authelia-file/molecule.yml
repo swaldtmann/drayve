@@ -1,0 +1,158 @@
+---
+# Authelia with the FILE user backend (no LLDAP): real sign-ins, no browser.
+# Incus VM by default, see docs/testing.md.
+#
+# What it proves (tests/): the redirect to the portal, first factor, TOTP second
+# factor, group-based access control (admins: every domain with two factors,
+# viewers: one domain), and what survives a redeploy (idempotence, config change,
+# new user, rotated OIDC client secret, partial `--tags secrets,deploy` run).
+# Sign-ins are made with the Authelia API and the OIDC code flow from the
+# controller (tests/authelia_probe.py); the redeploys are run from the tests
+# (tests/conftest.py, `deploy`) with the scenario's converge.yml, because Molecule
+# runs `verify` only once and the checks need the state after each deploy.
+#
+# Usage:
+#   make test-authelia-file  # or:
+#   molecule test -s authelia-file
+# Do not run a bare `molecule verify` on a VM a previous run already changed: the
+# tests expect the state a fresh converge leaves behind.
+#
+# Cost: none with Incus; ~0.01-0.02 EUR per run on Hetzner (cx23, about an hour).
+scenario:
+  # The default sequence without `idempotence`: tests/test_30_redeploy.py checks
+  # "second deploy changes nothing" for the Authelia role itself.
+  test_sequence:
+    - dependency
+    - cleanup
+    - destroy
+    - syntax
+    - create
+    - prepare
+    - converge
+    - verify
+    - cleanup
+    - destroy
+provisioner:
+  name: ansible
+  playbooks:
+    prepare: prepare.yml
+    converge: converge.yml
+  env:
+    ANSIBLE_ROLES_PATH: "../../ansible/roles"
+  inventory:
+    group_vars:
+      all:
+        # --- Paths ---
+        drayve_root: /opt/drayve
+        drayve_deploy_dir: /opt/drayve/deploy/stack
+        drayve_config_dir: /opt/drayve/config
+        # --- User ---
+        drayve_user: drayve
+        drayve_uid: 1000
+        drayve_group: drayve
+        drayve_domain: test.drayve.local
+        drayve_hostname: test-authelia-file
+        # --- Common ---
+        swap_size_mb: 1024
+        swap_file: /swapfile
+        common_packages:
+          - curl
+          - jq
+          - rsync
+          - git
+          - ufw
+          - python3-pip
+          - acl
+        ufw_allowed_ports:
+          - { port: "22", proto: "tcp" }
+          - { port: "80", proto: "tcp" }
+          - { port: "443", proto: "tcp" }
+        ssh_password_auth: "no"
+        ssh_root_login: "prohibit-password"
+        # --- Auth: Authelia, file backend ---
+        auth_provider: authelia
+        auth_lldap: false
+        authelia_jwt_secret: test-jwt-secret-min-32-chars-long
+        authelia_session_secret: test-session-secret-min-32-chars
+        authelia_storage_encryption_key: test-storage-key-min-32-characters
+        authelia_oidc_hmac_secret: test-oidc-hmac-secret-min-32-characters
+        authelia_oidc_grafana_secret: test-grafana-oidc-secret-32chars
+        # Password hashes of the file backend normally come from secrets.yml; the
+        # scenario has none, so `host_secrets` is a group variable here. The hashes
+        # are argon2id of the FIXTURE_PASSWORDS in tests/authelia_probe.py (test
+        # values only; tests/python/test_authelia_file_probe.py checks they match).
+        # Molecule interpolates dollar placeholders in this whole file (comments
+        # too), so each dollar sign of a hash is written twice.
+        # carol is not a user until a test adds her (af_extra_users).
+        host_secrets:
+          authelia_user_password_hashes:
+            alice: '$$argon2id$$v=19$$m=65536,t=3,p=4$$YWxpY2VhbGljZWFsaWNlYQ$$bfbXqISZR0nh4q+errIh5/4Y7gWOtG0HLilTgoc/s+0'
+            bob: '$$argon2id$$v=19$$m=65536,t=3,p=4$$Ym9iYm9iYm9iYm9iYm9iYg$$vJ4mde0bgpmggiLtrPstBw+zm9+clKSi+x01F0XKMUs'
+            carol: '$$argon2id$$v=19$$m=65536,t=3,p=4$$Y2Fyb2xjYXJvbGNhcm9sYw$$98aD+P1Dm8KULU/3OEx1EEuekoBr9+iUKnnJUnw5hxY'
+        # --- Scenario knobs (the tests redeploy with extra variables) ---
+        # alice also sits in `lldap_admin`: Grafana's role mapping tests exactly that
+        # group name (docker-compose.yml.j2, GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH).
+        af_users:
+          - { name: alice, displayname: Alice Admin, email: "alice@test.drayve.local", groups: [admins, lldap_admin] }
+          - { name: bob, displayname: Bob Viewer, email: "bob@test.drayve.local", groups: [viewers] }
+        af_extra_users: []
+        # First match wins: the broad admin rule first, the narrow viewer rule after it.
+        af_base_rules:
+          - domain: ["test.drayve.local", "*.test.drayve.local"]
+            policy: two_factor
+            groups: [admins]
+          - domain: grafana.test.drayve.local
+            policy: one_factor
+            groups: [viewers]
+        af_extra_rules: []
+        auth:
+          provider: authelia
+          lldap: false
+          access_control:
+            default_policy: deny
+            rules: "{{ af_base_rules + af_extra_rules }}"
+          users: "{{ af_users + af_extra_users }}"
+          oidc_clients:
+            - id: grafana
+              name: Grafana
+              authorization_policy: one_factor
+              consent_mode: implicit
+              redirect_uris:
+                - "https://grafana.test.drayve.local/login/generic_oauth"
+              scopes: [openid, profile, email, groups]
+        # --- Monitoring (as in the authelia scenario; Grafana is part of the checks) ---
+        monitoring_profile: full
+        # --- Security ---
+        crowdsec_enabled: true
+        # --- ACME ---
+        acme_email: test@example.com
+        # --- Secrets (test values) ---
+        hetzner_api_token: ""
+        grafana_admin_password: test-grafana-pw
+        crowdsec_bouncer_key: test-bouncer-key
+        crowdsec_lapi_key: test-lapi-key
+        auth_basic_user: admin
+        auth_basic_password: test-basic-pw
+        # --- Images (pinned) ---
+        node_exporter_image: prom/node-exporter:v1.10.2
+        cadvisor_image: ghcr.io/google/cadvisor:0.56.2
+        loki_image: grafana/loki:3.3.2
+        promtail_image: grafana/promtail:3.3.2
+        grafana_image: grafana/grafana:12.3.6
+        prometheus_image: prom/prometheus:v3.4.0
+        # --- Memory limits ---
+        mem_traefik: 256m
+        mem_crowdsec: 512m
+        mem_authelia: 256m
+        mem_prometheus: 512m
+        mem_grafana: 256m
+        mem_node_exporter: 32m
+        mem_cadvisor: 64m
+        mem_loki: 512m
+        mem_promtail: 64m
+verifier:
+  name: testinfra
+  options:
+    # Show why tests are expected to fail (xfail) in the summary, short tracebacks.
+    r: xXs
+    tb: short

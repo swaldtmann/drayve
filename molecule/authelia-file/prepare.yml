@@ -1,0 +1,16 @@
+---
+# The test domain has no DNS record. The bouncer watchdog (roles/traefik) probes
+# https://<drayve_domain>/ and restarts Traefik after a minute of "name not
+# resolved" - every ~90 s, which would break the sign-in checks. Resolve the
+# domain to the VM itself, as the watchdog's own curl sees it.
+- name: Prepare - resolve the test domain inside the VM
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Map the test domain and its subdomains to the local Traefik
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        regexp: '\s{{ drayve_domain | regex_escape }}(\s|$)'
+        line: "127.0.0.1 {{ drayve_domain }} auth.{{ drayve_domain }} grafana.{{ drayve_domain }}"
+        state: present
