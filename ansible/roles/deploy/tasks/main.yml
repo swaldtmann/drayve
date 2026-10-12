@@ -500,6 +500,39 @@
   register: compose_pull
   tags: [deploy]
 
+# === Pre-deploy: lldap first, so the Authelia bind user exists before Authelia starts ===
+# On a first deploy the full `compose up` below would start Authelia while the
+# bind user (uid=authelia) does not exist yet: startup check fails with LDAP
+# code 49 and the container crash-loops. `depends_on: service_healthy` does not
+# help, lldap is healthy before the user exists. So: start only lldap, wait,
+# verify the admin password (readable error), ensure the bind user, THEN the
+# full compose up. Tags match "Docker compose up" so `--tags secrets,deploy`
+# takes this along. Idempotent: lldap already running -> no change.
+- name: Start lldap first (bind user must exist before Authelia starts)
+  ansible.builtin.command:
+    cmd: docker compose up -d lldap
+    chdir: "{{ drayve_deploy_dir }}"
+  become: true
+  become_user: "{{ drayve_user }}"
+  register: lldap_prestart
+  changed_when: "'Created' in lldap_prestart.stderr or 'Recreated' in lldap_prestart.stderr"
+  when: auth_provider == 'authelia' and (auth_lldap | default(false) | bool)
+  tags: [deploy]
+
+- name: Pre-deploy lldap (wait healthy, verify admin password)
+  ansible.builtin.include_role:
+    name: lldap
+    tasks_from: ready
+  when: auth_provider == 'authelia' and (auth_lldap | default(false) | bool)
+  tags: [deploy]
+
+- name: Pre-deploy authelia (LLDAP bind user)
+  ansible.builtin.include_role:
+    name: authelia
+    tasks_from: bind-user
+  when: auth_provider == 'authelia' and (auth_lldap | default(false) | bool)
+  tags: [deploy]
+
 - name: Docker compose up
   ansible.builtin.command:
     cmd: docker compose up -d --remove-orphans
@@ -670,13 +703,6 @@
   tags: [deploy, crowdsec]
 
 # === Post-deploy: LLDAP user provisioning (containers are running) ===
-- name: Post-deploy authelia (LLDAP bind user)
-  ansible.builtin.include_role:
-    name: authelia
-    tasks_from: post-deploy
-  when: auth_provider == 'authelia'
-  tags: [deploy, authelia]
-
 - name: Post-deploy lldap (user provisioning)
   ansible.builtin.include_role:
     name: lldap

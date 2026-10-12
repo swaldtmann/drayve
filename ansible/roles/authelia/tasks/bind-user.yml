@@ -1,17 +1,10 @@
 ---
-# Post-deploy phase — runs AFTER deploy (compose up).
-# LLDAP container is already running, configure users.
-
-- name: Wait for lldap to be healthy
-  ansible.builtin.command:
-    cmd: docker inspect lldap --format {% raw %}"{{.State.Health.Status}}"{% endraw %}
-  register: lldap_health
-  until: lldap_health.stdout == "healthy"
-  retries: 15
-  delay: 2
-  changed_when: false
-  when: auth_lldap | default(false) | bool
-  tags: [authelia]
+# Ensure the Authelia LDAP bind user exists in lldap. Single source of this
+# logic. Runs BEFORE the full `docker compose up` (see "Pre-deploy authelia" in
+# the deploy role): only lldap is up at that point and has been waited for and
+# verified by lldap/tasks/ready.yml. Otherwise Authelia's startup check fails
+# with LDAP code 49 and the container crash-loops on a first deploy.
+# Tag `deploy` is required: include_role tags do not reach inner tasks.
 
 - name: Check if authelia bind user exists in lldap
   ansible.builtin.command:
@@ -25,7 +18,7 @@
   failed_when: false
   no_log: true
   when: auth_lldap | default(false) | bool
-  tags: [authelia]
+  tags: [deploy, authelia]
 
 - name: Create authelia bind user in lldap
   ansible.builtin.shell:
@@ -59,4 +52,4 @@
     (auth_lldap | default(false) | bool)
     and (lldap_bind_user_check.rc != 0 or 'Successfully' not in (lldap_bind_user_check.stdout | default('')))
   no_log: true
-  tags: [authelia]
+  tags: [deploy, authelia]
