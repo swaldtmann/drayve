@@ -228,21 +228,34 @@ Beyond `stack.yaml`, Ansible role defaults can be overridden in `ansible/invento
 
 ## Pinned images and how to bump them
 
-Authelia, lldap and Grafana are pinned to exact versions, not to floating tags. A floating tag lets a breaking change in unannounced: Authelia 4.39.19 arrived through the `4.39` line in 2026-05 and rejected the password hashes drayve generated at the time; a floating `lldap:stable` was involved in an auth outage in 2026-07.
+Every container image drayve deploys is pinned to exact versions, not to floating tags. A floating tag lets a breaking change in unannounced: Authelia 4.39.19 arrived through the `4.39` line in 2026-05 and rejected the password hashes drayve generated at the time; a floating `lldap:stable` was involved in an auth outage in 2026-07.
 
-| Image | Pinned to | Where the version lives |
-|-------|-----------|-------------------------|
-| Authelia | `authelia/authelia:4.39.28` | `authelia_image` in `ansible/roles/auth/defaults/main.yml` and `ansible/roles/authelia/defaults/main.yml`; fallback in `ansible/templates/docker-compose.yml.j2` |
-| lldap | `lldap/lldap:v0.6.3` | `lldap_image` in `ansible/inventory/group_vars/all/vars.yml`; fallback in `ansible/templates/docker-compose.yml.j2`; `molecule/authentik-ldap/molecule.yml` |
-| Grafana | `grafana/grafana:12.4.12` | `grafana_image` in `ansible/inventory/group_vars/all/vars.yml` and every `molecule/*/molecule.yml` |
+| Image | Pinned to | Where the version lives | Scenario to run when bumping |
+|-------|-----------|-------------------------|------------------------------|
+| Traefik | `traefik:v3.6.25` | `traefik_image` in `ansible/roles/traefik/defaults/main.yml`; fallback in `ansible/templates/docker-compose.yml.j2` | `basic` |
+| CrowdSec | `crowdsecurity/crowdsec:v1.8.1` | `crowdsec_image` in `ansible/inventory/group_vars/all/vars.yml`; fallback in `ansible/templates/docker-compose.yml.j2` | `basic` |
+| Landing page (nginx) | `nginx:1.31.6-alpine` | `landing_image` in `ansible/inventory/group_vars/all/vars.yml`; fallback in `ansible/templates/docker-compose.yml.j2` | `basic` |
+| Authelia | `authelia/authelia:4.39.28` | `authelia_image` in `ansible/roles/auth/defaults/main.yml` and `ansible/roles/authelia/defaults/main.yml`; fallback in `ansible/templates/docker-compose.yml.j2` | `authelia` |
+| lldap | `lldap/lldap:v0.6.3` | `lldap_image` in `ansible/inventory/group_vars/all/vars.yml`; fallback in `ansible/templates/docker-compose.yml.j2`; `molecule/authentik-ldap/molecule.yml` | `authentik-ldap` |
+| Authentik | `ghcr.io/goauthentik/server:2025.10.4` | `authentik_image` in `ansible/inventory/group_vars/all/vars.yml`; fallback in `ansible/templates/docker-compose.yml.j2`; `molecule/authentik*/molecule.yml` | `authentik` |
+| Authentik Postgres | `postgres:16.15-alpine` | `authentik_pg_image` in `ansible/inventory/group_vars/all/vars.yml`; fallback in `ansible/templates/docker-compose.yml.j2`; `molecule/authentik*/molecule.yml` | `authentik` |
+| Authentik Redis | `redis:7.4.11-alpine` | `authentik_redis_image` in `ansible/inventory/group_vars/all/vars.yml`; fallback in `ansible/templates/docker-compose.yml.j2`; `molecule/authentik*/molecule.yml` | `authentik` |
+| Grafana | `grafana/grafana:12.4.12` | `grafana_image` in `ansible/inventory/group_vars/all/vars.yml` and every `molecule/*/molecule.yml` | `authelia` (login) |
+| Prometheus | `prom/prometheus:v3.4.0` | `prometheus_image` in `ansible/inventory/group_vars/all/vars.yml` and every `molecule/*/molecule.yml` | `basic` |
+| Loki | `grafana/loki:3.3.2` | `loki_image` in `ansible/inventory/group_vars/all/vars.yml` and every `molecule/*/molecule.yml` | `basic` |
+| Promtail | `grafana/promtail:3.3.2` | `promtail_image` in `ansible/inventory/group_vars/all/vars.yml` and every `molecule/*/molecule.yml` | `basic` |
+| node-exporter | `prom/node-exporter:v1.10.2` | `node_exporter_image` in `ansible/inventory/group_vars/all/vars.yml` and every `molecule/*/molecule.yml` | `basic` |
+| cAdvisor | `ghcr.io/google/cadvisor:0.56.2` | `cadvisor_image` in `ansible/inventory/group_vars/all/vars.yml` and every `molecule/*/molecule.yml` | `basic` |
+
+Postgres and Redis belong to Authentik: bump them only inside their major line (16.x, 7.x). A Postgres major change needs a data migration and is not a plain version bump.
 
 To bump one:
 
 1. Change the version in every place listed above (default, compose fallback, molecule scenarios).
-2. Check the tag exists exactly like that, for `linux/amd64` and `linux/arm64`, e.g. `https://hub.docker.com/v2/repositories/<repo>/tags/<tag>` (`images[].architecture`). If one architecture is missing, do not bump.
-3. Run the matching Molecule scenario (`authelia` for Authelia, `authentik-ldap` for lldap, `authelia` for Grafana login) — see `docs/testing.md`.
+2. Check the tag exists exactly like that, for `linux/amd64` and `linux/arm64`, e.g. `https://hub.docker.com/v2/repositories/<repo>/tags/<tag>` (`images[].architecture`; official images live under `library/<name>`). If one architecture is missing, do not bump.
+3. Run the scenario named in the table — see `docs/testing.md`.
 4. Add a line to `CHANGELOG.md` including the upgrade note for existing hosts.
-5. `pytest tests/python/test_pinned_auth_images.py` rejects `latest`, `stable`, bare minor lines (`4.39`) and default/fallback mismatches.
+5. `pytest tests/python/test_pinned_images.py` rejects `latest`, `stable`, bare `alpine`, bare major/minor lines (`4.39`, `v3.6`, `16-alpine`), literal image references in the compose template and default/fallback mismatches. A new `*_image` variable must be registered in that test.
 
 Consequence: security fixes in these images no longer arrive by themselves. Watching upstream releases and bumping is now a manual job.
 
