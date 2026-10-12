@@ -26,3 +26,13 @@ authelia_oidc_clients_default:
       - email
       - groups
     consent_mode: implicit
+    claims_policy: grafana
+
+# Built-in claims policies, always rendered (merged under auth.claims_policies,
+# a policy of the same name in stack.yaml wins). Grafana evaluates its role
+# mapping against the ID token, which Authelia 4.39 fills with groups/email/name
+# only through a claims policy. Claim list as in the official Grafana guide:
+# https://www.authelia.com/integration/openid-connect/clients/grafana/
+authelia_oidc_claims_policies_default:
+  grafana:
+    id_token: [email, name, groups, preferred_username]

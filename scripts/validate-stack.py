@@ -152,10 +152,24 @@ def validate(config):
                 "and signs in only through that client (login form disabled). Add it "
                 "to your list, e.g.: {id: grafana, name: Grafana, "
                 "authorization_policy: one_factor, consent_mode: implicit, "
+                "claims_policy: grafana, "
                 f'redirect_uris: ["https://grafana.{domain}/login/generic_oauth"], '
                 "scopes: [openid, profile, email, groups]}. "
                 "See docs/auth-oidc-clients.md"
             )
+        elif grafana_on:
+            for c in clients:
+                if (
+                    isinstance(c, dict)
+                    and c.get("id") == "grafana"
+                    and not c.get("claims_policy")
+                ):
+                    warnings.append(
+                        "auth.oidc_clients defines id: grafana without claims_policy: grafana "
+                        "- the ID token then lacks the groups claim and every Grafana admin "
+                        "becomes Viewer. Add claims_policy: grafana to the client. "
+                        "See docs/auth-oidc-clients.md"
+                    )
 
     # headers.clacks: boolean opt-in
     headers = config.get("headers")

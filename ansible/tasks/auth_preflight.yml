@@ -74,7 +74,7 @@
       id: grafana, but Grafana is deployed with auth.provider=authelia and signs
       in only through that client (login form disabled). Add it to your list,
       e.g.: {id: grafana, name: Grafana, authorization_policy: one_factor,
-      consent_mode: implicit,
+      consent_mode: implicit, claims_policy: grafana,
       redirect_uris: ["https://grafana.{{ drayve_domain }}/login/generic_oauth"],
       scopes: [openid, profile, email, groups]}.
       See docs/auth-oidc-clients.md
@@ -82,5 +82,23 @@
     - (auth | default({})).provider | default('basic') == 'authelia'
     - (auth | default({})).oidc_clients is defined
     - (auth | default({})).oidc_clients is not none
+    - monitoring_grafana | default(((monitoring | default({})).profile | default(monitoring_profile | default('full'))) == 'full') | bool
+  tags: [always]
+
+# Warning only (no abort): the client works, but without claims_policy the ID
+# token has no groups claim, so Grafana's role mapping makes every admin Viewer.
+- name: Drayve auth preflight — own grafana client should set claims_policy
+  ansible.builtin.debug:
+    msg: >-
+      WARNING: auth.oidc_clients defines id: grafana without claims_policy: grafana
+      - the ID token then lacks the groups claim and every Grafana admin becomes
+      Viewer. Add claims_policy: grafana to the client.
+      See docs/auth-oidc-clients.md
+  when:
+    - (auth | default({})).provider | default('basic') == 'authelia'
+    - (auth | default({})).oidc_clients is defined
+    - (auth | default({})).oidc_clients is not none
+    - (auth.oidc_clients | selectattr('id', 'defined') | selectattr('id', 'equalto', 'grafana')
+       | rejectattr('claims_policy', 'defined') | list | length) > 0
     - monitoring_grafana | default(((monitoring | default({})).profile | default(monitoring_profile | default('full'))) == 'full') | bool
   tags: [always]
