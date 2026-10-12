@@ -121,11 +121,26 @@ def portal(vm):
 
 
 @pytest.fixture(scope="module")
-def stack_ready(portal):
-    """Traefik, CrowdSec bouncer and Authelia answer: a protected page redirects to the portal."""
-    session = portal.new_session()
-    portal.wait_until(lambda: portal.outcome(session, portal.url()).kind == "portal_redirect",
-                      "protected page redirecting to the Authelia portal", timeout=300)
+def stack_ready(portal, vm):
+    """Traefik, CrowdSec bouncer and Authelia answer: a protected page redirects to the portal.
+
+    Fails once per pytest run (later modules repeat the message at once). A closed
+    port stops the run before the long wait, with what the VM says about itself.
+    """
+
+    def check():
+        problem = ap.tcp_preflight(vm.ip, ap.HTTPS_PORT)
+        if problem:
+            raise ap.ProbeTimeout(f"stack not reachable from the controller: {problem}\n"
+                                  + ap.collect_vm_diagnostics(vm.run))
+        session = portal.new_session()
+        portal.wait_until(lambda: portal.outcome(session, portal.url()).kind == "portal_redirect",
+                          "protected page redirecting to the Authelia portal", timeout=300)
+
+    try:
+        ap.ready_once("stack_ready", check)
+    except ap.ProbeTimeout as exc:
+        pytest.fail(str(exc), pytrace=False)
 
 
 @pytest.fixture(scope="module")

@@ -361,6 +361,82 @@ class Portal:
                     return result
                 last = "not yet"
             except Exception as exc:  # connection refused / reset while Traefik or the app starts
-                last = f"{type(exc).__name__}: {str(exc)[:120]}"
+                last = describe_exception(exc)
             time.sleep(interval)
-        raise ProbeTimeout(f"{what} not ready after {timeout:.0f} s (last: {last})")
+        raise ProbeTimeout(f"{what} not ready after {timeout:.0f} s at {self.ip}:{HTTPS_PORT} (last: {last})")
+
+
+# ------------------------------------------------------------- diagnostics
+
+HTTPS_PORT = 443
+
+
+def describe_exception(exc: BaseException, limit: int = 600) -> str:
+    """The chain of an exception down to the innermost cause, e.g.
+    ``ConnectionError <- MaxRetryError <- NewConnectionError <- ConnectionRefusedError(111, 'Connection refused')``.
+
+    requests wraps urllib3 which wraps the socket error, and the outer message
+    alone (cut short) hides the errno that tells refused from timed out.
+    """
+    chain, seen, current = [], set(), exc
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        chain.append(current)
+        nxt = getattr(current, "reason", None)  # urllib3 MaxRetryError
+        if not isinstance(nxt, BaseException):
+            nxt = current.__cause__ or current.__context__
+        if not isinstance(nxt, BaseException) and current.args and isinstance(current.args[0], BaseException):
+            nxt = current.args[0]  # requests.ConnectionError(MaxRetryError)
+        current = nxt if isinstance(nxt, BaseException) else None
+    names = [type(e).__name__ for e in chain[:-1]]
+    return " <- ".join(names + [repr(chain[-1])])[:limit]
+
+
+def tcp_preflight(ip: str, port: int = HTTPS_PORT, timeout: float = 10) -> str | None:
+    """None if a TCP connection to ``ip:port`` works, else a one-line reason (innermost error with errno)."""
+    try:
+        with socket.create_connection((ip, port), timeout=timeout):
+            return None
+    except OSError as exc:
+        return f"no TCP connection to {ip}:{port}: {describe_exception(exc)}"
+
+
+# Read-only, fixed; nothing here prints secrets, environments or container logs.
+VM_DIAGNOSTIC_COMMANDS = (
+    "hostname -I",
+    "ss -ltn '( sport = :80 or sport = :443 )'",
+    "ufw status",
+    "docker ps --format '{{.Names}} {{.Status}} {{.Ports}}'",
+)
+
+
+def collect_vm_diagnostics(run) -> str:
+    """Output of ``VM_DIAGNOSTIC_COMMANDS`` run through ``run(command)`` (result with rc/stdout/stderr)."""
+    parts = []
+    for command in VM_DIAGNOSTIC_COMMANDS:
+        try:
+            r = run(command)
+            out = (r.stdout or r.stderr or "").strip()[:1500]
+            parts.append(f"$ {command} (rc={r.rc})\n{out}")
+        except Exception as exc:  # the VM itself may be unreachable
+            parts.append(f"$ {command}\n{describe_exception(exc)}")
+    return "\n".join(parts)
+
+
+# One failed readiness wait per pytest run is enough: later modules repeat the message at once.
+_READINESS_FAILURES: dict[str, str] = {}
+
+
+def ready_once(key: str, check):
+    """Run ``check()``; if it raised ProbeTimeout before under ``key``, raise the same message without running it."""
+    if key in _READINESS_FAILURES:
+        raise ProbeTimeout(_READINESS_FAILURES[key])
+    try:
+        return check()
+    except ProbeTimeout as exc:
+        _READINESS_FAILURES[key] = str(exc)
+        raise
+
+
+def reset_readiness(key: str) -> None:
+    _READINESS_FAILURES.pop(key, None)

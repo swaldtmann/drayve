@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import socket
+import time
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -432,3 +434,77 @@ def test_oidc_token_exchange_fails_loudly_without_a_code(portal):
     s = FakeSession(resp(302, {"Location": "https://auth.test.drayve.local/?rd=x"}))
     with pytest.raises(probe.ProbeFailure):
         portal.oidc_token(s, "grafana", "secret-x", "https://grafana.test.drayve.local/login/generic_oauth")
+
+
+# --- Readiness diagnostics ----------------------------------------------------
+
+def _wrapped_connection_error():
+    """Like requests: a long outer message wrapping the real socket error."""
+    try:
+        try:
+            raise ConnectionRefusedError(111, "Connection refused")
+        except OSError as inner:
+            raise RuntimeError("HTTPSConnectionPool(host='x', port=443): Max retries exceeded " + "x" * 300) from inner
+    except RuntimeError as outer:
+        return outer
+
+
+def test_wait_until_message_names_the_innermost_cause_the_address_and_the_port():
+    portal = probe.Portal("203.0.113.10", "test.drayve.local", pin_dns=False)
+    error = _wrapped_connection_error()
+
+    def predicate():
+        raise error
+
+    with pytest.raises(probe.ProbeTimeout) as caught:
+        portal.wait_until(predicate, "stack", timeout=0.05, interval=0.01)
+    text = str(caught.value)
+    assert "ConnectionRefusedError" in text and "111" in text
+    assert "203.0.113.10:443" in text
+
+
+def test_tcp_preflight_fails_at_once_on_a_closed_port():
+    with socket.socket() as s:  # grab a free port, then close it again
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    started = time.monotonic()
+    problem = probe.tcp_preflight("127.0.0.1", port, timeout=2)
+    assert time.monotonic() - started < 5
+    assert problem and f"127.0.0.1:{port}" in problem
+    assert "ConnectionRefusedError" in problem  # errno 111 on Linux, 61 on macOS
+
+
+def test_tcp_preflight_accepts_an_open_port():
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        s.listen(1)
+        assert probe.tcp_preflight("127.0.0.1", s.getsockname()[1], timeout=2) is None
+
+
+def test_ready_once_does_not_wait_again_after_a_failure():
+    calls = []
+
+    def failing():
+        calls.append(1)
+        raise probe.ProbeTimeout("stack not ready: boom")
+
+    key = "unit-test-gate"
+    probe.reset_readiness(key)
+    with pytest.raises(probe.ProbeTimeout, match="boom"):
+        probe.ready_once(key, failing)
+    with pytest.raises(probe.ProbeTimeout, match="boom"):
+        probe.ready_once(key, failing)
+    assert len(calls) == 1
+
+
+def test_vm_diagnostics_run_only_the_fixed_read_only_commands():
+    seen = []
+
+    def run(cmd):
+        seen.append(cmd)
+        return SimpleNamespace(rc=0, stdout="out-of-" + cmd.split()[0] + "\n", stderr="")
+
+    text = probe.collect_vm_diagnostics(run)
+    assert len(seen) == 4
+    assert [c.split()[0] for c in seen] == ["hostname", "ss", "ufw", "docker"]
+    assert all(f"out-of-{name}" in text for name in ("hostname", "ss", "ufw", "docker"))
