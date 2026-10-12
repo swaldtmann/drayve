@@ -29,7 +29,9 @@ TASKS_FILE = (
 DOCS_FILE = Path(__file__).resolve().parents[2] / "docs/auth-oidc-clients.md"
 
 GEN_NAME = "Generate Argon2id hash for OIDC client secret (per client)"
-START = "Resolve per-client OIDC plain secrets"
+# The resolve task moved to ansible/tasks/authelia_oidc_resolve.yml (shared with
+# roles/deploy); the secret/hash section of this role now starts at the assert.
+START = "Fail when any OIDC client is missing a plain secret"
 END = "Expose legacy authelia_oidc_grafana_secret_hash alias"
 
 
