@@ -220,7 +220,7 @@ def test_users_database_defaults_displayname_and_groups(render_users):
 def test_file_mode_disables_password_change_and_reset_and_watches(render_config):
     cfg = yaml.safe_load(render_config(auth_lldap=False))
     be = cfg["authentication_backend"]
-    assert be["file"]["path"] == "/config/users_database.yml"
+    assert be["file"]["path"] == "/config/users/users_database.yml"
     assert be["file"]["watch"] is True
     assert be["password_change"] == {"disable": True}
     assert be["password_reset"] == {"disable": True}
@@ -241,12 +241,12 @@ def _authelia_volumes(compose: dict) -> list[str]:
 
 def test_compose_mounts_users_file_when_lldap_off(render_compose):
     vols = _authelia_volumes(render_compose(auth_lldap=False))
-    assert "./authelia/users_database.yml:/config/users_database.yml:ro" in vols
+    assert "./authelia/users:/config/users:ro" in vols
 
 
 def test_compose_does_not_mount_users_file_when_lldap_on(render_compose):
     vols = _authelia_volumes(render_compose(auth_lldap=True))
-    assert not any("users_database.yml" in v for v in vols)
+    assert not any("/config/users" in v for v in vols)
 
 
 # ---- role task: users file is written -------------------------------------

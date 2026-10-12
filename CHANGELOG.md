@@ -13,8 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   (`groups` become `subject: group:<name>`; `resources` and `networks` pass
   through) render into Authelia's `access_control`. With `auth.lldap: false`,
   `auth.users` plus `authelia_user_password_hashes` in the host secrets render
-  `authelia/users_database.yml` (mode 0600, mounted read-only into the
-  container only when lldap is off; Authelia may not write it back, password
+  `authelia/users/users_database.yml` (mode 0600, the directory is mounted
+  read-only into the container only when lldap is off; Authelia may not write it back, password
   change and reset are disabled). A missing user or hash aborts the run before
   anything is written. Without the new keys the lldap-mode output is
   unchanged. See `examples/stack-authelia-file.yaml`.
@@ -101,8 +101,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   user did not exist yet when Authelia started. The deploy now starts lldap
   first, waits until it is healthy, verifies the admin password, creates the
   bind user, and only then runs the full `docker compose up`.
+- **A changed Authelia users file (file backend) did not reach the running
+  container**, so a removed user, a dropped group or a new hash kept the old
+  behaviour until the container was recreated for another reason: the file was
+  bind-mounted as a single file and the deploy replaces it by rename. The
+  directory `authelia/users` is now mounted instead, and a changed users file
+  recreates Authelia like a changed `configuration.yml` does (once per run, not
+  twice when `docker compose up` already recreated it). Recreating drops all
+  signed-in sessions (in-memory session store). A run with `--tags secrets,auth`
+  writes the files but does not recreate the container; it now prints a notice.
 
 ### Upgrade notes
+- **File backend (`auth.lldap: false`) on a host deployed with the single-file
+  layout:** the first deploy creates `authelia/users/`, moves the users file
+  there, deletes the old `authelia/users_database.yml` (it holds the password
+  hashes) and recreates Authelia once; everybody is signed out once.
 - **No new required variable.** Existing `stack.yaml` files run without
   changes; all new keys (`auth.access_control`, `auth.users`,
   `auth.cookie_domain`, `auth.portal_url`, `auth.remote.*`) are optional, and

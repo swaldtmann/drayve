@@ -208,15 +208,38 @@
   no_log: true
   tags: [authelia]
 
+# The users file lives in its own directory that is bind-mounted as a whole
+# (./authelia/users -> /config/users). `template` swaps the file by rename; a
+# single-file mount would stay on the old inode and ignore the change.
+- name: Create Authelia users directory (file backend)
+  ansible.builtin.file:
+    path: "{{ authelia_config_dir }}/users"
+    state: directory
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0700"
+  when: not (auth_lldap | default(false) | bool)
+  tags: [authelia]
+
 - name: Deploy Authelia users database (file backend)
   ansible.builtin.template:
     src: "{{ ops_deploy_root }}/config/authelia/users_database.yml.j2"
-    dest: "{{ authelia_config_dir }}/users_database.yml"
+    dest: "{{ authelia_config_dir }}/users/users_database.yml"
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
     mode: "0600"
+  register: authelia_users_file
   when: not (auth_lldap | default(false) | bool)
   no_log: true
+  tags: [authelia]
+
+# Upgrade from the single-file layout: the old copy holds the same password
+# hashes and is no longer mounted; do not leave it behind.
+- name: Remove legacy Authelia users file (single-file layout)
+  ansible.builtin.file:
+    path: "{{ authelia_config_dir }}/users_database.yml"
+    state: absent
+  when: not (auth_lldap | default(false) | bool)
   tags: [authelia]
 
 - name: Deploy Authelia configuration
@@ -227,6 +250,22 @@
     group: "{{ drayve_group }}"
     mode: "0600"
   register: authelia_config
+  tags: [authelia]
+
+# The container is recreated by roles/deploy (tag `deploy`). A run that writes
+# the files but does not include it (e.g. `--tags secrets,auth`) must say so:
+# configuration.yml changes only apply after the recreate; the users file is
+# picked up by Authelia's file watcher, but is only guaranteed by the recreate.
+- name: Notice — Authelia files changed, container recreate needs the deploy tag
+  ansible.builtin.debug:
+    msg: >-
+      Authelia configuration/users file changed, but this run does not include
+      the deploy tag: the container is NOT recreated. Run the full deploy (or
+      add the `deploy` tag) so the change is guaranteed to apply.
+  when:
+    - (authelia_config.changed | default(false)) or (authelia_users_file.changed | default(false))
+    - "'all' not in ansible_run_tags"
+    - "'deploy' not in ansible_run_tags"
   tags: [authelia]
 
 # AFKI-W-240 (Befund 1): authelia_jwt_secret/authelia_session_secret/
