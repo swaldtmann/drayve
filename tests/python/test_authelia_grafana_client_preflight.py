@@ -77,6 +77,7 @@ def test_validator_rejects_custom_list_without_grafana():
     assert "id: grafana" in errors[0]
     assert DOC_REF in errors[0]
     assert f"https://grafana.{DOMAIN}/login/generic_oauth" in errors[0]
+    assert "claims_policy: grafana" in errors[0]
 
 
 def test_validator_rejects_empty_custom_list():
@@ -140,6 +141,39 @@ def test_examples_still_validate(path):
     assert r.returncode == 0, r.stdout + r.stderr
 
 
+# ---- Warning: own grafana client without claims_policy (no abort) ----------
+
+WARN_CORE = "without claims_policy"
+GRAFANA_PLAIN = {k: v for k, v in GRAFANA.items() if k != "claims_policy"}
+GRAFANA_POLICY = {**GRAFANA, "claims_policy": "grafana"}
+
+
+def _validate(auth: dict) -> tuple[list[str], list[str]]:
+    config = {
+        "drayve_version": "0.1.0",
+        "stack": {"name": "x", "domain": DOMAIN, "acme_email": "ops@example.org"},
+        "auth": auth,
+    }
+    return validator.validate(config)
+
+
+def test_validator_warns_grafana_without_claims_policy():
+    errors, warnings = _validate({"provider": "authelia", "oidc_clients": [FORGEJO, GRAFANA_PLAIN]})
+    assert errors == []
+    assert [w for w in warnings if WARN_CORE in w and "docs/auth-oidc-clients.md" in w]
+
+
+def test_validator_no_warning_with_claims_policy():
+    errors, warnings = _validate({"provider": "authelia", "oidc_clients": [GRAFANA_POLICY]})
+    assert errors == []
+    assert not [w for w in warnings if WARN_CORE in w]
+
+
+def test_validator_no_warning_without_custom_list():
+    _, warnings = _validate({"provider": "authelia"})
+    assert not [w for w in warnings if WARN_CORE in w]
+
+
 # ---- Ansible preflight -------------------------------------------------------
 
 
@@ -180,6 +214,7 @@ def test_preflight_rejects_custom_list_without_grafana(ansible_available, tmp_pa
     assert "id: grafana" in out
     assert DOC_REF in out
     assert f"https://grafana.{DOMAIN}/login/generic_oauth" in out
+    assert "claims_policy: grafana" in out
 
 
 def test_preflight_rejects_empty_custom_list(ansible_available, tmp_path):
@@ -243,3 +278,15 @@ def test_preflight_ignores_authelia_remote(ansible_available, tmp_path):
     }
     r = _run_preflight(tmp_path, auth=auth)
     assert r.returncode == 0, r.stdout + r.stderr
+
+
+def test_preflight_warns_but_does_not_abort_grafana_without_claims_policy(ansible_available, tmp_path):
+    r = _run_preflight(tmp_path, auth={"provider": "authelia", "oidc_clients": [GRAFANA_PLAIN]})
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert WARN_CORE in r.stdout + r.stderr
+
+
+def test_preflight_no_warning_with_claims_policy(ansible_available, tmp_path):
+    r = _run_preflight(tmp_path, auth={"provider": "authelia", "oidc_clients": [GRAFANA_POLICY]})
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert WARN_CORE not in r.stdout + r.stderr

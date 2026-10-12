@@ -58,10 +58,17 @@ auth:
 >   name: Grafana
 >   authorization_policy: one_factor
 >   consent_mode: implicit
+>   claims_policy: grafana
 >   redirect_uris:
 >     - "https://grafana.example.com/login/generic_oauth"
 >   scopes: [openid, profile, email, groups]
 > ```
+>
+> **Keep `claims_policy: grafana` in that entry.** Without it Authelia's ID
+> token carries no `groups` claim, Grafana cannot see the `lldap_admin`
+> membership, and every admin silently becomes Viewer (Grafana's role mapping
+> falls back to `Viewer`; no error appears). The pre-flights only warn about
+> this (they do not abort), because the login itself still works.
 
 ### Client fields
 
@@ -109,6 +116,24 @@ Both are optional dicts. They render into Authelia's
 `identity_providers.oidc.authorization_policies` and `claims_policies` blocks
 respectively. Reference them from a client via `authorization_policy: <name>`
 or `claims_policy: <name>`.
+
+**Built-in `grafana` claims policy.** The default Grafana client references
+`claims_policy: grafana`, and the policy `grafana` is always rendered:
+
+```yaml
+claims_policies:
+  grafana:
+    id_token: [email, name, groups, preferred_username]
+```
+
+(claim list from the official Grafana guide,
+<https://www.authelia.com/integration/openid-connect/clients/grafana/>).
+Merge rule: the built-in policies are merged **under** your
+`auth.claims_policies`. Your own policies are added next to the built-in one;
+a policy of the same name in `stack.yaml` replaces the built-in one entirely
+(it is not merged claim by claim). A client therefore never references a policy
+that is not rendered. Your own `auth.oidc_clients` list does **not** get
+`claims_policy` automatically — set it on your `grafana` entry (see above).
 
 `subject` values are passed through verbatim — Authelia's group/oneOf syntax
 (`["group:foo"]`, `[["group:a", "group:b"]]`) all works.

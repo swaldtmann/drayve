@@ -26,10 +26,17 @@
          | default(authelia_oidc_authorization_policies | default({}))
       }}
     authelia_oidc_claims_policies: >-
-      {{ auth.claims_policies
-         | default(authelia_oidc_claims_policies | default({}))
+      {{ (authelia_oidc_claims_policies_default | default({}))
+         | combine(auth.claims_policies
+                   | default(authelia_oidc_claims_policies | default({})))
       }}
   when: auth_provider == "authelia"
+
+# Claims policies: the built-in ones (roles/auth defaults, e.g. `grafana` for
+# the default Grafana client) are merged UNDER auth.claims_policies — own
+# policies add to them, a policy of the same name replaces the built-in one
+# wholesale (shallow combine). So a client never points at a policy that is
+# not rendered (Authelia would refuse to start).
 
 # W-144: per-client OIDC plain secret. Plain secret comes from host_secrets via
 # the convention `authelia_oidc_<id>_secret`. The legacy variable
