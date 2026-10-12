@@ -170,8 +170,11 @@
 # differs from the correctly-rendered version on disk), and the removal
 # below would delete an already-deployed, working Authelia DB (2FA
 # registrations, sessions, tokens) — same bug class as AFKI-W-233/238/239.
+# The DB is no longer deleted on a config change (see key-change handling
+# below), but a config rendered with empty secrets would still be deployed
+# broken, so the guard stays and fails the run before that happens.
 # Re-stat secrets.yml + the DB file here (cheap, independent of whether
-# roles/secrets ran this pass) and fail before the delete, same pattern as
+# roles/secrets ran this pass) and fail early, same pattern as
 # AFKI-W-239's monitoring-role guard. Only blocks when the DB already
 # exists — a genuinely fresh install with nothing to lose is unaffected.
 - name: Check for host secrets file (cross-tag guard, AFKI-W-240 authelia)
@@ -206,18 +209,102 @@
       secrets (Task "Set secret variables", tag [secrets]) hat in diesem
       Lauf nicht gesetzt. Die authelia_*-Secrets (JWT/Session/Storage-
       Encryption/LDAP/OIDC) rendern deshalb leer, "Deploy Authelia
-      configuration" gilt dadurch als geaendert, und der naechste Schritt
-      wuerde die bestehende Authelia-DB (db.sqlite3 — 2FA-Registrierungen,
-      Sessions, Tokens) LOESCHEN statt sie unangetastet zu lassen.
+      configuration" gilt dadurch als geaendert und wuerde eine kaputte
+      Konfiguration (leere Secrets) neben der bestehenden Authelia-DB
+      (db.sqlite3 — 2FA-Registrierungen, Sessions, Tokens) ausrollen.
 
       Fix: `--tags secrets,authelia` statt `--tags authelia` allein, oder
       den vollen Lauf ohne Tag-Scoping fahren.
   when: authelia_config.changed | default(false)
   tags: [authelia]
 
-- name: Remove stale Authelia DB on config change
+# A configuration.yml change must NOT touch the Authelia DB (TOTP/2FA
+# registrations, sessions, tokens live in db.sqlite3). The DB is only unusable
+# when storage_encryption_key changed, because Authelia encrypts columns with
+# it. Detect that via a sha256 marker file next to the DB (never the key
+# itself). An empty rendered key (secrets not loaded) is never treated as a
+# key change and never touches the marker.
+- name: Stat Authelia DB
+  ansible.builtin.stat:
+    path: "{{ authelia_data_dir }}/db.sqlite3"
+  register: _authelia_db_stat
+  tags: [authelia]
+
+- name: Stat storage encryption key marker
+  ansible.builtin.stat:
+    path: "{{ authelia_data_dir }}/.storage_encryption_key.sha256"
+  register: _authelia_key_marker_stat
+  tags: [authelia]
+
+- name: Read storage encryption key marker
+  ansible.builtin.slurp:
+    src: "{{ authelia_data_dir }}/.storage_encryption_key.sha256"
+  register: _authelia_key_marker
+  when: _authelia_key_marker_stat.stat.exists
+  no_log: true
+  tags: [authelia]
+
+- name: Detect storage encryption key change
+  ansible.builtin.set_fact:
+    _authelia_key_changed: >-
+      {{
+        (authelia_storage_encryption_key | default('') | length > 0)
+        and _authelia_db_stat.stat.exists
+        and _authelia_key_marker_stat.stat.exists
+        and ((_authelia_key_marker.content | default('') | b64decode | trim)
+             != (authelia_storage_encryption_key | hash('sha256')))
+      }}
+  no_log: true
+  tags: [authelia]
+
+- name: Abort — storage encryption key changed, DB cannot be reused
+  ansible.builtin.fail:
+    msg: |
+      The Authelia storage_encryption_key differs from the one the existing
+      database (db.sqlite3) was created with. Authelia cannot read that DB
+      with the new key; continuing would break login.
+
+      Two ways out:
+        1. Restore the previous storage_encryption_key in the host secrets
+           and deploy again (keeps 2FA registrations and sessions).
+        2. Accept the loss of all TOTP/2FA registrations and sessions: set
+           `authelia_reset_db_on_key_change: true` for this deploy. The DB is
+           deleted and users must re-register their second factor.
+  when:
+    - _authelia_key_changed | bool
+    - not (authelia_reset_db_on_key_change | bool)
+  tags: [authelia]
+
+- name: Warn — resetting Authelia DB after key change (authelia_reset_db_on_key_change)
+  ansible.builtin.debug:
+    msg: >-
+      WARNING: storage_encryption_key changed and authelia_reset_db_on_key_change
+      is set — deleting db.sqlite3. All TOTP/2FA registrations and sessions are lost.
+  when:
+    - _authelia_key_changed | bool
+    - authelia_reset_db_on_key_change | bool
+  tags: [authelia]
+
+- name: Remove Authelia DB after storage encryption key change
   ansible.builtin.file:
     path: "{{ authelia_data_dir }}/db.sqlite3"
     state: absent
-  when: authelia_config.changed | default(false)
+  when:
+    - _authelia_key_changed | bool
+    - authelia_reset_db_on_key_change | bool
+  tags: [authelia]
+
+# Written when there is no DB yet, on upgrade from versions without a marker
+# (DB kept), and after a deliberate reset. Never with an empty key.
+- name: Record storage encryption key checksum
+  ansible.builtin.copy:
+    content: "{{ authelia_storage_encryption_key | hash('sha256') }}\n"
+    dest: "{{ authelia_data_dir }}/.storage_encryption_key.sha256"
+    owner: "{{ drayve_user }}"
+    group: "{{ drayve_group }}"
+    mode: "0600"
+  when:
+    - authelia_storage_encryption_key | default('') | length > 0
+    - (not _authelia_db_stat.stat.exists) or (not _authelia_key_marker_stat.stat.exists) or (_authelia_key_changed | bool)
+  no_log: true
   tags: [authelia]

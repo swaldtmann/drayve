@@ -112,12 +112,6 @@ WRAPPER_TASKS = """\
               when: authelia_config.changed | default(false)
               tags: [authelia]
 
-            - name: Remove stale Authelia DB on config change
-              ansible.builtin.file:
-                path: "{{ authelia_data_dir }}/db.sqlite3"
-                state: absent
-              when: authelia_config.changed | default(false)
-              tags: [authelia]
 """
 
 
@@ -204,10 +198,11 @@ def test_authelia_only_tag_fires_guard_instead_of_deleting_db(ansible_available,
     assert (data_dir / "db.sqlite3").exists(), "db.sqlite3 must survive when the guard fires"
 
 
-def test_secrets_plus_authelia_tags_with_real_change_deletes_as_designed(ansible_available, tmp_path):
+def test_secrets_plus_authelia_tags_with_real_change_keeps_db(ansible_available, tmp_path):
     """Legitimate case: secrets loaded, config genuinely changed (e.g. a real
-    OIDC client added) -- deletion is the intended behavior and must not be
-    blocked by the guard."""
+    OIDC client added) -- the guard must not block, and the DB is kept (the
+    removal task is gone; key-change handling is covered in
+    test_authelia_db_keep.py)."""
     wrapper = _make_wrapper(tmp_path)
     root = _layout(tmp_path, "myhost", secrets_body="lldap_jwt_secret: x\n")
     data_dir = _authelia_layout(tmp_path)
@@ -221,7 +216,7 @@ def test_secrets_plus_authelia_tags_with_real_change_deletes_as_designed(ansible
     )
     combined = result.stdout + result.stderr
     assert result.returncode == 0, combined
-    assert not (data_dir / "db.sqlite3").exists()
+    assert (data_dir / "db.sqlite3").exists()
 
 
 def test_authelia_tag_without_config_change_is_not_blocked(ansible_available, tmp_path):
@@ -259,7 +254,7 @@ def test_authelia_tag_without_any_secrets_file_is_not_blocked(ansible_available,
     )
     combined = result.stdout + result.stderr
     assert result.returncode == 0, combined
-    assert not (data_dir / "db.sqlite3").exists()
+    assert (data_dir / "db.sqlite3").exists()
 
 
 def test_authelia_only_tag_with_no_existing_db_is_not_blocked(ansible_available, tmp_path):
@@ -297,4 +292,4 @@ def test_full_run_without_tag_scoping_passes(ansible_available, tmp_path):
     )
     combined = result.stdout + result.stderr
     assert result.returncode == 0, combined
-    assert not (data_dir / "db.sqlite3").exists()
+    assert (data_dir / "db.sqlite3").exists()

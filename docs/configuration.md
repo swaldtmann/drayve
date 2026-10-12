@@ -146,6 +146,7 @@ Beyond `stack.yaml`, Ansible role defaults can be overridden in `ansible/invento
 | `ssh_password_auth` | `no` | SSH password authentication |
 | `ssh_root_login` | `prohibit-password` | SSH root login policy |
 | `mem_*` | varies | Memory limits per container (e.g. `mem_grafana: 256m`) |
+| `authelia_reset_db_on_key_change` | `false` | Authelia: a config change never deletes `db.sqlite3` (2FA registrations, sessions). A changed `storage_encryption_key` is detected via `.storage_encryption_key.sha256` next to the DB and aborts the deploy. Set to `true` to delete the DB instead (all users must re-register their second factor) |
 
 ## Examples
 
