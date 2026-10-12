@@ -1,0 +1,27 @@
+# Two drayve hosts, one Authelia. This file is HOST A (runs Authelia).
+# Host B (stack-authelia-remote.yaml) has no Authelia of its own and forwards auth@file to host A.
+# See docs/configuration.md, "One Authelia for two hosts".
+
+drayve_version: "0.1.0"
+
+stack:
+  name: node01
+  domain: node01.stream.example.org
+  acme_email: ops@example.org
+
+provider:
+  type: manual
+
+auth:
+  provider: authelia
+  cookie_domain: stream.example.org        # shared parent of both hosts
+  portal_url: https://auth.node01.stream.example.org
+
+monitoring:
+  profile: light
+
+secrets:
+  mode: quickstart
+
+backup:
+  enabled: false

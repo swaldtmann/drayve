@@ -37,9 +37,59 @@ Everything else has sensible defaults. This gives you: basic auth, full monitori
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `provider` | string | `basic` | `none` — no auth. `basic` — HTTP basic auth. `authelia` — full SSO with web portal. `authentik` — enterprise SSO (planned) |
+| `provider` | string | `basic` | `none` — no auth. `basic` — HTTP basic auth. `authelia` — full SSO with web portal. `authelia_remote` — no Authelia on this host, use the one of another drayve host (see below). `authentik` — enterprise SSO (planned) |
 | `lldap` | bool | `false` | Deploy LLDAP as user backend (authelia only) |
 | `lldap_base_dn` | string | `DC=drayve,DC=local` | LDAP base DN (authelia + lldap only) |
+| `cookie_domain` | string | `stack.domain` | Authelia session cookie domain (authelia only). Use a shared parent domain when other hosts below it use this Authelia |
+| `portal_url` | string | `https://auth.<stack.domain>` | Authelia portal URL, rendered as `session.cookies[].authelia_url` (authelia only). `https://`, host must equal or sit below `cookie_domain` |
+| `remote.forward_auth_url` | string | — | Full forward-auth endpoint of the other host's Authelia, `https://` only. **Required** for `authelia_remote` |
+| `remote.portal_url` | string | — | Portal URL of the other host's Authelia. **Required** for `authelia_remote`; used for the landing-page link |
+
+#### One Authelia for two hosts
+
+`authelia_remote` puts the Traefik middleware `auth@file` on a host without Authelia
+against the forward-auth endpoint of an Authelia on another host. No `authelia` or
+`lldap` container runs there and no Authelia secrets are needed. Users, groups, second
+factor and access rules live on the Authelia host only.
+
+Host with Authelia (`node01.stream.example.org`):
+
+```yaml
+stack:
+  domain: node01.stream.example.org
+auth:
+  provider: authelia
+  cookie_domain: stream.example.org          # shared parent of both hosts
+  portal_url: https://auth.node01.stream.example.org
+```
+
+Host without Authelia (`mon.stream.example.org`):
+
+```yaml
+stack:
+  domain: mon.stream.example.org
+auth:
+  provider: authelia_remote
+  remote:
+    forward_auth_url: https://auth.node01.stream.example.org/api/authz/forward-auth
+    portal_url: https://auth.node01.stream.example.org
+```
+
+Notes:
+
+- The browser session cookie is set for `cookie_domain`, so both host names must lie below it.
+  The login redirect target comes from the Authelia host's `session.cookies[].authelia_url`
+  (Authelia ForwardAuth takes the "Authelia URL" from the session cookie configuration,
+  see [proxy authorization](https://www.authelia.com/reference/guides/proxy-authorization/));
+  `remote.portal_url` on the other host is only the link on its landing page.
+- Authelia only serves cookie domains it is configured for, and its access rules must
+  cover the protected host names (rules are managed on the Authelia host).
+- Grafana on a `authelia_remote` host gets no OIDC login: it keeps its own login form and
+  admin account behind `auth@file`.
+- Reachability: the Traefik of the `authelia_remote` host calls `forward_auth_url` over HTTPS,
+  so that host must reach the Authelia host's Traefik.
+- `make validate`, `deploy-check-fast` and `deploy.yml` abort when a URL is missing, when
+  `forward_auth_url` is not `https://`, or when `portal_url` lies outside `cookie_domain`.
 
 ### `monitoring`
 

@@ -95,6 +95,21 @@
     </section>
 {% endif %}
 
+{% if auth_provider == 'authelia_remote' %}
+    <section>
+      <h2>Auth</h2>
+      <div class="grid">
+        <a href="{{ auth.remote.portal_url }}" target="_blank" class="card">
+          <div class="card-header">
+            <div class="card-title"><span class="icon">&#x1F510;</span><h3>Authelia</h3></div>
+            <span class="badge">auth</span>
+          </div>
+          <p>Login &amp; Single Sign-On (remote host)</p>
+        </a>
+      </div>
+    </section>
+{% endif %}
+
 {% if monitoring_services.grafana | default(false) | bool %}
     <section>
       <h2>Monitoring</h2>

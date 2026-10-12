@@ -1,0 +1,28 @@
+# HOST B of the two-host Authelia setup: no Authelia container, Traefik's
+# auth@file forwards to the Authelia of node01 (see stack-authelia-two-hosts.yaml).
+# See docs/configuration.md, "One Authelia for two hosts".
+
+drayve_version: "0.1.0"
+
+stack:
+  name: mon
+  domain: mon.stream.example.org
+  acme_email: ops@example.org
+
+provider:
+  type: manual
+
+auth:
+  provider: authelia_remote
+  remote:
+    forward_auth_url: https://auth.node01.stream.example.org/api/authz/forward-auth
+    portal_url: https://auth.node01.stream.example.org
+
+monitoring:
+  profile: full
+
+secrets:
+  mode: quickstart
+
+backup:
+  enabled: false

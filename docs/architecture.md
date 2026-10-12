@@ -124,7 +124,8 @@ All scanning happens at **deploy time** (from compose files), not at runtime (fr
 |   |-- loki/
 |   |-- promtail/
 |   |-- crowdsec/
-|   |-- authelia/               (if auth.provider: authelia)
+|   |-- authelia/               (if auth.provider: authelia; authelia_remote runs none —
+|   |                            its Traefik forwards auth@file to another host's Authelia)
 |   |-- lldap/                  (if auth.lldap: true)
 |   +-- landing/
 |-- services/                   Admin-managed services

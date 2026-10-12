@@ -34,6 +34,9 @@
     - name: Preflight required deployment variables
       ansible.builtin.import_tasks: ../tasks/preflight_vars.yml
 
+    - name: Drayve auth preflight — Authelia settings consistent
+      ansible.builtin.import_tasks: ../tasks/auth_preflight.yml
+
     # ---------- stack.yaml semantics ----------
 
     - name: Resolve apps from stack.yaml
