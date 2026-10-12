@@ -46,22 +46,6 @@
 # convention `authelia_oidc_<id>_secret`. The legacy variable
 # `authelia_oidc_grafana_secret` keeps working through that convention.
 
-- name: Resolve per-client OIDC plain secrets
-  ansible.builtin.set_fact:
-    authelia_oidc_client_secrets: >-
-      {{ authelia_oidc_client_secrets | default({}) | combine({
-           item.id: (host_secrets | default({})).get(
-             'authelia_oidc_' ~ item.id ~ '_secret',
-             lookup('vars', 'authelia_oidc_' ~ item.id ~ '_secret', default='')
-           )
-         })
-      }}
-  loop: "{{ authelia_oidc_clients }}"
-  loop_control:
-    label: "{{ item.id }}"
-  no_log: true
-  tags: [authelia]
-
 - name: Fail when any OIDC client is missing a plain secret
   ansible.builtin.assert:
     that:
@@ -238,8 +222,9 @@
       Konfiguration (leere Secrets) neben der bestehenden Authelia-DB
       (db.sqlite3 — 2FA-Registrierungen, Sessions, Tokens) ausrollen.
 
-      Fix: `--tags secrets,authelia` statt `--tags authelia` allein, oder
-      den vollen Lauf ohne Tag-Scoping fahren.
+      Fix: `--tags secrets,auth` (die Authelia-Rolle haengt per include_role
+      im Block mit Tag `auth`; `authelia` allein fuehrt keinen ihrer Tasks
+      aus), oder den vollen Lauf ohne Tag-Scoping fahren.
   when: authelia_config.changed | default(false)
   tags: [authelia]
 

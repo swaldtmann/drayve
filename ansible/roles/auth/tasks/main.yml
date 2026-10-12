@@ -8,23 +8,10 @@
     auth_lldap: "{{ auth.lldap | default(auth_lldap) | default(false) | bool }}"
   tags: [auth]
 
-# W-144: declarative OIDC clients. stack.yaml supplies a list of clients;
-# fallback is the legacy single Grafana client (back-compat for v0.1.x stacks).
-- name: Resolve authelia_oidc_clients from stack.yaml
-  ansible.builtin.set_fact:
-    authelia_oidc_clients: >-
-      {{ auth.oidc_clients
-         | default(authelia_oidc_clients | default(authelia_oidc_clients_default))
-      }}
-    authelia_oidc_authorization_policies: >-
-      {{ auth.authorization_policies
-         | default(authelia_oidc_authorization_policies | default({}))
-      }}
-    authelia_oidc_claims_policies: >-
-      {{ auth.claims_policies
-         | default(authelia_oidc_claims_policies | default({}))
-      }}
-  when: auth_provider == "authelia"
+# W-144: declarative OIDC clients + per-client plain secrets. Shared with
+# roles/deploy (tag [deploy]) so `.env` renders the same facts on every run.
+- name: Resolve authelia_oidc_clients and client secrets
+  ansible.builtin.import_tasks: ../../../tasks/authelia_oidc_resolve.yml
   tags: [auth]
 
 # Access-control rules + file-backend users from stack.yaml. Password hashes
