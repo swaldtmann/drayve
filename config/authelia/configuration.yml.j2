@@ -24,7 +24,7 @@ authentication_backend:
     password: "{{ authelia_ldap_password }}"
 {% else %}
   file:
-    path: /config/users_database.yml
+    path: /config/users/users_database.yml
     watch: true
   # stack.yaml + secrets.yml are the only source of truth for users in file
   # mode; Authelia must never write the file back.

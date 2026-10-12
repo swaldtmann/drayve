@@ -140,7 +140,9 @@ services:
       - ./authelia/data:/data
       - ./authelia/jwks.pem:/config/jwks.pem:ro
 {% if not (auth_lldap | default(false) | bool) %}
-      - ./authelia/users_database.yml:/config/users_database.yml:ro
+      # Directory, not a single file: template replaces the users file by
+      # rename (new inode); a single-file bind mount would keep the old one.
+      - ./authelia/users:/config/users:ro
 {% endif %}
 {% if auth_lldap | default(false) | bool %}
     depends_on:

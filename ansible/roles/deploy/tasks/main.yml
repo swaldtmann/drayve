@@ -566,7 +566,12 @@
   when: traefik_config.changed | default(false)
   tags: [deploy, traefik]
 
-- name: Force-recreate Authelia on config change
+- name: Force-recreate Authelia on config or users change
+  # Also on a changed users file (file backend): a removed user / dropped
+  # group / new hash must apply for sure, not only if the file watcher fires.
+  # Skipped when the compose up above already created/recreated authelia in
+  # this run (e.g. the mount layout change): the new container reads the
+  # already-written files, a second recreate would only be a second logout.
   ansible.builtin.command:
     cmd: docker compose up -d --force-recreate authelia
     chdir: "{{ drayve_deploy_dir }}"
@@ -574,7 +579,8 @@
   become_user: "{{ drayve_user }}"
   when:
     - auth_provider == 'authelia'
-    - authelia_config.changed | default(false)
+    - (authelia_config.changed | default(false)) or (authelia_users_file.changed | default(false))
+    - not ((compose_up.stderr | default('')) is search('Container authelia\s+(Created|Recreated)'))
   tags: [deploy, authelia]
 
 - name: Force-recreate Prometheus on config change

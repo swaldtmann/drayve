@@ -15,6 +15,7 @@ pytestmark = pytest.mark.usefixtures("stack_ready")
 
 STACK_DIR = "/opt/drayve/deploy/stack"
 AUTHELIA_DIR = f"{STACK_DIR}/authelia"
+USERS_DIR = f"{AUTHELIA_DIR}/users"
 EXTRA_RULE = {"domain": "extra.test.drayve.local", "policy": "one_factor", "groups": ["viewers"]}
 CAROL = {"name": "carol", "displayname": "Carol Newcomer", "email": "carol@test.drayve.local", "groups": ["viewers"]}
 ROTATED_GRAFANA_SECRET = "rotated-grafana-oidc-secret-32chars"
@@ -58,15 +59,15 @@ def test_config_change_keeps_the_totp_registration_and_second_factor_sign_in(por
 # --- 7: new user ---------------------------------------------------------------------------------
 
 def test_a_user_added_in_the_stack_can_sign_in_after_the_deploy(portal, vm, deploy):
-    """Open question: the users file is a single-file bind mount that the deploy replaces.
-    Does the running container see the new version without a restart?"""
+    """The users file sits in a directory that is mounted as a whole, so the container sees
+    the file the deploy swapped in."""
     before = vm.container("authelia")
 
     deploy({"af_extra_users": [CAROL]})
 
     after = vm.container("authelia")
-    on_host = "carol" in vm.file_text(f"{AUTHELIA_DIR}/users_database.yml")
-    in_container = "carol" in vm.run("docker exec authelia cat /config/users_database.yml").stdout
+    on_host = "carol" in vm.file_text(f"{USERS_DIR}/users_database.yml")
+    in_container = "carol" in vm.run("docker exec authelia cat /config/users/users_database.yml").stdout
     diagnosis = (f"users file on the host has carol: {on_host}; inside the container: {in_container}; "
                  f"container recreated by the deploy: {after.id != before.id}")
     assert on_host, "the deploy did not write carol into the users file. " + diagnosis
@@ -75,6 +76,45 @@ def test_a_user_added_in_the_stack_can_sign_in_after_the_deploy(portal, vm, depl
                       "Authelia after adding a user", timeout=300)
     r = portal.try_first_factor(portal.new_session(), "carol", ap.FIXTURE_PASSWORDS["carol"])
     assert r.status_code == 200, f"carol cannot sign in (HTTP {r.status_code}). {diagnosis}"
+
+
+def test_the_users_file_is_a_directory_mount_and_the_old_single_file_is_gone(vm):
+    assert vm.run(f"test -f {USERS_DIR}/users_database.yml").rc == 0
+    assert vm.run(f"test -e {AUTHELIA_DIR}/users_database.yml").rc != 0, (
+        "the old single-file users database (with password hashes) is still on the host")
+
+
+# --- 7b: dropped group, removed user (state: carol exists, group viewers) ------------------
+
+def test_a_group_taken_away_in_the_stack_stops_working_after_the_deploy(portal, deploy):
+    carol_without_groups = {**CAROL, "groups": []}
+    session = portal.new_session()
+    portal.login(session, "carol", ap.FIXTURE_PASSWORDS["carol"])
+    url = portal.url("grafana", "/api/health")
+    assert portal.outcome(session, url).kind == "ok", "precondition: carol (viewers) reaches grafana"
+
+    deploy({"af_extra_users": [carol_without_groups]})
+    portal.wait_until(lambda: portal.outcome(portal.new_session(), portal.url()).kind == "portal_redirect",
+                      "Authelia after the group change", timeout=300)
+
+    fresh = portal.new_session()
+    portal.login(fresh, "carol", ap.FIXTURE_PASSWORDS["carol"])
+    out = portal.outcome(fresh, url)
+    assert (out.kind, out.status) == ("denied", 403), f"carol without a group still gets in: {out}"
+
+
+def test_a_user_removed_from_the_stack_cannot_sign_in_after_the_deploy(portal, vm, deploy):
+    deploy({"af_extra_users": []})
+
+    assert "carol" not in vm.run("docker exec authelia cat /config/users/users_database.yml").stdout, (
+        "the running container still sees carol in the users file")
+    portal.wait_until(lambda: portal.outcome(portal.new_session(), portal.url()).kind == "portal_redirect",
+                      "Authelia after removing a user", timeout=300)
+    r = portal.try_first_factor(portal.new_session(), "carol", ap.FIXTURE_PASSWORDS["carol"])
+    assert r.status_code == 401, f"the removed user carol can still sign in (HTTP {r.status_code}): {r.text[:200]}"
+    # The others are untouched (first factor only: alice's TOTP state is not needed here).
+    r = portal.try_first_factor(portal.new_session(), "bob", ap.FIXTURE_PASSWORDS["bob"])
+    assert r.status_code == 200, f"bob cannot sign in after carol was removed (HTTP {r.status_code})"
 
 
 # --- 8: rotated OIDC client secret --------------------------------------------------------------
