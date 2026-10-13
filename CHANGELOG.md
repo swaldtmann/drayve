@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.12] - 2026-10-13
+
 ### Added
 - **Authelia access rules and a file user backend from `stack.yaml`.**
   `auth.access_control.default_policy` and `auth.access_control.rules`
