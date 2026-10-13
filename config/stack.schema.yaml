@@ -288,17 +288,14 @@ properties:
           crowdsec_whitelist. Keep them narrow: with Traefik's common log
           format the event carries the router name (evt.Meta.traefik_router_name),
           the method (evt.Meta.http_verb) and the path (evt.Meta.http_path),
-          but no host name.
+          but no host name. Entries are non-empty single-line strings; the
+          deploy additionally compiles the rendered file with the stack's
+          CrowdSec image before it replaces the live one.
         items:
           type: string
-        default: []
-      crowdsec_parsers:
-        type: array
-        description: >
-          Extra CrowdSec hub parsers installed at container start (PARSERS
-          environment variable), e.g. crowdsecurity/nextcloud-whitelist.
-        items:
-          type: string
+          minLength: 1
+          not:
+            pattern: "[\\r\\n]"
         default: []
 
   headers:

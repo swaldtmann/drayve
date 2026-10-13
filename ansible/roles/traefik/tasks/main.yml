@@ -254,10 +254,23 @@
   register: crowdsec_local_config
   tags: [traefik, crowdsec]
 
+# `validate` runs only when the content differs from the file on the host, on the
+# rendered temp file, BEFORE it replaces the live whitelist. A broken expression
+# makes CrowdSec exit fatally on start (restart loop, detection off), so the
+# file is compiled by `crowdsec -t` in a throw-away container of the stack's own
+# image first. On failure the run aborts with CrowdSec's message and neither the
+# file nor the running container is touched. `--rm` leaves no container behind.
 - name: Deploy CrowdSec IP whitelist
   ansible.builtin.copy:
     dest: "{{ drayve_deploy_dir }}/crowdsec/whitelist.yaml"
     content: "{{ lookup('template', 'crowdsec-whitelist.yaml.j2') }}"
+    validate: >-
+      docker run --rm -v %s:/wl.yaml:ro --entrypoint sh
+      {{ crowdsec_image | default('crowdsecurity/crowdsec:v1.8.1') }}
+      -c 'mkdir -p /etc/crowdsec /var/lib/crowdsec/data
+      && cp -a /staging/etc/crowdsec/. /etc/crowdsec/
+      && cp /wl.yaml /etc/crowdsec/parsers/s02-enrich/whitelist.yaml
+      && { out=$(crowdsec -t 2>&1) || { echo "$out" | grep -E "level=(fatal|error)" >&2; exit 1; }; }'
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
     mode: "0644"

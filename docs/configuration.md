@@ -179,7 +179,6 @@ Notes:
 | `crowdsec` | bool | `true` | Deploy CrowdSec + Traefik bouncer plugin |
 | `trusted_proxies` | list of strings | `[]` | IPv4/IPv6 addresses or networks added to Traefik's `forwardedHeaders.trustedIPs` next to `172.16.0.0/12`. For the Authelia host of an `authelia_remote` pair: the other host's public IP as `/32` (see "One Authelia for two hosts"). Prefix length 0, IPv4 networks shorter than `/8`, IPv6 networks shorter than `/16` and IPv4-mapped IPv6 (`::ffff:0:0/96`, write it as IPv4) are rejected |
 | `crowdsec_whitelist_expressions` | list of strings | `[]` | CrowdSec whitelist expressions (`whitelist.expression`), rendered next to the IP list `crowdsec_whitelist` into `crowdsec/whitelist.yaml`. See "CrowdSec whitelist expressions" below |
-| `crowdsec_parsers` | list of strings | `[]` | Extra CrowdSec hub parsers, installed at container start via the `PARSERS` environment variable (e.g. `crowdsecurity/nextcloud-whitelist`) |
 
 #### CrowdSec whitelist expressions
 
@@ -200,10 +199,24 @@ security:
     - >-
       evt.Meta.traefik_router_name startsWith 'nextcloud@'
       && evt.Meta.http_verb == 'GET'
-      && evt.Meta.http_path startsWith '/ocs/v2.php/apps/user_status/api/v1/statuses/'
-  crowdsec_parsers:
-    - crowdsecurity/nextcloud-whitelist   # other known Nextcloud false positives; does not cover user_status
+      && evt.Meta.http_status in ['200','404']
+      && evt.Meta.http_path matches '^/ocs/v2\\.php/apps/user_status/api/v1/statuses/[A-Za-z0-9._@-]+$'
 ```
+
+Why so narrow: `evt.Meta.http_path` is the raw request path including the query
+string, and an event that is whitelisted is invisible to *all* scenarios,
+including the CVE and path-traversal ones. The anchored pattern therefore allows
+only a plain user name after the prefix (no `?`, no `%`, no further `/`), and the
+status is limited to 200/404 so 401/403 floods keep counting. User names with
+other characters fall outside the exception and are counted as before (the safe
+direction).
+
+Entries must be non-empty single-line strings (the schema rejects anything
+else). Before a changed whitelist file replaces the live one, the deploy
+compiles it with the stack's CrowdSec image in a throw-away container
+(`crowdsec -t`); a syntax or type error aborts the run with CrowdSec's message
+and leaves the running container untouched. Always compare against a literal on
+the right-hand side: `startsWith` with a missing field on both sides is true.
 
 The router name is whatever your compose labels call the router
 (`traefik.http.routers.<name>`; the Docker provider appends `@docker`).
