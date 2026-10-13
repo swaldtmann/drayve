@@ -34,10 +34,10 @@ def _load_auth_checks():
     spec = importlib.util.spec_from_file_location("drayve_auth", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return module.check_auth
+    return module.check_auth, module.check_trusted_proxies
 
 
-check_auth = _load_auth_checks()
+check_auth, check_trusted_proxies = _load_auth_checks()
 
 
 def get_nested(data, path):
@@ -130,6 +130,9 @@ def validate(config):
     auth_errors, auth_warnings = check_auth(auth)
     errors.extend(auth_errors)
     warnings.extend(auth_warnings)
+
+    # security.trusted_proxies: same rules as the Ansible preflight
+    errors.extend(check_trusted_proxies(config.get("security")))
 
     # authelia: portal must sit under the session cookie domain
     # (https://www.authelia.com/configuration/session/introduction/)

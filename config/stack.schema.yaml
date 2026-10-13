@@ -264,6 +264,17 @@ properties:
         type: boolean
         description: Deploy CrowdSec + Traefik bouncer.
         default: true
+      trusted_proxies:
+        type: array
+        description: >
+          Extra addresses or networks (IPv4/IPv6, a single address is fine) whose
+          X-Forwarded-* headers Traefik keeps, added to the always-trusted Docker
+          range 172.16.0.0/12. Needed on the Authelia host of an authelia_remote
+          pair: list the public IP of the other host as /32. Prefix length 0
+          (0.0.0.0/0, ::/0) is rejected.
+        items:
+          type: string
+        default: []
 
   headers:
     type: object

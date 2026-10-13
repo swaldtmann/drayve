@@ -19,6 +19,8 @@
 #   auth.access_control / auth.users / auth.remote (types, policy enum, default_policy
 #   required with rules, group existence in file mode, forward-auth path, ...)
 #     - see the last task and ansible/playbooks/filter_plugins/drayve_auth.py
+#   security.trusted_proxies (extra Traefik trustedIPs, e.g. the other host of an
+#   authelia_remote pair): list of valid addresses/networks, never prefix length 0
 
 - name: Drayve auth preflight — authelia_remote needs auth.remote.forward_auth_url
   ansible.builtin.assert:
@@ -117,6 +119,17 @@
     fail_msg: |-
       auth settings in stack.yaml are not accepted:
         - {{ (auth | default({})) | drayve_auth_errors | join('\n  - ') }}
+  tags: [always]
+
+# security.trusted_proxies ends up in Traefik's forwardedHeaders.trustedIPs; a
+# bad entry (0.0.0.0/0, a string instead of a list, ...) must not get that far.
+- name: Drayve preflight — security.trusted_proxies
+  ansible.builtin.assert:
+    that:
+      - (security | default({})) | drayve_trusted_proxies_errors | length == 0
+    fail_msg: |-
+      security.trusted_proxies in stack.yaml is not accepted:
+        - {{ (security | default({})) | drayve_trusted_proxies_errors | join('\n  - ') }}
   tags: [always]
 
 # Warnings only (no abort).

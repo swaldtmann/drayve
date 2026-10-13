@@ -32,6 +32,9 @@ entryPoints:
     forwardedHeaders:
       trustedIPs:
         - "172.16.0.0/12"
+{% for proxy in (security | default({})).trusted_proxies | default([]) %}
+        - "{{ proxy }}"
+{% endfor %}
 
 accessLog:
   filePath: /var/log/traefik/access.log
