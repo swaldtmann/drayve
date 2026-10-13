@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.13] - 2026-10-13
+
 ### Added
 - **Per-host CrowdSec whitelist expressions.** `security.crowdsec_whitelist_expressions`
   renders `whitelist.expression` next to the IP list into `crowdsec/whitelist.yaml`
