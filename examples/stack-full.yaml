@@ -38,6 +38,12 @@ security:
   crowdsec: true
   # crowdsec_whitelist:
   #   - 203.0.113.1
+  # crowdsec_whitelist_expressions:   # see docs/configuration.md
+  #   - >-
+  #     evt.Meta.traefik_router_name startsWith 'nextcloud@'
+  #     && evt.Meta.http_verb == 'GET'
+  #     && evt.Meta.http_status in ['200','404']
+  #     && evt.Meta.http_path matches '^/ocs/v2\\.php/apps/user_status/api/v1/statuses/[A-Za-z0-9._@-]+$'
 
 secrets:
   mode: sops

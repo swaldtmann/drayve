@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Per-host CrowdSec whitelist expressions.** `security.crowdsec_whitelist_expressions`
+  renders `whitelist.expression` next to the IP list into `crowdsec/whitelist.yaml`
+  (mounted also when only expressions are set; output for IP-only hosts is
+  unchanged). With Traefik's common log format the event has the router name,
+  method, path and status but no host name, so expressions pin the router name;
+  `docs/configuration.md` has a narrow Nextcloud `user_status` example (anchored
+  path, GET only, status 200/404). Entries must be non-empty single-line strings
+  (schema), and a changed whitelist file is compiled with `crowdsec -t` in a
+  throw-away container of the stack's CrowdSec image before it replaces the live
+  one: a broken expression aborts the run instead of putting CrowdSec into a
+  restart loop. Functional test: `tests/crowdsec/test-whitelist-expression.sh`.
+
 ## [0.8.12] - 2026-10-13
 
 ### Added
