@@ -130,8 +130,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   twice when `docker compose up` already recreated it). Recreating drops all
   signed-in sessions (in-memory session store). A run with `--tags secrets,auth`
   writes the files but does not recreate the container; it now prints a notice.
+- **Misspelled keys in access rules aborted instead of being ignored.**
+  `auth.access_control` accepts only `default_policy` and `rules`, a rule only
+  `domain`, `policy`, `groups`, `resources` and `networks`, and `auth.remote`
+  only `forward_auth_url` and `portal_url`. Anything else was silently dropped
+  when rendering: `resource` instead of `resources` gave a `bypass` for the
+  whole domain, `group` instead of `groups` a rule for every user. The schema
+  is closed for these objects too.
+- **`security.trusted_proxies` rejects entries that trust almost everyone:**
+  IPv4-mapped IPv6 (`::ffff:0:0/96` and anything inside it; Traefik applies it
+  to every IPv4 client, write the address as IPv4), IPv4 networks shorter than
+  `/8` and IPv6 networks shorter than `/16`.
+- **`security` or `auth` that is not a mapping** (`security: foo`, `auth: []`)
+  aborts `make validate` and the preflight instead of being treated as empty.
+- **A client-sent `Remote-Name` (hyphen) reached the backend unchanged.**
+  `Remote-Name` is now in the `authResponseHeaders` of `auth@file`, so Traefik
+  replaces it with Authelia's value or removes it.
 
 ### Upgrade notes
+- **A `stack.yaml` that was accepted with a misspelled key in
+  `auth.access_control`, a rule or `auth.remote` now fails `make validate` and
+  the deploy preflight, naming the key.** Fix the key; the previous result
+  was a rule that matched more than written.
 - **File backend (`auth.lldap: false`) on a host deployed with the single-file
   layout:** the first deploy creates `authelia/users/`, moves the users file
   there, deletes the old `authelia/users_database.yml` (it holds the password
