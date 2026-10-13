@@ -261,7 +261,10 @@
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
     mode: "0644"
-  when: crowdsec_enabled and (security.crowdsec_whitelist | default([]) | length > 0)
+  when: >-
+    crowdsec_enabled and
+    ((security.crowdsec_whitelist | default([]) | length > 0) or
+    (security.crowdsec_whitelist_expressions | default([]) | length > 0))
   register: crowdsec_whitelist
   tags: [traefik, crowdsec]
 
@@ -269,7 +272,10 @@
   ansible.builtin.file:
     path: "{{ drayve_deploy_dir }}/crowdsec/whitelist.yaml"
     state: absent
-  when: crowdsec_enabled and (security.crowdsec_whitelist | default([]) | length == 0)
+  when: >-
+    crowdsec_enabled and
+    (security.crowdsec_whitelist | default([]) | length == 0) and
+    (security.crowdsec_whitelist_expressions | default([]) | length == 0)
   tags: [traefik, crowdsec]
 
 # === Access-log retention ===

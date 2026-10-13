@@ -178,6 +178,37 @@ Notes:
 |-----|------|---------|-------------|
 | `crowdsec` | bool | `true` | Deploy CrowdSec + Traefik bouncer plugin |
 | `trusted_proxies` | list of strings | `[]` | IPv4/IPv6 addresses or networks added to Traefik's `forwardedHeaders.trustedIPs` next to `172.16.0.0/12`. For the Authelia host of an `authelia_remote` pair: the other host's public IP as `/32` (see "One Authelia for two hosts"). Prefix length 0, IPv4 networks shorter than `/8`, IPv6 networks shorter than `/16` and IPv4-mapped IPv6 (`::ffff:0:0/96`, write it as IPv4) are rejected |
+| `crowdsec_whitelist_expressions` | list of strings | `[]` | CrowdSec whitelist expressions (`whitelist.expression`), rendered next to the IP list `crowdsec_whitelist` into `crowdsec/whitelist.yaml`. See "CrowdSec whitelist expressions" below |
+| `crowdsec_parsers` | list of strings | `[]` | Extra CrowdSec hub parsers, installed at container start via the `PARSERS` environment variable (e.g. `crowdsecurity/nextcloud-whitelist`) |
+
+#### CrowdSec whitelist expressions
+
+An expression is evaluated per log event; if it is true, the event never reaches
+the scenarios. With Traefik's common log format (what this stack configures)
+the event has the router name (`evt.Meta.traefik_router_name`), method
+(`evt.Meta.http_verb`), path (`evt.Meta.http_path`) and status, but **no host
+name** (`target_fqdn` is only filled from the JSON access log). Pin the router
+name instead, and keep the expression as narrow as the problem.
+
+Example: the Nextcloud frontend polls `user_status` for every user shown in the
+UI (dozens of GETs per second, partly 404) and trips
+`crowdsecurity/http-crawl-non_statics` and `crowdsecurity/http-probing`:
+
+```yaml
+security:
+  crowdsec_whitelist_expressions:
+    - >-
+      evt.Meta.traefik_router_name startsWith 'nextcloud@'
+      && evt.Meta.http_verb == 'GET'
+      && evt.Meta.http_path startsWith '/ocs/v2.php/apps/user_status/api/v1/statuses/'
+  crowdsec_parsers:
+    - crowdsecurity/nextcloud-whitelist   # other known Nextcloud false positives; does not cover user_status
+```
+
+The router name is whatever your compose labels call the router
+(`traefik.http.routers.<name>`; the Docker provider appends `@docker`).
+A functional check against real CrowdSec lives in
+`tests/crowdsec/test-whitelist-expression.sh`.
 
 ### `headers`
 

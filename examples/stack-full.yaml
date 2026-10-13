@@ -38,6 +38,10 @@ security:
   crowdsec: true
   # crowdsec_whitelist:
   #   - 203.0.113.1
+  # crowdsec_whitelist_expressions:   # see docs/configuration.md
+  #   - "evt.Meta.traefik_router_name startsWith 'nextcloud@' && evt.Meta.http_verb == 'GET'"
+  # crowdsec_parsers:
+  #   - crowdsecurity/nextcloud-whitelist
 
 secrets:
   mode: sops

@@ -2,7 +2,15 @@ name: drayve/whitelist
 description: "Whitelisted IPs from stack.yaml"
 whitelist:
   reason: "stack.yaml crowdsec_whitelist"
+{% if security.crowdsec_whitelist | default([]) | length > 0 %}
   ip:
 {% for ip in security.crowdsec_whitelist %}
     - "{{ ip }}"
 {% endfor %}
+{% endif %}
+{% if security.crowdsec_whitelist_expressions | default([]) | length > 0 %}
+  expression:
+{% for expr in security.crowdsec_whitelist_expressions %}
+    - {{ expr | to_json }}
+{% endfor %}
+{% endif %}

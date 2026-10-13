@@ -280,6 +280,26 @@ properties:
         items:
           type: string
         default: []
+      crowdsec_whitelist_expressions:
+        type: array
+        description: >
+          CrowdSec whitelist expressions (whitelist.expression, evaluated per
+          log event in the s02-enrich stage), rendered next to the IP list
+          crowdsec_whitelist. Keep them narrow: with Traefik's common log
+          format the event carries the router name (evt.Meta.traefik_router_name),
+          the method (evt.Meta.http_verb) and the path (evt.Meta.http_path),
+          but no host name.
+        items:
+          type: string
+        default: []
+      crowdsec_parsers:
+        type: array
+        description: >
+          Extra CrowdSec hub parsers installed at container start (PARSERS
+          environment variable), e.g. crowdsecurity/nextcloud-whitelist.
+        items:
+          type: string
+        default: []
 
   headers:
     type: object
