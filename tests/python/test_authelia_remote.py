@@ -156,7 +156,7 @@ def _auth_errors(auth: dict, domain: str = "node01.stream.example.org") -> list[
 def test_remote_middleware_uses_configured_forward_auth_url(ansible_jinja_env):
     mw = _middleware_for(ansible_jinja_env, "authelia_remote", auth={"remote": REMOTE})
     assert mw is not None, "no auth middleware file rendered for authelia_remote"
-    fa = mw["http"]["middlewares"]["auth"]["forwardAuth"]
+    fa = mw["http"]["middlewares"]["auth-forward"]["forwardAuth"]
     assert fa["address"] == REMOTE_URL
     assert fa["trustForwardHeader"] is True
     assert fa["authResponseHeaders"] == ["Remote-User", "Remote-Groups", "Remote-Email"]
@@ -164,7 +164,7 @@ def test_remote_middleware_uses_configured_forward_auth_url(ansible_jinja_env):
 
 def test_local_authelia_middleware_keeps_container_address(ansible_jinja_env):
     mw = _middleware_for(ansible_jinja_env, "authelia", auth={"provider": "authelia"})
-    fa = mw["http"]["middlewares"]["auth"]["forwardAuth"]
+    fa = mw["http"]["middlewares"]["auth-forward"]["forwardAuth"]
     assert fa["address"] == LOCAL_ADDRESS
     assert fa["authResponseHeaders"] == ["Remote-User", "Remote-Groups", "Remote-Email"]
 
@@ -172,13 +172,13 @@ def test_local_authelia_middleware_keeps_container_address(ansible_jinja_env):
 def test_local_authelia_ignores_remote_block(ansible_jinja_env):
     """auth.remote left over in stack.yaml must not redirect a host with its own Authelia."""
     mw = _middleware_for(ansible_jinja_env, "authelia", auth={"remote": REMOTE})
-    assert mw["http"]["middlewares"]["auth"]["forwardAuth"]["address"] == LOCAL_ADDRESS
+    assert mw["http"]["middlewares"]["auth-forward"]["forwardAuth"]["address"] == LOCAL_ADDRESS
 
 
 @pytest.mark.parametrize("provider", ["basic", "authentik", "none"])
 def test_other_providers_never_render_authelia_forward_auth(ansible_jinja_env, provider):
     mw = _middleware_for(ansible_jinja_env, provider, auth={"remote": REMOTE})
-    forward = (mw or {}).get("http", {}).get("middlewares", {}).get("auth", {}).get("forwardAuth", {})
+    forward = (mw or {}).get("http", {}).get("middlewares", {}).get("auth-forward", {}).get("forwardAuth", {})
     assert forward.get("address") not in {LOCAL_ADDRESS, REMOTE_URL}
 
 

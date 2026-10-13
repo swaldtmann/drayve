@@ -17,6 +17,11 @@ auth:
   cookie_domain: stream.example.org        # shared parent of both hosts
   portal_url: https://auth.node01.stream.example.org
 
+security:
+  trusted_proxies:
+    - 203.0.113.20/32                      # public IP of host B (documentation range): without it
+                                           # host A drops B's X-Forwarded-* and Authelia answers 400
+
 monitoring:
   profile: light
 

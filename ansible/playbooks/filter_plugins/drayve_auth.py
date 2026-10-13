@@ -1,10 +1,10 @@
-"""Validation of auth.access_control, auth.users and auth.remote.
+"""Validation of auth.access_control, auth.users, auth.remote and security.trusted_proxies.
 
 One implementation for two callers:
 
   - scripts/validate-stack.py (``make validate``) imports ``check_auth`` by path.
-  - ansible/tasks/auth_preflight.yml uses the filters ``drayve_auth_errors`` and
-    ``drayve_auth_warnings`` (Ansible loads this directory automatically because
+  - ansible/tasks/auth_preflight.yml uses the filters ``drayve_auth_errors``,
+    ``drayve_auth_warnings`` and ``drayve_trusted_proxies_errors`` (Ansible loads this directory automatically because
     it sits next to the playbooks).
 
 Everything here is fail-closed: a value that the Authelia template would turn
@@ -18,12 +18,14 @@ never see password hashes (those live in secrets.yml).
 
 from __future__ import annotations
 
+import ipaddress
 from urllib.parse import urlsplit
 
 POLICIES = ("deny", "one_factor", "two_factor", "bypass")
 USER_KEYS = ("name", "displayname", "email", "groups")
 FORWARD_AUTH_PATH = "/api/authz/forward-auth"
 TEMPLATE_MARKERS = ("{{", "{%")
+ADDRESS_CHARS = frozenset("0123456789abcdefABCDEF:./")
 
 
 def _truthy(value) -> bool:
@@ -274,6 +276,53 @@ def check_auth(auth) -> tuple[list[str], list[str]]:
     return errors, warnings
 
 
+def check_trusted_proxies(security) -> list[str]:
+    """Return errors for ``security.trusted_proxies`` (extra Traefik trustedIPs).
+
+    The entries are written into the Traefik static config next to the Docker
+    range, so each one must be a plain address or network. Anything that would
+    trust the whole internet (prefix length 0) or that is not unambiguous (host
+    bits set, netmask notation, zone id, whitespace) aborts. Values are never
+    echoed: they may carry template syntax.
+    """
+    if not isinstance(security, dict) or "trusted_proxies" not in security:
+        return []
+    where = "security.trusted_proxies"
+    entries = security["trusted_proxies"]
+    if not isinstance(entries, list):
+        return [
+            f"{where} must be a list of IP addresses or networks (a plain string is an "
+            f"error, write [\"203.0.113.10/32\"]), got {type(entries).__name__}"
+        ]
+    errors: list[str] = []
+    for i, entry in enumerate(entries):
+        item = f"{where}[{i}]"
+        if not isinstance(entry, str) or not entry:
+            errors.append(f"{item} must be a non-empty string")
+            continue
+        prefix = entry.partition("/")[2]
+        if not set(entry) <= ADDRESS_CHARS or ("/" in entry and not prefix.isdigit()):
+            errors.append(
+                f"{item} is not a plain IPv4/IPv6 address or CIDR network (no spaces, quotes, "
+                "zone ids or netmask notation)"
+            )
+            continue
+        try:
+            network = ipaddress.ip_network(entry, strict=True)
+        except ValueError:
+            errors.append(
+                f"{item} is not a valid IP address or CIDR network (network address with "
+                "no host bits set, e.g. 203.0.113.10/32 or 198.51.100.0/24)"
+            )
+            continue
+        if network.prefixlen == 0:
+            errors.append(
+                f"{item} has prefix length 0 and would trust every client address; list "
+                "the addresses of the proxies in front of Traefik, e.g. 203.0.113.10/32"
+            )
+    return errors
+
+
 # ---- Ansible filter plugin ---------------------------------------------------------
 
 
@@ -285,9 +334,14 @@ def drayve_auth_warnings(auth):
     return check_auth(auth)[1]
 
 
+def drayve_trusted_proxies_errors(security):
+    return check_trusted_proxies(security)
+
+
 class FilterModule:
     def filters(self):
         return {
             "drayve_auth_errors": drayve_auth_errors,
             "drayve_auth_warnings": drayve_auth_warnings,
+            "drayve_trusted_proxies_errors": drayve_trusted_proxies_errors,
         }

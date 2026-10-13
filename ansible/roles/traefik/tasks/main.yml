@@ -43,6 +43,11 @@
 # authelia_remote: the Authelia of another drayve host (auth.remote.forward_auth_url).
 # Same file for both — only one of them is ever active, and the file defines
 # the middleware `auth`, which must exist exactly once.
+# `auth` is a chain so that router labels (`auth@file`) stay as they are: the
+# client's underscore variants of the identity headers are removed first
+# (Go canonicalises Remote_User to Remote_user, a different header than
+# Remote-User, which some backends read as the same), then forwardAuth runs.
+# An empty customRequestHeaders value deletes the header from the request.
 - name: Deploy forwardAuth middleware (authelia)
   ansible.builtin.copy:
     dest: "{{ traefik_dynamic_dir }}/auth-authelia.yml"
@@ -50,6 +55,18 @@
       http:
         middlewares:
           auth:
+            chain:
+              middlewares:
+                - auth-strip-underscore-headers
+                - auth-forward
+          auth-strip-underscore-headers:
+            headers:
+              customRequestHeaders:
+                Remote_User: ""
+                Remote_Groups: ""
+                Remote_Email: ""
+                Remote_Name: ""
+          auth-forward:
             forwardAuth:
               address: "{{ auth.remote.forward_auth_url if auth_provider == 'authelia_remote' else 'http://authelia:9091/api/authz/forward-auth' }}"
               trustForwardHeader: true
