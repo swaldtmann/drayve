@@ -37,8 +37,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **`crowdsec_image`, `landing_image`** in `group_vars/all/vars.yml`
   (CrowdSec and the landing-page nginx were hard-coded in the compose
   template). `lldap_image` now has a default there as well.
+- **`security.trusted_proxies`** (list of IPv4/IPv6 addresses or networks,
+  default empty): extra entries for Traefik's `forwardedHeaders.trustedIPs`,
+  added to the always-present `172.16.0.0/12`. With `auth.provider:
+  authelia_remote` the Authelia host must list the public IP of the other host
+  here (as `/32`); without it Traefik drops the `X-Forwarded-*` headers of the
+  forward-auth call and Authelia answers 400 (measured on two test servers,
+  2026-10-12). `make validate` and the deploy preflight reject `0.0.0.0/0`,
+  `::/0` (any prefix length 0), values that are not addresses or networks, and
+  a string instead of a list. `forwardedHeaders.insecure` is not reachable
+  from `stack.yaml`. See `docs/configuration.md`, "One Authelia for two hosts",
+  and `examples/stack-authelia-two-hosts.yaml`.
 - **New CI scenario `molecule/authelia-file/`** (`make test-authelia-file`,
-  part of the tag-push release gate, about an hour): signs in through Authelia
+  part of the tag-push release gate, a full run takes about 20 minutes): signs in through Authelia
   without a browser (redirect to the portal, first factor, TOTP, group access
   rules), checks the Grafana OIDC sign-in with the shipped client, and what
   redeploys do (unchanged run, TOTP survives a config change, a new user,
@@ -73,6 +84,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 - **Fail-closed validation of `auth.access_control`, `auth.users` and `auth.remote`** (external review of v0.8.12, F1/F2/F3/F5/F6/F7, N1-N4, N6). `make validate` and the playbook preflight (same code: `ansible/playbooks/filter_plugins/drayve_auth.py`) now abort on a string where a list is expected (it was rendered character by character, e.g. `resources: "^/public"` became a bypass for the whole domain), unknown policies, a missing `default_policy` next to rules, rule groups that no user has (file backend), a `forward_auth_url` that is the portal root or `/api/health` (answers 200, lets everything through), a non-`https` `remote.portal_url`, template syntax in names, duplicate user names ignoring case and unknown `auth.users[]` keys. Plain-text passwords in `authelia_user_password_hashes` (not `$argon2...`) abort the file-backend check; the message names the user, never the value. Warnings: `bypass` on a wildcard domain without `groups`/`resources`, `*.x` without `x` in the same rule, unanchored `bypass` regex in `resources` (use `^/public/`), forward-auth host outside the portal domain. The Authelia template now renders `policy` JSON-quoted, so a value with a newline cannot add a rule. Limit: Ansible evaluates `{{ }}` in extra vars before any task sees it, so raw template syntax in a name is caught by `make validate` only.
+- **A client-sent `Remote_User` (underscore) reached the backend next to the
+  real `Remote-User`** (also `Remote_Groups`, `Remote_Email`, `Remote_Name`;
+  measured behind `auth@file`, backends that treat `_` and `-` alike read the
+  forged one). The `auth` middleware of `authelia` and `authelia_remote` is now
+  a chain: the four underscore headers are removed from the request, then
+  forwardAuth runs. Router labels (`auth@file`) are unchanged; the forwardAuth
+  middleware is now named `auth-forward` in `auth-authelia.yml`. The hyphen
+  headers set by Authelia are not touched. Other providers are not changed.
 - **Grafana sign-in through Authelia OIDC failed on a fresh host out of the
   box** ("Failed to get token from provider"). Fixed by the combination of:
   the HTTPS back channel through Traefik (Authelia 4.39 derives the issuer
@@ -146,6 +165,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Grafana moves from 12.3.6 to 12.4.12 (minor version). Postgres and Redis
   stay inside their major line. Sites that set an image variable themselves
   (`grafana_image`, `authelia_image`, `traefik_image`, ...) keep their value.
+- **`security.trusted_proxies` takes effect with a Traefik restart** (static
+  configuration; the deploy recreates the container when the file changes), so
+  the Authelia host of a two-host setup is briefly unavailable once.
 - **Behaviour change:** a changed Authelia `storage_encryption_key` now aborts
   the deploy instead of silently deleting the database. Restore the old key,
   or set `authelia_reset_db_on_key_change: true` for one deploy and accept

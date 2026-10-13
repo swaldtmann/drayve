@@ -97,6 +97,9 @@ auth:
   provider: authelia
   cookie_domain: stream.example.org          # shared parent of both hosts
   portal_url: https://auth.node01.stream.example.org
+security:
+  trusted_proxies:
+    - 203.0.113.20/32                        # public IP of the host without Authelia
 ```
 
 Host without Authelia (`mon.stream.example.org`):
@@ -124,6 +127,27 @@ Notes:
   admin account behind `auth@file`.
 - Reachability: the Traefik of the `authelia_remote` host calls `forward_auth_url` over HTTPS,
   so that host must reach the Authelia host's Traefik.
+- **The Authelia host needs the other host in `security.trusted_proxies`.** Without it its
+  Traefik does not trust the public IP of the `authelia_remote` host, deletes the
+  `X-Forwarded-*` headers of the forward-auth call and Authelia answers 400, so every
+  visitor of the other host gets a 400 (fail-closed, but unusable). List the public IP of
+  that host as `/32` (IPv6: `/128` if it calls over IPv6). Nothing is needed on the
+  `authelia_remote` host. The entries are added to the always-trusted Docker range
+  `172.16.0.0/12`; the setting is read at Traefik start, the deploy recreates Traefik when
+  it changes. `0.0.0.0/0`, `::/0` and any prefix length 0 are rejected, and
+  `forwardedHeaders.insecure` cannot be set from `stack.yaml` (it would let any client
+  forge the forwarded host and URI and pick the access rule Authelia evaluates).
+  Residual risk: every process **on** the other host can choose which rule Authelia
+  evaluates (it is trusted by its IP); a visitor of that host cannot.
+- The `authelia_remote` host must trust the TLS certificate of the Authelia host: it calls
+  `forward_auth_url` over HTTPS from inside the Traefik container, so use a public domain
+  with a valid certificate (e.g. Let's Encrypt) and make sure the name resolves publicly
+  (an `/etc/hosts` entry on the VM is not seen by the container). A private CA or the
+  default Traefik certificate makes the call fail with a 500.
+- On both providers that set `auth@file` (`authelia`, `authelia_remote`) the middleware first
+  removes the request headers `Remote_User`, `Remote_Groups`, `Remote_Email` and
+  `Remote_Name` (underscore) and then runs forwardAuth, so a client cannot forge them next
+  to the real `Remote-User` etc. set by Authelia.
 - `make validate`, `deploy-check-fast` and `deploy.yml` abort when a URL is missing, when
   `forward_auth_url` is not `https://`, when its path is not `/api/authz/forward-auth`, or when `portal_url` lies outside `cookie_domain`.
 
@@ -146,6 +170,7 @@ Notes:
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `crowdsec` | bool | `true` | Deploy CrowdSec + Traefik bouncer plugin |
+| `trusted_proxies` | list of strings | `[]` | IPv4/IPv6 addresses or networks added to Traefik's `forwardedHeaders.trustedIPs` next to `172.16.0.0/12`. For the Authelia host of an `authelia_remote` pair: the other host's public IP as `/32` (see "One Authelia for two hosts"). Prefix length 0 is rejected |
 
 ### `headers`
 
