@@ -23,6 +23,16 @@ from urllib.parse import urlsplit
 
 POLICIES = ("deny", "one_factor", "two_factor", "bypass")
 USER_KEYS = ("name", "displayname", "email", "groups")
+# Keys the Authelia template and the roles actually read. Anything else is
+# silently dropped when rendering, so a typo ("resource", "group") would turn a
+# narrow rule into a wide one.
+ACCESS_CONTROL_KEYS = ("default_policy", "rules")
+RULE_KEYS = ("domain", "policy", "groups", "resources", "networks")
+REMOTE_KEYS = ("forward_auth_url", "portal_url")
+# trusted_proxies: shortest accepted prefix per family (a /1 trusts half the internet)
+MIN_PREFIX_V4 = 8
+MIN_PREFIX_V6 = 16
+IPV4_MAPPED = ipaddress.ip_network("::ffff:0:0/96")
 FORWARD_AUTH_PATH = "/api/authz/forward-auth"
 TEMPLATE_MARKERS = ("{{", "{%")
 ADDRESS_CHARS = frozenset("0123456789abcdefABCDEF:./")
@@ -50,6 +60,15 @@ def _check_template_syntax(value, where, errors) -> None:
             f"{where} contains template syntax ('{{{{' or '{{%'), which is not allowed "
             "in this key"
         )
+
+
+def _check_keys(mapping, allowed, where, errors) -> None:
+    for key in mapping:
+        if key not in allowed:
+            errors.append(
+                f"{where}.{key} is not supported (allowed: {', '.join(allowed)}); a misspelled "
+                "key is ignored when rendering and would change what the rule matches"
+            )
 
 
 def _check_policy(value, where, errors) -> None:
@@ -89,6 +108,8 @@ def _check_rules(ac, auth, errors, warnings) -> None:
         if not isinstance(rule, dict):
             errors.append(f"{where} must be a mapping")
             continue
+
+        _check_keys(rule, RULE_KEYS, where, errors)
 
         domains = None
         if "domain" not in rule:
@@ -216,6 +237,7 @@ def _check_group_existence(ac, users, errors) -> None:
 def _check_remote(auth, errors, warnings) -> None:
     remote = auth.get("remote")
     remote = remote if isinstance(remote, dict) else {}
+    _check_keys(remote, REMOTE_KEYS, "auth.remote", errors)
     fwd = remote.get("forward_auth_url")
     portal = remote.get("portal_url")
 
@@ -254,7 +276,10 @@ def check_auth(auth) -> tuple[list[str], list[str]]:
     """Return (errors, warnings) for the ``auth`` section of a stack."""
     errors: list[str] = []
     warnings: list[str] = []
+    if auth is None:
+        return errors, warnings
     if not isinstance(auth, dict):
+        errors.append(f"auth must be a mapping, got {type(auth).__name__}")
         return errors, warnings
     provider = auth.get("provider", "basic")
 
@@ -268,6 +293,7 @@ def check_auth(auth) -> tuple[list[str], list[str]]:
             if not isinstance(ac, dict):
                 errors.append("auth.access_control must be a mapping")
             else:
+                _check_keys(ac, ACCESS_CONTROL_KEYS, "auth.access_control", errors)
                 if "default_policy" in ac:
                     _check_policy(ac["default_policy"], "auth.access_control.default_policy", errors)
                 _check_rules(ac, auth, errors, warnings)
@@ -281,11 +307,17 @@ def check_trusted_proxies(security) -> list[str]:
 
     The entries are written into the Traefik static config next to the Docker
     range, so each one must be a plain address or network. Anything that would
-    trust the whole internet (prefix length 0) or that is not unambiguous (host
-    bits set, netmask notation, zone id, whitespace) aborts. Values are never
+    trust (almost) the whole internet (prefix length 0, IPv4 shorter than /8, IPv6
+    shorter than /16, anything in the IPv4-mapped range ::ffff:0:0/96, which Go's
+    checker applies to every IPv4 address) or that is not unambiguous (host bits
+    set, netmask notation, zone id, whitespace) aborts. Values are never
     echoed: they may carry template syntax.
     """
-    if not isinstance(security, dict) or "trusted_proxies" not in security:
+    if security is None:
+        return []
+    if not isinstance(security, dict):
+        return [f"security must be a mapping, got {type(security).__name__}"]
+    if "trusted_proxies" not in security:
         return []
     where = "security.trusted_proxies"
     entries = security["trusted_proxies"]
@@ -319,6 +351,24 @@ def check_trusted_proxies(security) -> list[str]:
             errors.append(
                 f"{item} has prefix length 0 and would trust every client address; list "
                 "the addresses of the proxies in front of Traefik, e.g. 203.0.113.10/32"
+            )
+        elif network.version == 4 and network.prefixlen < MIN_PREFIX_V4:
+            errors.append(
+                f"{item} has a prefix shorter than /{MIN_PREFIX_V4} and would trust a large "
+                "part of the IPv4 internet; list the addresses of the proxies in front of "
+                "Traefik, e.g. 203.0.113.10/32"
+            )
+        elif network.version == 6 and network.prefixlen < MIN_PREFIX_V6:
+            errors.append(
+                f"{item} has a prefix shorter than /{MIN_PREFIX_V6} and would trust a large "
+                "part of the IPv6 internet; list the addresses of the proxies in front of "
+                "Traefik, e.g. 2001:db8::1/128"
+            )
+        elif network.version == 6 and network.overlaps(IPV4_MAPPED):
+            errors.append(
+                f"{item} is an IPv4-mapped IPv6 network (::ffff:0:0/96 or inside it); Traefik "
+                "applies it to the matching IPv4 clients and /96 covers all of them. Write the "
+                "entry as IPv4, e.g. 203.0.113.10/32"
             )
     return errors
 

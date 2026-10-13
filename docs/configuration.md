@@ -134,11 +134,18 @@ Notes:
   that host as `/32` (IPv6: `/128` if it calls over IPv6). Nothing is needed on the
   `authelia_remote` host. The entries are added to the always-trusted Docker range
   `172.16.0.0/12`; the setting is read at Traefik start, the deploy recreates Traefik when
-  it changes. `0.0.0.0/0`, `::/0` and any prefix length 0 are rejected, and
+  it changes. `0.0.0.0/0`, `::/0` and any prefix length 0 are rejected, as are IPv4 networks
+  shorter than `/8`, IPv6 networks shorter than `/16` and IPv4-mapped IPv6 (`::ffff:0:0/96`
+  and anything inside it; write such an address as plain IPv4), and
   `forwardedHeaders.insecure` cannot be set from `stack.yaml` (it would let any client
   forge the forwarded host and URI and pick the access rule Authelia evaluates).
   Residual risk: every process **on** the other host can choose which rule Authelia
-  evaluates (it is trusted by its IP); a visitor of that host cannot.
+  evaluates (it is trusted by its IP); a visitor of that host cannot. That includes every
+  app on the other host that can be made to fetch foreign URLs (SSRF): it calls the
+  Authelia host from the trusted IP and can pick the host Authelia evaluates.
+- CrowdSec on the Authelia host sees the address of the other host for every forward-auth
+  call (the plugin trusts only `172.16.0.0/12`, not `security.trusted_proxies`). A ban of
+  that address on the Authelia host locks out all visitors of the other host.
 - The `authelia_remote` host must trust the TLS certificate of the Authelia host: it calls
   `forward_auth_url` over HTTPS from inside the Traefik container, so use a public domain
   with a valid certificate (e.g. Let's Encrypt) and make sure the name resolves publicly
@@ -170,7 +177,7 @@ Notes:
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `crowdsec` | bool | `true` | Deploy CrowdSec + Traefik bouncer plugin |
-| `trusted_proxies` | list of strings | `[]` | IPv4/IPv6 addresses or networks added to Traefik's `forwardedHeaders.trustedIPs` next to `172.16.0.0/12`. For the Authelia host of an `authelia_remote` pair: the other host's public IP as `/32` (see "One Authelia for two hosts"). Prefix length 0 is rejected |
+| `trusted_proxies` | list of strings | `[]` | IPv4/IPv6 addresses or networks added to Traefik's `forwardedHeaders.trustedIPs` next to `172.16.0.0/12`. For the Authelia host of an `authelia_remote` pair: the other host's public IP as `/32` (see "One Authelia for two hosts"). Prefix length 0, IPv4 networks shorter than `/8`, IPv6 networks shorter than `/16` and IPv4-mapped IPv6 (`::ffff:0:0/96`, write it as IPv4) are rejected |
 
 ### `headers`
 

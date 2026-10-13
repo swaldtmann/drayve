@@ -111,6 +111,7 @@ properties:
       remote:
         type: object
         description: Authelia of another drayve host (required with auth.provider=authelia_remote).
+        additionalProperties: false
         properties:
           forward_auth_url:
             type: string
@@ -138,6 +139,7 @@ properties:
           Authelia access control (only with auth.provider=authelia). Rules are
           evaluated in order, the first matching rule wins; requests no rule
           matches get default_policy. A rule with groups cannot use "bypass".
+        additionalProperties: false
         properties:
           default_policy:
             type: string
@@ -148,6 +150,7 @@ properties:
             items:
               type: object
               required: [domain, policy]
+              additionalProperties: false
               properties:
                 domain:
                   description: Domain pattern or list of patterns (e.g. "*.example.com").
@@ -271,7 +274,9 @@ properties:
           X-Forwarded-* headers Traefik keeps, added to the always-trusted Docker
           range 172.16.0.0/12. Needed on the Authelia host of an authelia_remote
           pair: list the public IP of the other host as /32. Prefix length 0
-          (0.0.0.0/0, ::/0) is rejected.
+          (0.0.0.0/0, ::/0), IPv4 networks shorter than /8, IPv6 networks shorter
+          than /16 and IPv4-mapped IPv6 (::ffff:0:0/96 and anything inside it;
+          write the address as IPv4) are rejected.
         items:
           type: string
         default: []

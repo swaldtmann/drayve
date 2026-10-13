@@ -259,10 +259,52 @@ def test_strip_leaves_the_hyphen_headers_alone(ansible_jinja_env, provider):
     strip = mws[chain[0]]["headers"]["customRequestHeaders"]
     assert not set(strip) & set(HYPHEN_HEADERS)
     fa = mws[chain[1]]["forwardAuth"]
-    assert fa["authResponseHeaders"] == ["Remote-User", "Remote-Groups", "Remote-Email"]
+    assert fa["authResponseHeaders"] == ["Remote-User", "Remote-Groups", "Remote-Email", "Remote-Name"]
 
 
 @pytest.mark.parametrize("provider", ["authelia", "authelia_remote"])
 def test_no_rendered_middleware_contains_insecure(ansible_jinja_env, provider):
     mws = _auth_middlewares(ansible_jinja_env, provider)
     assert "insecure" not in json.dumps(mws).lower()
+
+
+# ---- 4. entries that trust (almost) everyone ------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [
+        "::ffff:0.0.0.0/96",
+        "::ffff:0:0/96",
+        "::ffff:10.0.0.0/104",
+        "::ffff:203.0.113.10",
+        "0.0.0.0/1",
+        "128.0.0.0/1",
+        "10.0.0.0/7",
+        "::/1",
+        "2000::/3",
+    ],
+)
+def test_too_wide_or_mapped_entries_abort_validate(entry):
+    errors = _errors({"trusted_proxies": [entry]})
+    assert any("security.trusted_proxies[0]" in e for e in errors), errors
+
+
+def test_mapped_entry_message_says_to_write_ipv4():
+    errors = _errors({"trusted_proxies": ["::ffff:10.0.0.0/104"]})
+    assert any("as IPv4" in e for e in errors), errors
+
+
+@pytest.mark.parametrize(
+    "entry",
+    ["10.0.0.0/8", "0.0.0.0/8", "203.0.113.10/32", "2001:db8::/32", "2000::/16", "2001:db8::1"],
+)
+def test_narrow_enough_entries_stay_valid(entry):
+    assert _errors({"trusted_proxies": [entry]}) == []
+
+
+@pytest.mark.parametrize("entry", ["::ffff:0.0.0.0/96", "0.0.0.0/1", "::/1"])
+def test_preflight_rejects_too_wide_entries(ansible_available, tmp_path, entry):
+    r = _preflight(tmp_path, {"trusted_proxies": [entry]})
+    assert r.returncode != 0, r.stdout
+    assert "security.trusted_proxies" in r.stdout + r.stderr
