@@ -533,6 +533,54 @@
   when: auth_provider == 'authelia' and (auth_lldap | default(false) | bool)
   tags: [deploy]
 
+# --- Recreate-reason diagnostics (read-only, never changed, never failed) ---
+# Compose recreates a container when (a) the service config hash differs from
+# the container label com.docker.compose.config-hash, (b) the container's image
+# ID differs from the local ID of the service image (a `pull` or registry
+# mirror can move a tag), or (c) its networks do not match. Capture all three
+# right before "Docker compose up"; printed after it only if it changed
+# something. Only names, hashes, IDs, states - no full config or inspect dump.
+- name: Capture desired config hash per service (diagnostic)
+  ansible.builtin.command:
+    cmd: docker compose config --hash "*"
+    chdir: "{{ drayve_deploy_dir }}"
+  become: true
+  become_user: "{{ drayve_user }}"
+  register: _compose_diag_hash
+  changed_when: false
+  failed_when: false
+  tags: [deploy]
+
+- name: Capture existing containers (config-hash, image ID, state, networks) (diagnostic)
+  ansible.builtin.shell:
+    cmd: |
+      ids=$(docker compose ps -aq)
+      [ -z "$ids" ] && exit 0
+      docker inspect --format '{% raw %}{{.Name}} service={{index .Config.Labels "com.docker.compose.service"}} config-hash={{index .Config.Labels "com.docker.compose.config-hash"}} image={{.Config.Image}} image-id={{.Image}} state={{.State.Status}} networks={{range $k, $v := .NetworkSettings.Networks}}{{$k}}({{$v.NetworkID}}) {{end}}{% endraw %}' $ids
+      exit 0
+    chdir: "{{ drayve_deploy_dir }}"
+  become: true
+  become_user: "{{ drayve_user }}"
+  register: _compose_diag_containers
+  changed_when: false
+  failed_when: false
+  tags: [deploy]
+
+- name: Capture local image IDs of the service images (diagnostic)
+  ansible.builtin.shell:
+    cmd: |
+      for img in $(docker compose config --images | sort -u); do
+        echo "$img local-image-id=$(docker image inspect --format '{% raw %}{{.Id}}{% endraw %}' "$img" 2>/dev/null || echo missing)"
+      done
+      exit 0
+    chdir: "{{ drayve_deploy_dir }}"
+  become: true
+  become_user: "{{ drayve_user }}"
+  register: _compose_diag_images
+  changed_when: false
+  failed_when: false
+  tags: [deploy]
+
 - name: Docker compose up
   ansible.builtin.command:
     cmd: docker compose up -d --remove-orphans
@@ -554,6 +602,17 @@
 - name: Show docker compose up output
   ansible.builtin.debug:
     var: compose_up.stderr_lines
+  when: compose_up is changed
+  tags: [deploy]
+
+# Compare per service: desired hash vs container config-hash (a), container
+# image-id vs local-image-id (b), networks (c). Never changed.
+- name: Show recreate-reason diagnostics
+  ansible.builtin.debug:
+    msg: >-
+      {{ ['desired config hash per service:'] + _compose_diag_hash.stdout_lines
+      + ['existing containers before up:'] + _compose_diag_containers.stdout_lines
+      + ['local service image IDs before up:'] + _compose_diag_images.stdout_lines }}
   when: compose_up is changed
   tags: [deploy]
 
