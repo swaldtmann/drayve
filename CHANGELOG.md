@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   throw-away container of the stack's CrowdSec image before it replaces the live
   one: a broken expression aborts the run instead of putting CrowdSec into a
   restart loop. Functional test: `tests/crowdsec/test-whitelist-expression.sh`.
+- **Deploy role explains why Compose recreates a container.** Right before
+  `docker compose up` the role captures the desired config hash per service,
+  the existing containers (config-hash label, image ID, state, networks) and the
+  local service image IDs; printed only when `up` created or recreated
+  something. Read-only, never changed, no variables or full config in the log.
 
 ## [0.8.12] - 2026-10-13
 
