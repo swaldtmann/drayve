@@ -74,6 +74,7 @@
                 - Remote-User
                 - Remote-Groups
                 - Remote-Email
+                - Remote-Name
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
     mode: "0644"

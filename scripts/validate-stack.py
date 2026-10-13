@@ -96,6 +96,11 @@ def validate(config):
 
     # lldap only with authelia
     auth = config.get("auth", {})
+    if auth is None:
+        auth = {}
+    elif not isinstance(auth, dict):
+        errors.extend(check_auth(auth)[0])
+        auth = {}
     if auth.get("lldap") and auth.get("provider", "basic") != "authelia":
         errors.append(
             "auth.lldap=true requires auth.provider=authelia"

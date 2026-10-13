@@ -473,3 +473,71 @@ def test_check_rejects_plaintext_password_and_does_not_print_it(ansible_availabl
     assert r.returncode != 0, out
     assert "bob" in out and "argon2" in out
     assert PLAINTEXT not in out
+
+
+# ---- unknown keys in access rules and the remote block (fail-open by typo) -----------------
+
+
+@pytest.mark.parametrize(
+    "key",
+    ["resource", "group", "Groups", "network", "subject", "methods", "foo"],
+)
+def test_unknown_rule_key_is_rejected_and_named(key):
+    rule = _rule(policy="bypass", **{key: ["^/public"]})
+    errors = _errors(_auth([rule]))
+    assert any(f"rules[0].{key}" in e and "domain, policy, groups, resources, networks" in e for e in errors), errors
+
+
+def test_unknown_access_control_key_is_rejected_and_named():
+    auth = _auth(RULES)
+    auth["access_control"]["default_polcy"] = "bypass"
+    errors = _errors(auth)
+    assert any("auth.access_control.default_polcy" in e and "default_policy, rules" in e for e in errors), errors
+
+
+def test_unknown_remote_key_is_rejected_and_named():
+    auth = _remote()
+    auth["remote"]["forward_url"] = FWD
+    errors = _errors(auth)
+    assert any("auth.remote.forward_url" in e and "forward_auth_url, portal_url" in e for e in errors), errors
+
+
+def test_preflight_rejects_unknown_rule_key(ansible_available, tmp_path):
+    r = _preflight(tmp_path, _auth([_rule(policy="bypass", resource=["^/public"])]))
+    assert r.returncode != 0, r.stdout
+    assert "rules[0].resource" in r.stdout + r.stderr
+
+
+def test_preflight_rejects_unknown_access_control_key(ansible_available, tmp_path):
+    auth = _auth(RULES)
+    auth["access_control"]["default_polcy"] = "bypass"
+    r = _preflight(tmp_path, auth)
+    assert r.returncode != 0, r.stdout
+    assert "access_control.default_polcy" in r.stdout + r.stderr
+
+
+# ---- auth / security that are not mappings -------------------------------------------------
+
+
+@pytest.mark.parametrize("auth", [[], "foo", 5, True], ids=repr)
+def test_auth_that_is_not_a_mapping_is_rejected(auth):
+    errors = _errors(auth)
+    assert any(e.startswith("auth must be a mapping") for e in errors), errors
+
+
+@pytest.mark.parametrize("security", [[], "foo", 5, True], ids=repr)
+def test_security_that_is_not_a_mapping_is_rejected(security):
+    config = {
+        "drayve_version": "0.1.0",
+        "stack": {"name": "x", "domain": DOMAIN, "acme_email": "ops@example.org"},
+        "security": security,
+    }
+    errors = validator.validate(config)[0]
+    assert any(e.startswith("security must be a mapping") for e in errors), errors
+
+
+@pytest.mark.parametrize("auth", [[], "foo"], ids=repr)
+def test_preflight_rejects_auth_that_is_not_a_mapping(ansible_available, tmp_path, auth):
+    r = _preflight(tmp_path, auth)
+    assert r.returncode != 0, r.stdout
+    assert "auth must be a mapping" in r.stdout + r.stderr

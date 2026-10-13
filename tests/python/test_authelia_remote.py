@@ -159,14 +159,14 @@ def test_remote_middleware_uses_configured_forward_auth_url(ansible_jinja_env):
     fa = mw["http"]["middlewares"]["auth-forward"]["forwardAuth"]
     assert fa["address"] == REMOTE_URL
     assert fa["trustForwardHeader"] is True
-    assert fa["authResponseHeaders"] == ["Remote-User", "Remote-Groups", "Remote-Email"]
+    assert fa["authResponseHeaders"] == ["Remote-User", "Remote-Groups", "Remote-Email", "Remote-Name"]
 
 
 def test_local_authelia_middleware_keeps_container_address(ansible_jinja_env):
     mw = _middleware_for(ansible_jinja_env, "authelia", auth={"provider": "authelia"})
     fa = mw["http"]["middlewares"]["auth-forward"]["forwardAuth"]
     assert fa["address"] == LOCAL_ADDRESS
-    assert fa["authResponseHeaders"] == ["Remote-User", "Remote-Groups", "Remote-Email"]
+    assert fa["authResponseHeaders"] == ["Remote-User", "Remote-Groups", "Remote-Email", "Remote-Name"]
 
 
 def test_local_authelia_ignores_remote_block(ansible_jinja_env):
