@@ -77,6 +77,17 @@ JINJA_FOR = re.compile(
 # Jinja {% set X = ... %}
 JINJA_SET = re.compile(r"\{%\s*set\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*=")
 
+# Jinja {% raw %}...{% endraw %} (incl. whitespace-control variants, multiline).
+# Contents are literal text (e.g. Go templates for `docker --format`), not refs.
+JINJA_RAW = re.compile(
+    r"\{%-?\s*raw\s*-?%\}.*?\{%-?\s*endraw\s*-?%\}", re.DOTALL
+)
+
+
+def strip_raw_blocks(txt: str) -> str:
+    """Blank out raw blocks but keep newlines so line numbers stay correct."""
+    return JINJA_RAW.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), txt)
+
 
 def load_yaml_safe(path: Path) -> Any:
     try:
@@ -174,7 +185,7 @@ def collect_refs(root: Path) -> dict[str, list[tuple[str, int]]]:
             if "/.venv/" in str(f):
                 continue
             try:
-                txt = f.read_text()
+                txt = strip_raw_blocks(f.read_text())
             except (OSError, UnicodeDecodeError):
                 continue
             for ln, line in enumerate(txt.splitlines(), 1):
