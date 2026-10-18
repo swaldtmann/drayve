@@ -37,12 +37,15 @@ jobs:
           cd $WORKDIR/ansible && ansible-lint playbooks/ roles/ 2>&1 | grep -v "^WARNING"
 
       - name: Ansible Syntax Check
+        # pipefail + grep-only `|| true`: a syntax error fails the step, an
+        # all-warnings output (grep exit 1) does not. The old `|| true` hid both.
         run: |
+          set -o pipefail
           cd $WORKDIR/ansible
           for pb in playbooks/*.yml; do
             ansible-playbook --syntax-check "$pb" -i /dev/null \
               -e drayve_name=ci-check -e domain=ci.local 2>&1 \
-              | grep -v "^\[WARNING\]" || true
+              | { grep -v "^\[WARNING\]" || true; }
           done
 
       - name: ShellCheck

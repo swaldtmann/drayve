@@ -262,7 +262,7 @@ test-unit: test-syntax  ## Run python (pytest) + bash (bats) unit tests + ansibl
 	@if [ -n "$(SKIP_BATS)" ]; then \
 		echo "!!! SKIP_BATS set — bats tests NOT run (explicit skip)"; \
 	elif ! command -v bats >/dev/null 2>&1; then \
-		echo "ERROR: bats fehlt: brew install bats-core / apt install bats (oder SKIP_BATS=1 zum ausdruecklichen Ueberspringen)" >&2; \
+		echo "ERROR: bats not found: brew install bats-core / apt install bats (or SKIP_BATS=1 to skip explicitly)" >&2; \
 		exit 1; \
 	else \
 		bats tests/bats/; \
