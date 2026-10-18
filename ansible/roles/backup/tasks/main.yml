@@ -198,7 +198,7 @@
     - backup_target == "kedge"
   tags: [backup]
 
-# CW-W-254 — OpenBao-backed restic password, opt-in per host.
+# OpenBao-backed restic password, opt-in per host.
 - name: Deploy kedge OpenBao fetch script
   ansible.builtin.template:
     src: kedge-openbao-fetch.py.j2

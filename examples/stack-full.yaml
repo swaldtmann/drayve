@@ -9,7 +9,7 @@ stack:
   acme_email: admin@example.com
   # ACME challenge: "http" (default) needs port 80 reachable, no DNS secrets.
   # "dns" is needed for wildcard certs or when port 80 can't be exposed —
-  # DRAYVE-W-011: acme_dns_provider alone does NOT switch the challenge type,
+  # acme_dns_provider alone does NOT switch the challenge type,
   # acme_challenge: dns is what actually flips the certResolver.
   # acme_challenge: dns
   # acme_dns_provider: cloudflare          # defaults to hetzner
@@ -55,7 +55,7 @@ backup:
   prune_schedule: "30 4 * * 0"   # weekly prune (Sundays 04:30, kedge target only)
   # kedge target — restic repository is provided via host_secrets
   # (sops) as `backup_kedge_restic_repository`, e.g.:
-  #   sftp:u123456@u123456.your-storagebox.de:/genua
+  #   sftp:u123456@u123456.your-storagebox.de:/myhost
   # The encryption password lives in `host_secrets.backup_restic_password`.
 
 # Apps shown on the landing page (from compose.override.yml services)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reap orphaned molecule test hosts in the hcloud project (AFKI-W-122 Folge).
+"""Reap orphaned molecule test hosts in the hcloud project.
 
 The release-gate molecule runs create hosts named ``test-<scenario>``. A clean
 ``molecule test`` destroys them at the end of the sequence, and the workflow's
@@ -20,7 +20,7 @@ Env:
 Exit 0 on success/no-op (cron-safe), 1 only on a hard error (missing token /
 hcloud lib). Logs to stdout.
 
-Anlass: 2 verwaiste ``test-basic`` liefen 38 Tage (greenfields-Context, S346).
+Anlass: 2 verwaiste ``test-basic`` liefen 38 Tage.
 """
 
 from __future__ import annotations

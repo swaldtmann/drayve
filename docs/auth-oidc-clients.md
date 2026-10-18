@@ -1,4 +1,4 @@
-# Declarative OIDC Clients (W-144)
+# Declarative OIDC Clients
 
 Drayve renders the Authelia OIDC client list from `stack.yaml` instead of the
 template hardcoding a single Grafana client. Adding Forgejo, Vaultwarden, or any
@@ -163,7 +163,7 @@ public name is verified as usual.
 only**, for stacks without a valid certificate for the Authelia name. Never
 enable it on a stack with real users.
 
-## Forgejo gotchas (S328-Folge12 anlass)
+## Forgejo gotchas
 
 These caused a silent 8-day Forgejo-SSO outage and are now documented in
 `examples/compose-overrides/forgejo.yml`:

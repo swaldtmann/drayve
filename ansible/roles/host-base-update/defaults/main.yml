@@ -1,6 +1,6 @@
 ---
 # host-base-update — flaechige unattended-upgrades-Hygiene fuer Ubuntu-Hosts.
-# Security-only, kein Auto-Reboot. Phase 3 (Rolling Full-Upgrade) ist eigenes
+# Security-only, kein Auto-Reboot. host-update.yml (Rolling Full-Upgrade) ist eigenes
 # Playbook, das diese Role NICHT ablueost sondern ergaenzt.
 
 # Paket-Steuerung
@@ -17,7 +17,7 @@ hbu_periodic_autoclean: "7"           # apt-cache-Aufraeumung 7-taegig
 
 # unattended-upgrades Verhalten (-> /etc/apt/apt.conf.d/50unattended-upgrades)
 hbu_security_only: true               # nur ${distro_id}:${distro_codename}-security
-hbu_auto_reboot: false                # Phase 2 rebootet NICHT — Phase 3 macht das kontrolliert
+hbu_auto_reboot: false                # dieses Playbook rebootet NICHT — host-update.yml macht das kontrolliert
 hbu_auto_reboot_time: "03:00"
 hbu_remove_unused_kernel: true        # alte Kernel automatisch entfernen
 hbu_remove_unused_deps: true          # automatisch installierte Abhaengigkeiten

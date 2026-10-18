@@ -1,7 +1,7 @@
 ---
 # === Repo roots (for template/config lookups) ===
 # ops_repo_root: legacy single-path (kept for backward compat as default of
-# both split variables below — pre-W-109 inventories continue to work).
+# both split variables below — older inventories continue to work).
 ops_repo_root: "{{ playbook_dir | regex_replace('/ansible(/playbooks)?$', '') }}"
 # ops_secrets_root: SITE-repo root holding per-host state.
 #   Expects: deploy/<host>/secrets.yml, deploy/<host>/env.override,

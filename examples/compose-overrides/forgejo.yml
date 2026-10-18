@@ -50,7 +50,7 @@
 #     --auto-discover-url "https://auth.${DRAYVE_DOMAIN}/.well-known/openid-configuration" \
 #     --scopes profile --scopes email --scopes groups
 #
-# Important Forgejo 14 quirks (W-144 anlass S328-Folge12):
+# Important Forgejo 14 quirks:
 #   - DO NOT pass `--scopes openid` — Forgejo prepends it automatically. Listing
 #     it explicitly breaks the consent flow with a duplicate-scope rejection.
 #   - In `app.ini` under [oauth2_client], set `USERNAME = email` (or `nickname`

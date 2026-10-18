@@ -11,7 +11,7 @@ auth_basic_user: admin
 auth_lldap: false
 authelia_image: authelia/authelia:4.39.28
 
-# W-144: default OIDC client list when stack.yaml omits auth.oidc_clients.
+# Default OIDC client list when stack.yaml omits auth.oidc_clients.
 # Keeps v0.1.x stacks (Grafana-only SSO) working without schema changes.
 # Override in stack.yaml under auth.oidc_clients to add Forgejo, Vaultwarden, etc.
 authelia_oidc_clients_default:

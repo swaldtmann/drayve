@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Inject ``traefik.docker.network`` labels for multi-network services.
 
-Background (W-112): when a service is attached to more than one Docker
+Background: when a service is attached to more than one Docker
 network and a Traefik docker-provider routes traffic to it, Traefik picks
 one of the backend IPs at random. If the picked IP belongs to an
 internal-only network (e.g. an isolated DB net), the request hangs at the

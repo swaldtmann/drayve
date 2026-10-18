@@ -1,9 +1,9 @@
 ---
 # host-base-update — applies the host-base-update role to all Ubuntu hosts
-# in scope (auto_update != false in servers.yaml).
+# in scope (auto_update != false in the inventory).
 #
-# Phase 2 of AFKI-W-122: flaechige unattended-upgrades-Hygiene.
-# Reboots are NOT triggered here — Phase 3 (host-update.yml) handles that.
+# Flaechige unattended-upgrades-Hygiene.
+# Reboots are NOT triggered here — host-update.yml handles that.
 #
 # Inventory:
 #   Nutzt ein zentrales Inventory-Skript (filtert ssh_alias,
@@ -12,14 +12,14 @@
 # Aufruf:
 #   cd <drayve checkout>/ansible
 #   ansible-playbook -i <your inventory script or file> \
-#     playbooks/host-base-update.yml [--limit prod-genua] [--check --diff]
+#     playbooks/host-base-update.yml [--limit myhost] [--check --diff]
 #
 # Idempotenz-Beweis: zweiter Lauf erwartet `changed=0`.
 
 - name: Apply host-base-update role
   hosts: all
   # become: nicht noetig — alle Inventory-Hosts haben Direct-Root-Login
-  # (ssh_user=root oder named-user mit uid=0). Phase 3 (apt-upgrade + reboot)
+  # (ssh_user=root oder named-user mit uid=0). host-update.yml (apt-upgrade + reboot)
   # bleibt unkritisch, weil Tasks ohnehin als root laufen.
   gather_facts: true
 

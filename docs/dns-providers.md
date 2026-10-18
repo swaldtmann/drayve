@@ -6,7 +6,7 @@ secrets. Switch to **DNS-01** (`acme_challenge: dns`) for wildcard certs or
 hosts where port 80 can't be exposed. The DNS provider defaults to `hetzner`;
 switch it when your DNS lives elsewhere.
 
-> **DRAYVE-W-011 (2026-07-18):** `acme_dns_provider` alone used to do
+> **Note (2026-07-18):** `acme_dns_provider` alone used to do
 > nothing — no `stack.yaml`-to-Ansible-var resolve task existed for it, and
 > even if it had, every Traefik router label hardcoded
 > `certresolver=letsencrypt` (the HTTP-01 resolver), so the DNS-01 resolver
@@ -86,7 +86,7 @@ Restart traefik after changing it: `make deploy NAME=<host>`.
 If you want to force a renewal immediately, delete `traefik/certs/acme-dns.json`
 and restart traefik. Be mindful of Let's Encrypt rate limits.
 
-## lego / Hetzner Cloud DNS API (DRAYVE-W-011 Fund 2 — verified, no action needed)
+## lego / Hetzner Cloud DNS API (verified, no action needed)
 
 Hetzner retired the legacy DNS API (`dns.hetzner.com/api/v1`) in favor of the
 Hetzner Cloud DNS API (`api.hetzner.cloud/v1/zones`, GA 2025-11-10). lego

@@ -1,36 +1,35 @@
 ---
 # host-update — Rolling Full-Upgrade + Reboot fuer Ubuntu-Hosts.
 #
-# AFKI-W-122 Phase 3. Pendant zu Phase 2 (host-base-update.yml): apt-Pakete
+# Pendant zu host-base-update.yml: apt-Pakete
 # einmalig ausrollen, optional Reboot, Services vorher/nachher abgleichen.
 #
-# Nutzt ein zentrales Inventory-Skript (Filter wie
-# Phase 2: ssh_alias + ki_freigabe + status != retiring/decommissioned/deleted/
+# Nutzt ein zentrales Inventory-Skript (Filter wie host-base-update.yml:
+# ssh_alias + ki_freigabe + status != retiring/decommissioned/deleted/
 # destroyed + patch.auto_update != false).
 #
 # Aufruf (Pilot gegen einen Host):
 #   cd <drayve checkout>/ansible
 #   ansible-playbook -i <your inventory script or file> \
-#     playbooks/host-update.yml --limit kigulls-dev
+#     playbooks/host-update.yml --limit myhost
 #
 # Rolling gegen viele Hosts (serial=1 ist im Play schon gesetzt):
 #   ansible-playbook -i .../inventory-from-servers.sh playbooks/host-update.yml \
-#     --limit "prod-rezepte,forge-runner-drayve"
+#     --limit "web-1,web-2"
 #
 # Override Reboot-Verhalten:
 #   -e hu_reboot_if_required=false   # nur upgrade, kein Reboot
 #   -e hu_reboot_timeout=600         # SSH-Wait nach Reboot (Default 300s)
 #   -e hu_apt_full_upgrade=false     # nur apt upgrade, kein full-upgrade
 #
-# AFKI-W-158 Teil A/B (2026-07-26):
+# Docker hold and external domain smokes:
 # - Docker-Pakete (docker-ce, docker-ce-cli, containerd.io,
 #   docker-compose-plugin) werden vor dem apt-Lauf gehalten (apt-mark hold)
 #   und nach Reboot+Recovery wieder freigegeben. Verhindert das Race, das
-#   den Traefik-Ausfall auf prod-hub ausgeloest hat (RCA S328-Folge44):
+#   einen Traefik-Ausfall ausgeloest hat:
 #   docker-ce-Postinstall restartet docker.service MITTEN im apt-Upgrade.
 # - Externe Domain-Smokes (von der Control-Maschine, nicht vom Host) gegen
-#   die `domains:`-Liste aus servers.yaml (durchgereicht via
-#   tools/inventory-from-servers.sh). Default: nur WARN-Report. Hard-Fail
+#   die `domains:`-Liste des Hosts (durchgereicht via Inventory). Default: nur WARN-Report. Hard-Fail
 #   nur wenn `domains_required_up: true` fuer den Host gesetzt ist.
 
 - name: Rolling host update
@@ -46,7 +45,7 @@
     # (docker-ce*, containerd.io, docker-compose-plugin) UND Ubuntus eigene
     # Repos (docker.io, containerd, docker-compose-v2) -- welches ein Host
     # nutzt haengt davon ab, wie Docker installiert wurde (get-docker.sh vs.
-    # `apt install docker.io`). Live-Fund horst (2026-07-26): hu_docker_packages
+    # `apt install docker.io`). Live-Fund: hu_docker_packages
     # hardcodete nur das erste Schema, dpkg_selections("hold") schlug fehl mit
     # "Failed to find package" und brach den kompletten Lauf VOR dem Upgrade ab
     # (kein Schaden, aber kein Patch). Gefiltert auf tatsaechlich installierte
@@ -63,10 +62,9 @@
     # domains/domains_required_up bewusst NICHT hier mit Default vorbelegt:
     # "play vars" haben HOEHERE Prioritaet als "inventory host vars" (Ansible-
     # Variablen-Praezedenz) -- ein Default hier wuerde die echten, per
-    # tools/inventory-from-servers.sh durchgereichten Inventory-Werte fuer
-    # JEDEN Host ueberschreiben statt nur als Fallback zu wirken (live gegen
-    # kigulls-dev verifiziert: domains_checked kam als [] obwohl das Inventory
-    # 2 Domains lieferte). Default steht stattdessen an jeder Nutzungsstelle
+    # Inventory durchgereichten Werte fuer
+    # JEDEN Host ueberschreiben statt nur als Fallback zu wirken (live verifiziert:
+    # domains_checked kam als [] obwohl das Inventory 2 Domains lieferte). Default steht stattdessen an jeder Nutzungsstelle
     # per Jinja `| default(...)`.
 
   pre_tasks:
@@ -74,8 +72,8 @@
       ansible.builtin.meta: end_host
       when: ansible_distribution != "Ubuntu"
 
-    # AFKI-W-158 Teil A: docker-Pakete VOR dem apt full-upgrade festhalten.
-    # RCA prod-hub traefik (2026-05-16, S328-Folge44): docker-ce-Postinstall
+    # docker-Pakete VOR dem apt full-upgrade festhalten.
+    # RCA Traefik-Ausfall: docker-ce-Postinstall
     # ruft mitten im apt-Lauf "systemctl restart docker" auf -- Container die
     # in diesem Race-Window stoppen, kommen ohne den Recovery-Step (post_tasks
     # unten) nicht zurueck. Hold verhindert das Docker-Update in DIESEM Lauf
@@ -175,7 +173,7 @@
 
     - name: Reboot host
       ansible.builtin.reboot:
-        msg: "AFKI-W-122 Phase 3 rolling update — reboot triggered by host-update.yml"
+        msg: "Rolling update — reboot triggered by host-update.yml"
         connect_timeout: 30
         reboot_timeout: "{{ hu_reboot_timeout | int }}"
         pre_reboot_delay: 5
@@ -195,8 +193,8 @@
           - "default_ipv4"
           - "virtual"
 
-    # AFKI-W-158 Teil A: Docker-Pakete nach Reboot+Recovery wieder freigeben,
-    # damit Phase 2 (unattended-upgrades, security-only) sie wieder normal
+    # Docker-Pakete nach Reboot+Recovery wieder freigeben,
+    # damit host-base-update (unattended-upgrades, security-only) sie wieder normal
     # patchen kann. Nutzt dieselbe Pre-Upgrade-Erkennung (hu_docker_present_pre)
     # statt neu zu detektieren -- ein apt full-upgrade entfernt docker-ce nicht.
     - name: Unhold docker packages after upgrade+reboot
@@ -206,7 +204,7 @@
       loop: "{{ hu_docker_packages_present | default([]) }}"
       when: hu_docker_present_pre.rc == 0
 
-    # Container-Recovery: AFKI-W-122 / RCA prod-hub 2026-05-16
+    # Container-Recovery (RCA Traefik-Ausfall)
     # docker-ce/containerd via apt-upgrade triggert ein docker.service-Restart
     # mid-dist-upgrade. Container die in dem schmalen Race-Window (zwischen
     # docker-Daemon-Restart und Ansible-Reboot) im "stopped"-Zwischenzustand
@@ -214,7 +212,7 @@
     # Container deren persistierter State "running" war. Hier abgefangen:
     # alle exited/created Container mit RestartPolicy != "no" werden gestartet.
     #
-    # Live-Fund prod-hub (2026-07-26): "on-failure" heisst per Docker-Semantik
+    # Live-Fund: "on-failure" heisst per Docker-Semantik
     # "nur neu starten wenn der letzte Exit-Code != 0 war" -- ein sauber mit
     # 0 durchgelaufener Einmal-Job (z.B. zammad-init) BLEIBT bei Docker
     # bewusst stehen. Die Recovery-Filterung ignorierte den Exit-Code und
@@ -295,14 +293,13 @@
         - uname -r
         - uptime
 
-    # AFKI-W-158 Teil B: externe Domain-Smokes von der Control-Maschine aus
+    # Externe Domain-Smokes von der Control-Maschine aus
     # (nicht vom Host selbst -- ein Check von innen wuerde einen kaputten
     # externen Pfad wie Traefik/DNS/Cloud-Firewall nicht sehen). Quelle:
-    # `domains:`-Liste des Hosts aus servers.yaml, durchgereicht via
-    # tools/inventory-from-servers.sh. Leere Liste -> Task hat 0 Iterationen,
+    # `domains:`-Liste des Hosts, durchgereicht via Inventory. Leere Liste -> Task hat 0 Iterationen,
     # laeuft sauber durch (kein when noetig, Ansible skippt leere loops).
     #
-    # Live-Fund (prod-genua, 2026-07-26): direkt nach "SSH wieder da" waren
+    # Live-Fund: direkt nach "SSH wieder da" waren
     # alle 6 Domains 403/404 -- Traefik/Authelia waren nach dem Reboot noch
     # nicht vollstaendig warm. ~90s spaeter (manueller curl) waren alle 6
     # sauber (302 Authelia-Redirect bzw. 200). Kein echter Ausfall, sondern
@@ -352,7 +349,7 @@
     # on-demand-Services (polkit, fsckd, timedated, snapd) sind nach Reboot
     # haeufig nicht "running" obwohl sie funktional aktiv sind. Echter
     # Service-Gesundheits-Check passiert ueber failed-units + ggf. Stack-
-    # spezifische Smokes (Phase 3 Folge-Auftrag pro prod-Host).
+    # spezifische Smokes (pro Host separat).
 
     - name: Hard fail when new failed units appeared
       ansible.builtin.fail:

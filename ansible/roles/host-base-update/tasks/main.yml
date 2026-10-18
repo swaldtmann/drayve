@@ -1,7 +1,7 @@
 ---
 # host-base-update — installs and configures unattended-upgrades for
 # nightly security-only patches. Reboot is left to the rolling-update
-# playbook (Phase 3 of AFKI-W-122).
+# playbook.
 
 - name: Ensure host runs Ubuntu (role is Ubuntu-scoped)
   ansible.builtin.assert:

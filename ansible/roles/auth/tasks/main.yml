@@ -8,7 +8,7 @@
     auth_lldap: "{{ auth.lldap | default(auth_lldap) | default(false) | bool }}"
   tags: [auth]
 
-# W-144: declarative OIDC clients + per-client plain secrets. Shared with
+# Declarative OIDC clients + per-client plain secrets. Shared with
 # roles/deploy (tag [deploy]) so `.env` renders the same facts on every run.
 - name: Resolve authelia_oidc_clients and client secrets
   ansible.builtin.import_tasks: ../../../tasks/authelia_oidc_resolve.yml

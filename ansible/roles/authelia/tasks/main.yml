@@ -41,7 +41,7 @@
   no_log: true
   tags: [authelia]
 
-# W-144: per-client OIDC secret + hash. One Argon2id hash file per client
+# Per-client OIDC secret + hash. One Argon2id hash file per client
 # under <data>/.oidc_<id>_hash. Plain secret comes from host_secrets via the
 # convention `authelia_oidc_<id>_secret`. The legacy variable
 # `authelia_oidc_grafana_secret` keeps working through that convention.
@@ -109,7 +109,7 @@
   tags: [authelia]
 
 - name: Generate Argon2id hash for OIDC client secret (per client)
-  # HUB-W-003: argon2id via Authelia-CLI, kein Python-pwhash mehr.
+  # argon2id via Authelia-CLI, kein Python-pwhash mehr.
   ansible.builtin.shell:
     cmd: |
       set -o pipefail
@@ -268,22 +268,22 @@
     - "'deploy' not in ansible_run_tags"
   tags: [authelia]
 
-# AFKI-W-240 (Befund 1): authelia_jwt_secret/authelia_session_secret/
+# authelia_jwt_secret/authelia_session_secret/
 # authelia_storage_encryption_key/authelia_ldap_password/authelia_oidc_*
 # rendered into configuration.yml above come exclusively from roles/secrets
 # (tag [secrets]). A `--tags authelia` run (no `secrets` tag) leaves them
 # empty, "Deploy Authelia configuration" then reports changed:true (content
 # differs from the correctly-rendered version on disk), and the removal
 # below would delete an already-deployed, working Authelia DB (2FA
-# registrations, sessions, tokens) — same bug class as AFKI-W-233/238/239.
+# registrations, sessions, tokens) — same bug class as the other cross-tag guards.
 # The DB is no longer deleted on a config change (see key-change handling
 # below), but a config rendered with empty secrets would still be deployed
 # broken, so the guard stays and fails the run before that happens.
 # Re-stat secrets.yml + the DB file here (cheap, independent of whether
 # roles/secrets ran this pass) and fail early, same pattern as
-# AFKI-W-239's monitoring-role guard. Only blocks when the DB already
+# the monitoring-role guard. Only blocks when the DB already
 # exists — a genuinely fresh install with nothing to lose is unaffected.
-- name: Check for host secrets file (cross-tag guard, AFKI-W-240 authelia)
+- name: Check for host secrets file (cross-tag guard, authelia)
   ansible.builtin.stat:
     path: "{{ ops_secrets_root }}/deploy/{{ inventory_hostname }}/secrets.yml"
   register: _authelia_secrets_file_check
@@ -292,14 +292,14 @@
   when: authelia_config.changed | default(false)
   tags: [authelia]
 
-- name: Check for existing Authelia DB (cross-tag guard, AFKI-W-240 authelia)
+- name: Check for existing Authelia DB (cross-tag guard, authelia)
   ansible.builtin.stat:
     path: "{{ authelia_data_dir }}/db.sqlite3"
   register: _authelia_db_precheck
   when: authelia_config.changed | default(false)
   tags: [authelia]
 
-- name: Guard — fail instead of deleting Authelia DB when secrets weren't loaded (AFKI-W-240)
+- name: Guard — fail instead of deleting Authelia DB when secrets weren't loaded
   ansible.builtin.assert:
     that:
       - >-

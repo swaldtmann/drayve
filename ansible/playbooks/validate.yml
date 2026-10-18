@@ -94,7 +94,7 @@
         _secrets_mode_declared: "{{ (secrets.mode | default('')) if (secrets is defined and secrets is mapping) else '' }}"
       when: _secrets_stat.stat.exists
 
-    - name: Fail early — secrets.yml is SOPS-encrypted but `sops -d` failed (AFKI-W-124)
+    - name: Fail early — secrets.yml is SOPS-encrypted but `sops -d` failed
       ansible.builtin.assert:
         that:
           - not (_secrets_is_encrypted and (_sops_decrypt.rc | default(1) != 0))
@@ -114,7 +114,7 @@
                 sops -d -i deploy/{{ inventory_hostname }}/secrets.yml
       when: _secrets_stat.stat.exists
 
-    - name: Fail early — stack.secrets.mode=quickstart but secrets.yml is SOPS-encrypted (AFKI-W-124)
+    - name: Fail early — stack.secrets.mode=quickstart but secrets.yml is SOPS-encrypted
       ansible.builtin.assert:
         that:
           - not (_secrets_mode_declared == 'quickstart' and _secrets_is_encrypted)

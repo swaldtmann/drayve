@@ -2,7 +2,7 @@
 # Config phase — runs BEFORE deploy (compose up).
 # Creates data directory. User provisioning happens in post-deploy.yml.
 
-# AFKI-W-080 SEC-1 (S317b): Fail fast if lldap_jwt_secret is empty.
+# Fail fast if lldap_jwt_secret is empty.
 # Empty secret causes LLDAP to fall back to a deterministic default key,
 # which means every install with an empty secret shares the same effective
 # signing key — cross-installation token forgery becomes possible.

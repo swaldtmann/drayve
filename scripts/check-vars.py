@@ -4,7 +4,7 @@ Pre-Inventur: greppt Jinja-Var-Refs in ansible/ + molecule/ und checkt
 ob sie irgendwo definiert sind (defaults, group_vars, set_fact, vars,
 register, role-args, loop_var).
 
-Lehre aus der Phase-1-Cascade S328: Variable referenziert, aber nirgends
+Lehre aus einem Cascade-Fehler: Variable referenziert, aber nirgends
 definiert — schlug erst auf Hetzner auf. Dieser Check faengt die Klasse
 lokal.
 

@@ -1,17 +1,14 @@
 #!/usr/bin/env bash
-# notify-ci-failure.sh — Push an Stephans Messenger-Flaeche (#00_wooki) wenn ein
-# CI-Run auf main rot ist. Gegenstueck zu claudes-welt tools/persona-push, aber
-# fuer den Forgejo-Actions-Runner: der hat keinen macOS-Keychain-Zugriff, also
-# kommt der Slack-Bot-Token ueber ein Repo-Secret (SLACK_BOT_TOKEN).
+# notify-ci-failure.sh — post a Slack message when a CI run on main is red.
+# Meant for the Forgejo Actions runner, which has no keychain access, so the
+# Slack bot token comes in as a repo secret (SLACK_BOT_TOKEN).
 #
-# Push-statt-Pull (Stephan-Vorgabe W08): CI-Rot auf main ist muss-wissen und
-# qualifiziert fuer die Messenger-Flaeche. Nur main + nur failure (das Gate
-# sitzt im Workflow-`if`, nicht hier) — sonst stirbt die Flaeche (SB-Tod-Lehre).
-# AFKI-W-197.
+# Only main + only failure (the gate lives in the workflow `if`, not here),
+# otherwise the channel turns into noise.
 #
 # Env:
 #   SLACK_BOT_TOKEN   (Pflicht ausser DRY_RUN)  Slack chat:write Bot-Token.
-#   SLACK_CHANNEL     (optional)  Default C0BAJ39L0SH (#00_wooki).
+#   SLACK_CHANNEL     (optional)  Default C0BAJ39L0SH.
 #   CI_REPO CI_WORKFLOW CI_RUN_URL CI_REF CI_SHA CI_RUN_NUMBER  Kontext (Workflow).
 #   DRY_RUN=1         (optional)  Payload nach stdout statt echtem Slack-Post.
 #

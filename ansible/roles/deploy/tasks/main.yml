@@ -73,7 +73,7 @@
     acme_email: "{{ stack.acme_email | default(acme_email) | default('') }}"
   tags: [deploy]
 
-# CW-Ticket DRAYVE-W-011: stack.acme_challenge steuerte bislang gar keinen
+# stack.acme_challenge steuerte bislang gar keinen
 # Ansible-Var (kein Resolve-Task) UND selbst waere der Wert wirkungslos
 # gewesen, weil jeder Router-Label in docker-compose.yml.j2 fest auf den
 # httpChallenge-Resolver "letsencrypt" zeigte statt auf eine Variable.
@@ -219,7 +219,7 @@
   when: not compose_override.stat.exists
   tags: [deploy]
 
-# === Multinet label fix (W-112) ===
+# === Multinet label fix ===
 # Drayve's main compose project name is "drayve" → default network "drayve_default".
 # Services in compose.override.yml that join more than one network and have
 # traefik routing labels need an explicit traefik.docker.network label so
@@ -319,15 +319,15 @@
   when: extra_files | length > 0
   tags: [deploy]
 
-# AFKI-W-233: cross-tag guard. "Set secret variables" (roles/secrets, tag
+# Cross-tag guard. "Set secret variables" (roles/secrets, tag
 # [secrets]) sets drayve_secrets_facts_loaded once host_secrets is mapped.
 # A tag-scoped run without the `secrets` tag (e.g. --tags monitoring,deploy)
 # skips that task silently, and env.j2 below would then template every
 # secret with Jinja default('') — .env gets overwritten empty, lldap/
-# Authelia crash on the next `docker compose up` (oops-0092, prod-genua).
+# Authelia crash on the next `docker compose up`.
 # Re-stat secrets.yml here (cheap, independent of whether the secrets role
 # ran this pass) and fail before the write.
-- name: Check for host secrets file (cross-tag guard, AFKI-W-233)
+- name: Check for host secrets file (cross-tag guard)
   ansible.builtin.stat:
     path: "{{ ops_secrets_root }}/deploy/{{ inventory_hostname }}/secrets.yml"
   register: _deploy_secrets_file_check
@@ -335,7 +335,7 @@
   become: false
   tags: [deploy]
 
-- name: Guard — fail if secrets.yml exists but its facts were never loaded (AFKI-W-233)
+- name: Guard — fail if secrets.yml exists but its facts were never loaded
   ansible.builtin.assert:
     that:
       - not (_deploy_secrets_file_check.stat.exists and drayve_secrets_facts_loaded is not defined)
@@ -345,7 +345,7 @@
       secrets (Task "Set secret variables", tag [secrets]) hat in diesem
       Lauf nicht gesetzt. `.env` würde jetzt mit leeren Secret-Werten
       überschrieben (Jinja default('')) — lldap/Authelia crashen beim
-      nächsten `docker compose up` (oops-0092).
+      nächsten `docker compose up`.
 
       Fix: `--tags secrets,deploy` statt `--tags deploy` allein, oder den
       vollen Lauf ohne Tag-Scoping fahren.
@@ -591,7 +591,7 @@
   # ohne jede Config-Aenderung neu gestartet wird (depends_on:service_healthy
   # wird bei jedem 'up' neu ausgewertet, kann bei Health-Poll-Race einen bereits
   # korrekten Container einfach neu starten). Nur 'Created'/'Recreated' zeigen
-  # echte Drift (CW-W-181 — molecule (authelia) Idempotence-Flake, Run #193).
+  # echte Drift (molecule (authelia) Idempotence-Flake).
   changed_when: "'Created' in compose_up.stderr or 'Recreated' in compose_up.stderr"
   register: compose_up
   tags: [deploy]
@@ -649,7 +649,7 @@
   # the (from its view unchanged) old file, so scrape-config/alert changes
   # silently never take effect until the container is recreated. Same
   # force-recreate pattern as Traefik/Authelia/CrowdSec above. Found live on
-  # prod-genua's AFKI-W-241 rollout (DRAYVE-W-012): rendered config on disk
+  # a rollout: rendered config on disk
   # was correct, running container still scraped the pre-deploy job list.
   ansible.builtin.command:
     cmd: docker compose up -d --force-recreate --no-deps prometheus
@@ -695,7 +695,7 @@
   tags: [deploy, crowdsec]
 
 # === CrowdSec bouncer registration ===
-# AFKI-W-239 (Befund 2): crowdsec_bouncer_key/crowdsec_lapi_key come exclusively
+# crowdsec_bouncer_key/crowdsec_lapi_key come exclusively
 # from roles/secrets (tag [secrets]). These registration tasks are tagged
 # [deploy, crowdsec] — Ansible runs a task if ANY of its tags is requested, so
 # `--tags crowdsec` alone (no `deploy`, no `secrets`) also reaches them. With
@@ -703,9 +703,9 @@
 # skips — no crash, but the bouncer stays unregistered (security gap, not
 # just cosmetics). Guard is tagged identically ([deploy, crowdsec]) so it
 # fires under every tag combination that reaches the registration tasks —
-# the AFKI-W-233 guard above is tagged [deploy] only and would NOT fire for a
+# the guard above is tagged [deploy] only and would NOT fire for a
 # bare `--tags crowdsec` run.
-- name: Check for host secrets file (cross-tag guard, AFKI-W-239 crowdsec)
+- name: Check for host secrets file (cross-tag guard, crowdsec)
   ansible.builtin.stat:
     path: "{{ ops_secrets_root }}/deploy/{{ inventory_hostname }}/secrets.yml"
   register: _deploy_crowdsec_secrets_file_check
@@ -714,7 +714,7 @@
   when: crowdsec_enabled
   tags: [deploy, crowdsec]
 
-- name: Guard — fail if secrets.yml exists but its facts were never loaded before CrowdSec bouncer registration (AFKI-W-239)
+- name: Guard — fail if secrets.yml exists but its facts were never loaded before CrowdSec bouncer registration
   ansible.builtin.assert:
     that:
       - not (_deploy_crowdsec_secrets_file_check.stat.exists and drayve_secrets_facts_loaded is not defined)

@@ -1,11 +1,11 @@
-# consumer.mk — Drayve-Konsumenten-Makefile-Snippet (AFKI-W-126)
+# consumer.mk — Drayve-Konsumenten-Makefile-Snippet
 #
 # Konsumenten-Repos haengen sich per `include` ein und setzen NAME +
 # bei Bedarf SECRETS_FILE / ENV_FILE / AGE_KEY_LINK.
 #
 # Bootstrap im Konsumenten-Makefile (vor dem Include):
 #
-#   NAME := prod-genua
+#   NAME := myhost
 #   DRAYVE_REF ?= v0.3.1
 #   DRAYVE_DIR := vendor/drayve
 #
@@ -36,7 +36,7 @@
 #   DRAYVE_REF        — git-ref fuer vendor (kommt aus Konsument)
 #   EXTRA_ANSIBLE_VARS — leer = aus, sonst an deploy-prod/-check/-check-fast/
 #                       backup-deploy angehaengt, gilt fuer alle Targets identisch
-#                       (CW-W-172). Dateibasiert setzen, nicht inline-JSON —
+#                       Dateibasiert setzen, nicht inline-JSON —
 #                       z.B. -e @override.yml (inline "-e '{"a":{"b":"c"}}'"
 #                       zerbricht an Shell-Quoting, sobald Make die
 #                       Recipe-Zeile an /bin/sh uebergibt)
@@ -90,10 +90,10 @@ backup-deploy: $(CHECK_DEPS)  ## Apply backup.yml to host: installs/updates kedg
 	@[ "$(CONFIRM)" = "y" ] || { printf "Apply backup config ($(DRAYVE_REF)) to $(NAME) PRODUCTION? [y/N] "; read ans; [ "$$ans" = "y" ] || exit 1; }
 	$(ANSIBLE) playbooks/backup.yml -l $(NAME) -e deploy_ref=$(DRAYVE_REF) -e ops_secrets_root=$(CURDIR) -e @$(CURDIR)/stack.yaml $(EXTRA_ANSIBLE_VARS)
 
-deploy-check: $(CHECK_DEPS)  ## Deep dry-run: deploy.yml --check (KNOWN-BROKEN in v0.4.x, prefer deploy-check-fast — W-131)
+deploy-check: $(CHECK_DEPS)  ## Deep dry-run: deploy.yml --check (KNOWN-BROKEN in v0.4.x, prefer deploy-check-fast)
 	$(ANSIBLE) playbooks/deploy.yml -l $(NAME) -e deploy_ref=$(DRAYVE_REF) -e ops_secrets_root=$(CURDIR) -e @$(CURDIR)/stack.yaml --check $(EXTRA_ANSIBLE_VARS)
 
-deploy-check-fast: $(CHECK_DEPS)  ## Fast static validation: stack.yaml + secrets, no host contact (W-131, EXTRA_ANSIBLE_VARS fuer Overrides — CW-W-172)
+deploy-check-fast: $(CHECK_DEPS)  ## Fast static validation: stack.yaml + secrets, no host contact (EXTRA_ANSIBLE_VARS fuer Overrides)
 	$(ANSIBLE) playbooks/validate.yml -l $(NAME) -e deploy_ref=$(DRAYVE_REF) -e ops_secrets_root=$(CURDIR) -e @$(CURDIR)/stack.yaml $(EXTRA_ANSIBLE_VARS)
 
 secrets-edit:  ## Edit SECRETS_FILE via sops

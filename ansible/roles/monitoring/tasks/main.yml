@@ -437,7 +437,7 @@
   register: grafana_alert_root_policy
   tags: [monitoring, alerting]
 
-# === Grafana alert rules: optional per-host override (DRAYVE-W-014) ===
+# === Grafana alert rules: optional per-host override ===
 # Alert rule thresholds/labels/host-names are inherently host-specific (unlike
 # the contact-point/policy above), so this follows the same per-host-override
 # idiom as compose.override.yml (roles/deploy/tasks/main.yml) rather than the

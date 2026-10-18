@@ -14,14 +14,14 @@ monitoring_profile: full
 grafana_admin_password: ""
 grafana_root_url: "https://grafana.{{ drayve_domain | default('localhost') }}"
 
-# Grafana alert email recipient (KIG-W-054). Only relevant when
+# Grafana alert email recipient. Only relevant when
 # grafana_smtp_host (roles/secrets) is set — no default, deliberately: the
 # monitoring role asserts this is non-empty before deploying the email
 # contact point rather than silently mailing nobody.
 grafana_alert_email_to: ""
 
-# Grafana alert Slack channel for the severity=critical route (KIG-W-054
-# Schritt 2b). Only relevant when grafana_slack_token (roles/secrets) is
+# Grafana alert Slack channel for the severity=critical route.
+# Only relevant when grafana_slack_token (roles/secrets) is
 # set — no default, deliberately, same idiom as grafana_alert_email_to.
 grafana_alert_slack_channel: ""
 
@@ -55,7 +55,7 @@ monitoring_loki_host_label: ""
 #             __path__: /var/log/kedge.log
 monitoring_promtail_extra_scrape_configs: []
 
-# node_exporter textfile collector (EWH-W-128). Off by default, no behavior
+# node_exporter textfile collector. Off by default, no behavior
 # change for existing consumers. When true, node_exporter gets
 # --collector.textfile.directory and a read-only mount of
 # {{ drayve_deploy_dir }}/monitoring/node-exporter-textfile, so host-side

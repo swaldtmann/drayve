@@ -13,7 +13,7 @@
 # secrets, host_secrets / authelia_oidc_<id>_secret from roles/secrets
 # (tag [secrets]). Idempotent: re-running yields the same facts.
 
-# W-144: declarative OIDC clients. stack.yaml supplies a list of clients;
+# Declarative OIDC clients. stack.yaml supplies a list of clients;
 # fallback is the legacy single Grafana client (back-compat for v0.1.x stacks).
 - name: Resolve authelia_oidc_clients from stack.yaml
   ansible.builtin.set_fact:
@@ -38,7 +38,7 @@
 # wholesale (shallow combine). So a client never points at a policy that is
 # not rendered (Authelia would refuse to start).
 
-# W-144: per-client OIDC plain secret. Plain secret comes from host_secrets via
+# Per-client OIDC plain secret. Plain secret comes from host_secrets via
 # the convention `authelia_oidc_<id>_secret`. The legacy variable
 # `authelia_oidc_grafana_secret` keeps working through that convention.
 - name: Resolve per-client OIDC plain secrets

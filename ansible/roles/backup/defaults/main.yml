@@ -22,7 +22,7 @@ backup_kedge_install_dir: /opt/kedge
 backup_kedge_env_file: /root/.kedge.env
 backup_kedge_log_file: /var/log/kedge.log
 backup_kedge_stack_dir: "{{ drayve_deploy_dir }}"
-backup_kedge_restic_repository: ""  # required when target=kedge, e.g. sftp:u1234@u1234.your-storagebox.de:/genua
+backup_kedge_restic_repository: ""  # required when target=kedge, e.g. sftp:u1234@u1234.your-storagebox.de:/myhost
 backup_kedge_stop_stack: true
 backup_kedge_exclude_mounts: ""  # space-separated bind-mount paths (kedge BACKUP_EXCLUDE_MOUNTS)
 # Space-separated volume names (kedge BACKUP_EXCLUDE_VOLUMES). kedge compares
@@ -58,13 +58,13 @@ backup_kedge_cron_wrapper: ""  # optional cron wrapper, contract: <wrapper> <job
                                 # (e.g. a fail-signal helper). Wraps both the backup and the
                                 # prune cron line, since kedge itself has no fail-hook for prune.
 
-# OpenBao-backed restic password (CW-W-254) — opt-in per host, default off.
+# OpenBao-backed restic password — opt-in per host, default off.
 # When true: .kedge.env.j2 does NOT template backup_restic_password into
 # RESTIC_PASSWORD (that var stays populated from SOPS/ansible-vars only as
 # the break-glass copy, unused for the live consumption path). Instead a
 # small fetch script logs in via AppRole (role_id here + a locally-stored
 # secret_id, delivered once via response-wrapping during bootstrap — not an
-# ansible task, see CW-W-254 migration plan) and refreshes RESTIC_PASSWORD
+# ansible task) and refreshes RESTIC_PASSWORD
 # in .kedge.env right before each cron run, so an ansible redeploy never
 # clobbers the live value with a stale templated one.
 backup_kedge_use_openbao: false

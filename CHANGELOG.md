@@ -2,6 +2,8 @@
 
 All notable changes to this project will be documented in this file.
 
+Identifiers such as CW-W-123 refer to the maintainer's internal tracker.
+
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
