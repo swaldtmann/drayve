@@ -145,7 +145,7 @@ All scanning happens at **deploy time** (from compose files), not at runtime (fr
 
 ```
 make init NAME=webshop DOMAIN=shop.example.com HOST=203.0.113.10
-make provision NAME=webshop
+make provision NAME=webshop      # asks for confirmation; CONFIRM=y skips the prompt
        |
        v
 +- Phase 1: Create server (hetzner only) -+
@@ -180,6 +180,7 @@ make init NAME=webshop    DOMAIN=shop.example.com    HOST=203.0.113.10
 make init NAME=monitoring DOMAIN=mon.example.com     HOST=203.0.113.20
 make init NAME=client-xyz DOMAIN=ops.client-xyz.com  HOST=198.51.100.5
 
+# each provision asks for confirmation; add CONFIRM=y to skip the prompt
 make provision NAME=webshop
 make provision NAME=monitoring
 make provision NAME=client-xyz

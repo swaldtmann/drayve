@@ -62,7 +62,7 @@ _host_domain = $(call _stack_val,c.get('stack',{}).get('domain',''))
 
 # --- Targets ---
 
-.PHONY: help init validate lint provision deploy deploy-prod burn status secrets-init secrets-template backup list test test-role test-integration setup unban bans auth-sync dashboards
+.PHONY: help init validate lint provision deploy deploy-prod burn status secrets-init secrets-template backup list test test-role test-integration setup hooks unban bans auth-sync dashboards
 
 help:  ## Show available targets
 	@grep -E '^[a-z][a-z0-9_-]+:.*##' $(MAKEFILE_LIST) | sort | awk -F ':.*##' '{printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -224,14 +224,17 @@ test-sops: _require-test-driver  ## SOPS secrets integration test (Incus VM; Het
 	@echo "==> Running SOPS integration test (creates a test VM)"
 	@$(MOLECULE) test -s sops
 
-setup:  ## One-time setup: venv + git hooks
+setup:  ## One-time setup: venv
 	@echo "==> Setting up venv..."
 	@python3 -m venv .venv
 	@.venv/bin/pip install -q -r requirements.txt
-	@echo "==> Installing git hooks..."
-	@cp scripts/hooks/pre-push .git/hooks/pre-push
-	@chmod +x .git/hooks/pre-push
 	@echo "==> Done. Activate with: source .venv/bin/activate"
+
+hooks:  ## Optional: enable git hooks (maintainer convention: ticket ref or [no-ticket] in commit messages)
+	@git config core.hooksPath .githooks
+	@git config hooks.ticketRefAlways true
+	@echo "==> Git hooks enabled (.githooks/): commit-msg needs a ticket reference or [no-ticket], pre-push runs make test."
+	@echo "==> Disable with: git config --unset core.hooksPath"
 
 bans: _require-name _require-inventory  ## List active CrowdSec bans (NAME=)
 	@_host=$$($(PYTHON) -c "import yaml; d=yaml.safe_load(open('$(INVENTORY)')); print(d.get('all',{}).get('children',{}).get('drayve',{}).get('hosts',{}).get('$(NAME)',{}).get('ansible_host','$(NAME)'))" 2>/dev/null || echo "$(NAME)"); \

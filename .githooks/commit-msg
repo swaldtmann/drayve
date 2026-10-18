@@ -1,35 +1,23 @@
 #!/usr/bin/env bash
-# tools/require-ticket-ref — commit-msg Hook (CW-W-198 Phase 2)
+# commit-msg hook: require a ticket reference in the commit message.
 #
-# Erzwingt: ein Commit, der repos/, tools/ oder .claude/ beruehrt, muss eine
-# Ticket-Referenz in der Commit-Message fuehren, ODER das literale [no-ticket]
-# als Opt-out. Zwei gueltige Formen (CW-W-339-Folge, 2026-09-03 — Auftraege
-# ohne Alt-ID sind seit dem ID-losen Auftrags-Schema der Normalfall, vorher
-# zwang das jeden solchen Commit faelschlich auf [no-ticket], obwohl ein
-# echtes Zammad-Ticket existiert):
-#   - Alte ID: <PROJEKT>-<PERSONA>-<NNN> (Grossbuchstaben-Prefix,
-#     Bindestrich-getrennt, 3+ Ziffern, z.B. CW-W-198, KIG-W-017, EWH-W-139)
-#   - Zammad-Ticketnummer: #<NNN> (3+ Ziffern, z.B. #495, #13503) — die
-#     Referenz-Konvention aus cowork/playbook.md fuer Auftraege ohne Alt-ID.
-# Fehlt beides -> Ablehnung (exit 1). Berueht der Commit keinen der drei
-# Pfade -> kein Zwang, Hook laesst durch (exit 0).
+# This is the maintainer's convention, not a requirement for contributors:
+# it is only active after `make hooks`.
 #
-# In Sub-Repos unter repos/<name>/ ist das GESAMTE Repo aus Sicht des
-# Hauptrepos "repos/<name>/..." -> git config hooks.ticketRefAlways=true
-# (gesetzt von tools/install-git-hooks --always) macht den Zwang
-# pfad-unabhaengig, jeder Commit dort braucht eine ID oder [no-ticket].
+# A commit message must contain one of:
+#   - a ticket ID: <PROJECT>-<X>-<NNN> (upper-case prefix, hyphen-separated,
+#     3+ digits, e.g. ABC-W-123)
+#   - a ticket number: #<NNN> (3+ digits, e.g. #495)
+#   - the literal [no-ticket] as an explicit opt-out
+# Otherwise the commit is rejected (exit 1).
 #
-# Scope-Regex ueberschreibbar via git config hooks.ticketRefScope (Default
-# unten). Hygiene-Enforcement, kein Security-Control im S337-Sinn — deshalb
-# bewusst NICHT guard-/block-/enforce-praefigiert (sonst greift
-# .claude/hooks/guard-security-control-review.sh unnoetig).
+# Scope: with git config hooks.ticketRefAlways=true (set by `make hooks`) every
+# commit is checked. Without it, only commits touching paths matching
+# hooks.ticketRefScope are checked (default regex below).
 #
-# Deployment: tools/install-git-hooks kopiert diese Datei nach
-# <repo>/.githooks/commit-msg und setzt core.hooksPath. Git ruft den Hook
-# als: commit-msg <pfad-zur-message-datei> auf.
+# Merge, Revert, fixup! and squash! commits are not checked.
 #
-# Merge-/Revert-/fixup!-/squash!-Commits werden nicht erzwungen — deren
-# erste Zeile folgt Git-eigenen Konventionen, keine Ticket-ID zu erwarten.
+# Git calls the hook as: commit-msg <path-to-message-file>
 
 set -euo pipefail
 
@@ -63,13 +51,11 @@ if printf '%s' "$MSG" | grep -qF '[no-ticket]'; then
 fi
 
 cat >&2 <<EOF
-require-ticket-ref: Commit beruehrt repos/, tools/ oder .claude/ (bzw. den
-konfigurierten Scope), aber die Commit-Message enthaelt weder eine Ticket-ID
-(<PROJEKT>-<PERSONA>-<NNN>, z.B. CW-W-198) noch eine Zammad-Ticketnummer
-(#<NNN>, z.B. #13503) noch das Opt-out [no-ticket].
+commit-msg: the commit message has no ticket reference. Add a ticket ID
+(<PROJECT>-<X>-<NNN>, e.g. ABC-W-123), a ticket number (#<NNN>, e.g. #495)
+or the opt-out [no-ticket].
 
-Beispiel:  CW-W-198: require-ticket-ref Hook gebaut
-Oder:      #13503: dev-Golden-Snapshot gebaut
-Kein Ticket dazu? Message-Zeile ergaenzen mit: [no-ticket]
+Example:  ABC-W-123: fix burn target
+Or:       fix burn target [no-ticket]
 EOF
 exit 1

@@ -23,7 +23,8 @@ Get a fully configured Docker stack running on a fresh Ubuntu server in under 10
 ```bash
 git clone https://github.com/swaldtmann/drayve.git
 cd drayve
-make setup              # venv, dependencies, git hooks
+make setup              # venv, dependencies
+make hooks              # optional: maintainer git hooks (ticket ref in commit messages, pre-push tests)
 source .venv/bin/activate
 ```
 
@@ -79,6 +80,8 @@ already-provisioned host — running it first will fail with an explicit
 ```bash
 make provision NAME=webshop
 ```
+
+`make provision` asks for confirmation before it creates or configures anything; pass `CONFIRM=y` to skip the prompt (for scripts).
 
 This will:
 1. Generate secrets (quickstart mode)

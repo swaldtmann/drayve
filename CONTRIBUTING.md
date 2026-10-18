@@ -7,8 +7,8 @@ Thanks for your interest in Drayve! Contributions are welcome.
 This repository is a read-only mirror; there is no public issue tracker and no pull-request workflow.
 Pull requests opened on the mirror are not merged here — the mirror is overwritten from the source of truth. Please send patches by e-mail instead.
 
-1. **Report a bug or idea** — send an e-mail to **security@waldtmann.de** (the same address as in [SECURITY.md](SECURITY.md)). Security issues: follow [SECURITY.md](SECURITY.md) and do not post them publicly.
-2. **Send a patch** — attach a `git format-patch` series against `main` to that e-mail. Describe what and why.
+1. **Report a bug or idea** — send an e-mail to **opensource@waldtmann.de**. Security issues go to **security@waldtmann.de** instead, see [SECURITY.md](SECURITY.md); do not post them publicly.
+2. **Send a patch** — attach a `git format-patch` series against `main` to an e-mail to **opensource@waldtmann.de**. Describe what and why.
 
 ## Git Conventions
 
@@ -19,6 +19,10 @@ Pull requests opened on the mirror are not merged here — the mirror is overwri
 ### Commit Messages
 
 Conventional Commits: `feat:`, `fix:`, `docs:`, `test:`, `refactor:`
+
+### Git Hooks (optional)
+
+`make hooks` enables the maintainer's hooks: a `commit-msg` hook that requires a ticket reference (or the literal `[no-ticket]`) in the commit message, and a `pre-push` hook that runs `make test`. You do not need them to contribute; `make setup` does not install them.
 
 ## QA
 

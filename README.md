@@ -23,7 +23,7 @@ pip install pyyaml ansible
 
 make init NAME=myserver DOMAIN=example.com HOST=203.0.113.10
 # Edit deploy/myserver/stack.yaml to match your needs
-make provision NAME=myserver
+make provision NAME=myserver     # asks for confirmation; CONFIRM=y skips the prompt
 ```
 
 ## stack.yaml
@@ -72,8 +72,10 @@ backup:
 ## Make targets
 
 ```
+make setup                         Create the local venv
+make hooks                         Optional: enable the maintainer's git hooks (ticket reference in commit messages, pre-push tests)
 make init NAME= DOMAIN= [HOST=]   Scaffold new host in deploy/
-make provision NAME=               Provision + deploy server
+make provision NAME= [CONFIRM=y]  Provision + deploy server (asks for confirmation first)
 make deploy NAME=                  Re-deploy after config changes
 make deploy-prod NAME= REF=       Deploy tagged release to prod
 make burn NAME= [CONFIRM=y]        Tear down server + clean local files (backs up first)
