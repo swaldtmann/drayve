@@ -81,7 +81,8 @@ lint:  ## Lint playbooks + roles
 	@set -o pipefail; cd $(ANSIBLE_DIR) && $(CURDIR)/$(ANSIBLE_LINT) playbooks/ roles/ 2>&1 | grep -v "^WARNING" | sed 's/^/    /'
 	@echo "==> Lint passed"
 
-provision: _require-name _require-stack _require-inventory validate  ## Provision + deploy server (NAME=)
+provision: _require-name _require-stack _require-inventory validate  ## Provision + deploy server (NAME= [CONFIRM=y])
+	@[ "$(CONFIRM)" = "y" ] || { printf "PROVISION $(NAME) via $(call _stack_val,c.get('provider',{}).get('type','hetzner')) — create/configure server? [y/N] "; read ans; [ "$$ans" = "y" ] || exit 1; }
 	@provider=$(call _stack_val,c.get('provider',{}).get('type','hetzner')); \
 	domain=$(_host_domain); \
 	if [ "$$provider" = "manual" ]; then \
