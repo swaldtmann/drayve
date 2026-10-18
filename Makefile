@@ -146,7 +146,7 @@ _burn-backup-local:
 status: _require-name _require-inventory  ## Show server status (NAME=)
 	@_host=$$($(PYTHON) -c "import yaml; d=yaml.safe_load(open('$(INVENTORY)')); print(d.get('all',{}).get('children',{}).get('drayve',{}).get('hosts',{}).get('$(NAME)',{}).get('ansible_host','$(NAME)'))" 2>/dev/null || echo "$(NAME)"); \
 	echo "==> $(NAME) ($$_host)"; \
-	ssh root@$$_host "docker ps --format 'table {{.Names}}\t{{.Status}}' | sort" 2>/dev/null || echo "    SSH failed"
+	ssh root@$$_host "docker ps --format 'table {{.Names}}\t{{.Status}}' | sort" 2>/dev/null || { echo "    SSH failed"; exit 1; }
 
 logs: _require-name _require-inventory  ## Tail container logs (NAME= [SVC=])
 	@_host=$$($(PYTHON) -c "import yaml; d=yaml.safe_load(open('$(INVENTORY)')); print(d.get('all',{}).get('children',{}).get('drayve',{}).get('hosts',{}).get('$(NAME)',{}).get('ansible_host','$(NAME)'))" 2>/dev/null || echo "$(NAME)"); \
@@ -235,14 +235,14 @@ setup:  ## One-time setup: venv + git hooks
 
 bans: _require-name _require-inventory  ## List active CrowdSec bans (NAME=)
 	@_host=$$($(PYTHON) -c "import yaml; d=yaml.safe_load(open('$(INVENTORY)')); print(d.get('all',{}).get('children',{}).get('drayve',{}).get('hosts',{}).get('$(NAME)',{}).get('ansible_host','$(NAME)'))" 2>/dev/null || echo "$(NAME)"); \
-	ssh root@$$_host "docker exec crowdsec cscli decisions list" 2>/dev/null || echo "    SSH failed"
+	ssh root@$$_host "docker exec crowdsec cscli decisions list" 2>/dev/null || { echo "    SSH failed"; exit 1; }
 
 unban: _require-name _require-inventory  ## Unban an IP (NAME= IP=)
 ifndef IP
 	$(error IP is required. Usage: make unban NAME=<name> IP=<ip>)
 endif
 	@_host=$$($(PYTHON) -c "import yaml; d=yaml.safe_load(open('$(INVENTORY)')); print(d.get('all',{}).get('children',{}).get('drayve',{}).get('hosts',{}).get('$(NAME)',{}).get('ansible_host','$(NAME)'))" 2>/dev/null || echo "$(NAME)"); \
-	ssh root@$$_host "docker exec crowdsec cscli decisions delete --ip $(IP)" 2>/dev/null || echo "    SSH failed"
+	ssh root@$$_host "docker exec crowdsec cscli decisions delete --ip $(IP)" 2>/dev/null || { echo "    SSH failed"; exit 1; }
 
 auth-sync: _require-name _require-stack _require-inventory  ## Sync Authentik providers from labels (NAME=)
 	$(ANSIBLE) playbooks/deploy.yml -l $(NAME) -e @../$(STACK_CONFIG) --tags authentik
