@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- **Breaking: no shipped defaults that point at the maintainer's infrastructure.**
+  A missing value now stops the run early with a clear message instead of
+  falling back to a private endpoint. Set these explicitly:
+   - `backup_kedge_openbao_base_url` — previously defaulted to the maintainer's
+     OpenBao server. Now empty; required when `backup_kedge_use_openbao` is
+     true (the backup role asserts it). Include `/v1`, e.g. `https://bao.example.com/v1`.
+   - `grafana_alert_slack_username` — new variable for the Slack bot display
+     name, default `drayve` (was hard-coded to the maintainer's bot name).
+     Set it to keep a previous name.
+   - `scripts/notify-ci-failure.sh` — `SLACK_CHANNEL` is now required (no
+     built-in channel; the script exits non-zero without it), and the message
+     text is neutral (`CI failed on main: ...`). The workflow passes it from the
+     repo variable `SLACK_CHANNEL`; set that variable where the workflow runs.
+
 ## [0.8.13] - 2026-10-13
 
 ### Added

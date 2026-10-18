@@ -176,7 +176,7 @@ SLACK_AND_ROOT_POLICY_TASKS = """\
                           settings:
                             recipient: '{{ grafana_alert_slack_channel }}'
                             token: $SLACK_TOKEN
-                            username: reggi_woos_ki
+                            username: '{{ grafana_alert_slack_username }}'
               when: _mon_grafana and (grafana_slack_token | default('') | length > 0)
               register: grafana_alert_slack_contact_point
               tags: [monitoring, alerting]
@@ -311,6 +311,8 @@ def _run(
         f"inventory_hostname={host}",
         "-e",
         f"ops_secrets_root={root}",
+        "-e",
+        "grafana_alert_slack_username=drayve",
     ]
     if extra_vars:
         cmd.extend(["-e", json.dumps(extra_vars)])

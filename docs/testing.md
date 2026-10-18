@@ -126,3 +126,10 @@ config and still use the Hetzner driver (`HCLOUD_TOKEN` required).
 make lint
 make test-unit      # ansible syntax-check + pytest + bats
 ```
+
+## CI failure notification (optional)
+
+The workflow in `.gitea/workflows/test.yml` runs `scripts/notify-ci-failure.sh`
+when a push to `main` is red. It needs the repo secret `SLACK_BOT_TOKEN` and the
+repo variable `SLACK_CHANNEL` (Slack channel ID). There is no built-in channel:
+without `SLACK_CHANNEL` the script exits non-zero with a message.

@@ -86,6 +86,19 @@ stack:
 | `backup_kedge_pre_hook`           | `""`                                                 | Command run before kedge's own backup steps |
 | `backup_kedge_cron_wrapper`       | `""`                                                 | Cron wrapper, contract `<wrapper> <job-name> -- <cmd...>`. Wraps both the backup and prune cron line — e.g. a fail-signal helper. See "Fail-signal wrapper" below. |
 
+### OpenBao-backed restic password (optional)
+
+With `backup_kedge_use_openbao: true` the restic password is fetched from an
+OpenBao/Vault server before each cron run (AppRole login). There is no default
+server: if `backup_kedge_openbao_base_url` is empty while the feature is on,
+the backup role aborts with an assertion.
+
+| Variable                          | Default | Notes |
+|-----------------------------------|---------|-------|
+| `backup_kedge_use_openbao`        | `false` | Opt-in per host |
+| `backup_kedge_openbao_base_url`   | `""`    | **Required** when enabled. API base URL including `/v1`, e.g. `https://bao.example.com/v1` |
+| `backup_kedge_openbao_role_id`    | `""`    | AppRole role_id (not secret) |
+
 ## Volumes excluded by default
 
 `traefik_logs`, `crowdsec_db` and `loki_data` hold visitor IP addresses

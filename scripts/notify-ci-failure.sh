@@ -8,7 +8,7 @@
 #
 # Env:
 #   SLACK_BOT_TOKEN   (Pflicht ausser DRY_RUN)  Slack chat:write Bot-Token.
-#   SLACK_CHANNEL     (optional)  Default C0BAJ39L0SH.
+#   SLACK_CHANNEL     (required)  Slack channel ID to post to. No default.
 #   CI_REPO CI_WORKFLOW CI_RUN_URL CI_REF CI_SHA CI_RUN_NUMBER  Kontext (Workflow).
 #   DRY_RUN=1         (optional)  Payload nach stdout statt echtem Slack-Post.
 #
@@ -16,7 +16,11 @@
 # von stdin (analog persona-push, das den Token via env-Python haelt).
 set -euo pipefail
 
-CHANNEL="${SLACK_CHANNEL:-C0BAJ39L0SH}"
+CHANNEL="${SLACK_CHANNEL:-}"
+if [[ -z "$CHANNEL" ]]; then
+  echo "notify-ci-failure: SLACK_CHANNEL is not set (Slack channel ID to post to)" >&2
+  exit 1
+fi
 REPO="${CI_REPO:-?}"
 WF="${CI_WORKFLOW:-CI}"
 URL="${CI_RUN_URL:-?}"
@@ -25,7 +29,7 @@ SHA="${CI_SHA:-}"
 RUNNO="${CI_RUN_NUMBER:-?}"
 SHORT="${SHA:0:10}"
 
-TEXT="*byrd* › :red_circle: ${REPO} CI rot — Workflow *${WF}* auf \`${REF}\` (Run #${RUNNO}) failed. Commit \`${SHORT}\`. ${URL}"
+TEXT=":red_circle: CI failed on main: ${REPO} — workflow *${WF}* on \`${REF}\` (run #${RUNNO}). Commit \`${SHORT}\`. ${URL}"
 
 # Payload via env+Python bauen (sauberes JSON-Escaping, kein argv-Leak des Texts).
 PAYLOAD=$(CH="$CHANNEL" TX="$TEXT" python3 -c 'import json,os;print(json.dumps({"channel":os.environ["CH"],"text":os.environ["TX"]}))')

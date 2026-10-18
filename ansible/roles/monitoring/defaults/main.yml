@@ -25,6 +25,9 @@ grafana_alert_email_to: ""
 # set — no default, deliberately, same idiom as grafana_alert_email_to.
 grafana_alert_slack_channel: ""
 
+# Display name the Slack bot posts under (Slack contact point "username").
+grafana_alert_slack_username: "drayve"
+
 # Loki retention (Go duration, e.g. "168h", "720h"). Enforced by the compactor.
 monitoring_loki_retention_period: "168h"
 

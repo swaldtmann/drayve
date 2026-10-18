@@ -69,7 +69,7 @@ backup_kedge_cron_wrapper: ""  # optional cron wrapper, contract: <wrapper> <job
 # clobbers the live value with a stale templated one.
 backup_kedge_use_openbao: false
 backup_kedge_openbao_role_id: ""  # not secret, role_id from AppRole "backup-consumer-<host>"
-backup_kedge_openbao_base_url: "https://bao.authbox.org/v1"
+backup_kedge_openbao_base_url: ""  # required when backup_kedge_use_openbao is true, e.g. "https://bao.example.com/v1" (include /v1)
 backup_kedge_openbao_secret_path: "secret/data/backup/{{ stack_name | default(inventory_hostname) }}/kedge"
 backup_kedge_openbao_secret_id_file: /root/.kedge-openbao/secret_id
 backup_kedge_openbao_fetch_script: /usr/local/bin/kedge-openbao-fetch.py

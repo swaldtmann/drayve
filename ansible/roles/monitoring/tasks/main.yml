@@ -379,7 +379,7 @@
               settings:
                 recipient: '{{ grafana_alert_slack_channel }}'
                 token: $SLACK_TOKEN
-                username: reggi_woos_ki
+                username: '{{ grafana_alert_slack_username }}'
                 title: 'CRIT — {{ "{{" }} .CommonLabels.alertname {{ "}}" }} ({{ "{{" }} .CommonLabels.host {{ "}}" }})'
                 text: |
                   {{ "{{" }} range .Alerts {{ "}}" }}

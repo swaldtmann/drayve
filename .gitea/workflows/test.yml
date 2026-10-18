@@ -85,6 +85,7 @@ jobs:
         if: ${{ failure() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL: ${{ vars.SLACK_CHANNEL }}
           CI_REPO: ${{ github.repository }}
           CI_WORKFLOW: ${{ github.workflow }}
           CI_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_number }}

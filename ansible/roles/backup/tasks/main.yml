@@ -199,6 +199,21 @@
   tags: [backup]
 
 # OpenBao-backed restic password, opt-in per host.
+- name: Assert OpenBao base URL is set when OpenBao-backed password is enabled
+  ansible.builtin.assert:
+    that:
+      - backup_kedge_openbao_base_url | default('') | length > 0
+    fail_msg: |
+      backup_kedge_use_openbao is true but backup_kedge_openbao_base_url is empty.
+      Set backup_kedge_openbao_base_url (e.g. in stack.yaml) to the API base URL
+      of your OpenBao/Vault server including /v1, e.g. https://bao.example.com/v1,
+      or set backup_kedge_use_openbao to false.
+  when:
+    - backup_enabled | bool
+    - backup_target == "kedge"
+    - backup_kedge_use_openbao | default(false) | bool
+  tags: [backup]
+
 - name: Deploy kedge OpenBao fetch script
   ansible.builtin.template:
     src: kedge-openbao-fetch.py.j2

@@ -172,6 +172,16 @@ Notes:
 | `cadvisor` | bool | — | Override cAdvisor on/off |
 | `node_exporter` | bool | — | Override node_exporter on/off |
 
+#### Grafana alert delivery (Ansible variables)
+
+Alert delivery is off by default. These are plain Ansible variables (set them in `stack.yaml` or `hosts.yaml`; secrets in `secrets.yml`):
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `grafana_alert_email_to` | — | Recipient of the alert mail. Required when `grafana_smtp_host` (secret) is set |
+| `grafana_alert_slack_channel` | — | Slack channel (ID or `#name`) for severity=critical alerts. Required when `grafana_slack_token` (secret) is set |
+| `grafana_alert_slack_username` | `drayve` | Display name the Slack bot posts under |
+
 ### `security`
 
 | Key | Type | Default | Description |
