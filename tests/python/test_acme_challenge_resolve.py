@@ -1,4 +1,4 @@
-"""Tests for the acme_challenge/traefik_certresolver resolve logic (DRAYVE-W-011).
+"""Tests for the acme_challenge/traefik_certresolver resolve logic.
 
 Before this fix, stack.acme_dns_provider had no stack.yaml-to-Ansible-var
 resolve task at all, and every Traefik router label in docker-compose.yml.j2
@@ -132,7 +132,7 @@ def test_deploy_tasks_contains_the_real_resolve_chain():
 
 
 def test_no_router_hardcodes_letsencrypt_certresolver():
-    """Regression guard: DRAYVE-W-011 Fund 1 — every router must use the variable,
+    """Regression guard: every router must use the variable,
     not a hardcoded resolver name (which made acme_dns_provider inert)."""
     text = COMPOSE_TEMPLATE.read_text()
     assert 'certresolver=letsencrypt"' not in text

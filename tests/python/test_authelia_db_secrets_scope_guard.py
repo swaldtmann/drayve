@@ -1,6 +1,5 @@
-"""Tests for AFKI-W-240 (Befund 1) — destructive tag-scope gap in the Authelia
-DB removal, closes the last of the AFKI-W-233 bug-class instances found in the
-AFKI-W-238/239 debriefs.
+"""Tests for the destructive tag-scope gap in the Authelia DB removal (the same
+bug class as the other cross-tag secrets guards).
 
 Bug: ``roles/authelia/tasks/main.yml`` ("Remove stale Authelia DB on config
 change") deletes ``db.sqlite3`` whenever the "Deploy Authelia configuration"
@@ -13,20 +12,20 @@ those fields empty, the rendered config differs from the correctly-deployed
 one on disk, "Deploy Authelia configuration" reports ``changed: true``, and
 the removal task then deletes an already-deployed, working Authelia DB
 (2FA registrations, sessions, tokens) — same bug class as
-AFKI-W-233/238/239.
+the other cross-tag secrets guards.
 
 Fix under test: a re-stat of ``secrets.yml`` + the DB file (cheap, independent
 of whether ``roles/secrets`` ran this pass) plus an ``ansible.builtin.assert``
 that fails hard when the file exists but ``drayve_secrets_facts_loaded``
-(AFKI-W-233 sentinel) was never set, the config task reports ``changed``, AND
-the DB already exists — same pattern as AFKI-W-239's monitoring-role guard.
+(sentinel) was never set, the config task reports ``changed``, AND
+the DB already exists — same pattern as the monitoring-role guard.
 The DB-exists check means a genuinely fresh install (nothing to lose) is not
 blocked.
 
 The wrapper below inlines the exact task sequence added to
 ``roles/secrets/tasks/main.yml`` and ``roles/authelia/tasks/main.yml`` (same
-approach as ``test_deploy_secrets_tag_guard.py`` / AFKI-W-233 and
-``test_monitoring_deploy_secrets_scope_guard.py`` / AFKI-W-239) so the test
+approach as ``test_deploy_secrets_tag_guard.py`` and
+``test_monitoring_deploy_secrets_scope_guard.py``) so the test
 runs against ``hosts: localhost`` without a real target host, docker, or the
 full role dependency chain (OIDC key generation, argon2 hashing, ...).
 "Deploy Authelia configuration"'s ``changed`` outcome itself is simulated via
@@ -83,21 +82,21 @@ WRAPPER_TASKS = """\
                 authelia_config: "{{ {'changed': authelia_config_changed | bool} }}"
               tags: [authelia]
 
-            - name: Check for host secrets file (cross-tag guard, AFKI-W-240 authelia)
+            - name: Check for host secrets file (cross-tag guard, authelia)
               ansible.builtin.stat:
                 path: "{{ ops_secrets_root }}/deploy/{{ inventory_hostname }}/secrets.yml"
               register: _authelia_secrets_file_check
               when: authelia_config.changed | default(false)
               tags: [authelia]
 
-            - name: Check for existing Authelia DB (cross-tag guard, AFKI-W-240 authelia)
+            - name: Check for existing Authelia DB (cross-tag guard, authelia)
               ansible.builtin.stat:
                 path: "{{ authelia_data_dir }}/db.sqlite3"
               register: _authelia_db_precheck
               when: authelia_config.changed | default(false)
               tags: [authelia]
 
-            - name: Guard — fail instead of deleting Authelia DB when secrets weren't loaded (AFKI-W-240)
+            - name: Guard — fail instead of deleting Authelia DB when secrets weren't loaded
               ansible.builtin.assert:
                 that:
                   - >-
@@ -119,7 +118,7 @@ def _make_wrapper(tmp_path: Path) -> Path:
     wrapper = tmp_path / "wrapper.yml"
     wrapper.write_text(
         "---\n"
-        "- name: Test AFKI-W-240 authelia DB cross-tag guard\n"
+        "- name: Test authelia DB cross-tag guard\n"
         "  hosts: localhost\n"
         "  connection: local\n"
         "  gather_facts: false\n"
@@ -178,7 +177,7 @@ def _authelia_layout(tmp_path: Path) -> Path:
 
 
 def test_authelia_only_tag_fires_guard_instead_of_deleting_db(ansible_available, tmp_path):
-    """AFKI-W-233-class repro: --tags authelia (no secrets), config counted
+    """Repro: --tags authelia (no secrets), config counted
     as changed because secrets rendered empty -- must not delete an existing
     Authelia DB."""
     wrapper = _make_wrapper(tmp_path)

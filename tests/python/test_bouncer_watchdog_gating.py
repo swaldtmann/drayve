@@ -1,7 +1,7 @@
 """Regression test: bouncer-watchdog deploy-tasks must be gated on
-both crowdsec_enabled AND bouncer_watchdog_enabled (AFKI-W-119).
+both crowdsec_enabled AND bouncer_watchdog_enabled.
 
-Beifang #11 (S322 v0.3.x sweep) hypothesized: "What happens when
+A code review raised the question: "What happens when
 crowdsec_enabled=False but bouncer_watchdog_enabled=True (default)?"
 
 Two findings from the code review:

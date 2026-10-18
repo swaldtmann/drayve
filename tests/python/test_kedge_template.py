@@ -1,4 +1,4 @@
-"""Tests for the kedge env template + backup role kedge target (W-132).
+"""Tests for the kedge env template + backup role kedge target.
 
 Renders ``ansible/roles/backup/templates/.kedge.env.j2`` with various
 inputs and verifies the resulting env file is shell-sourceable, contains
@@ -47,9 +47,9 @@ OPTIONAL_KEYS = {
 def _base_ctx(**overrides: object) -> dict[str, object]:
     ctx: dict[str, object] = {
         "ansible_managed": "Ansible managed",
-        "backup_kedge_stack_dir": "/opt/drayve/genua",
+        "backup_kedge_stack_dir": "/opt/drayve/myhost",
         "backup_kedge_restic_repository":
-            "sftp:u123456@u123456.your-storagebox.de:/genua",
+            "sftp:u123456@u123456.your-storagebox.de:/myhost",
         "backup_restic_password": "supersecret",
         "backup_kedge_stop_stack": True,
         "backup_kedge_exclude_mounts": "",
@@ -106,7 +106,7 @@ def test_defaults_render_required_keys_only(render):
 def test_required_values_passthrough(render):
     rendered = render()
     parsed = _parse_env(rendered)
-    assert parsed["STACK_DIR"] == "/opt/drayve/genua"
+    assert parsed["STACK_DIR"] == "/opt/drayve/myhost"
     assert parsed["RESTIC_REPOSITORY"].startswith("sftp:")
     assert parsed["RESTIC_PASSWORD"] == "supersecret"
     assert parsed["BACKUP_STOP_STACK"] == "true"
@@ -248,7 +248,7 @@ def test_excludes_set_renders_value(render):
 
 
 def test_excludes_multiword_value_is_shell_sourceable(render):
-    """Regression (EWH-W-132, P5.6): unquoted multi-word
+    """Regression: unquoted multi-word
     BACKUP_EXCLUDE_MOUNTS broke `source .kedge.env` itself (bash tried to
     run the second path as a command), aborting kedge backup under set -e.
     Actually source the rendered file in bash and assert the variable
@@ -377,7 +377,7 @@ def test_defaults_declare_all_kedge_vars():
 
 
 def test_defaults_pin_kedge_version():
-    """v0.3.1 is the smoke-tested release on prod-genua (S327d)."""
+    """v0.3.1 is the smoke-tested release."""
     defaults = yaml.safe_load(DEFAULTS_FILE.read_text())
     assert defaults["backup_kedge_version"].startswith("v0."), (
         "kedge_version must be a tag, never 'main'"
@@ -494,7 +494,7 @@ def test_kedge_cron_template_sources_env_file():
 def _render_cron(ansible_jinja_env, **overrides: object) -> str:
     ctx: dict[str, object] = {
         "ansible_managed": "Ansible managed",
-        "stack_name": "prod-genua",
+        "stack_name": "prod-example",
         "backup_kedge_env_file": "/root/.kedge.env",
         "backup_kedge_log_file": "/var/log/kedge.log",
         "backup_schedule": "0 3 * * *",
@@ -526,12 +526,12 @@ def test_cron_wrapper_empty_is_byte_identical_to_unwrapped(ansible_jinja_env):
 def test_cron_wrapper_set_wraps_both_backup_and_prune(ansible_jinja_env):
     rendered = _render_cron(ansible_jinja_env, backup_kedge_cron_wrapper="/usr/local/sbin/alert-pub")
     assert (
-        "0 3 * * * root /usr/local/sbin/alert-pub kedge-prod-genua-backup -- "
+        "0 3 * * * root /usr/local/sbin/alert-pub kedge-prod-example-backup -- "
         "bash -c 'set -a; . /root/.kedge.env; set +a; /usr/local/bin/kedge backup' "
         ">> /var/log/kedge.log 2>&1"
     ) in rendered
     assert (
-        "30 4 * * 0 root /usr/local/sbin/alert-pub kedge-prod-genua-prune -- "
+        "30 4 * * 0 root /usr/local/sbin/alert-pub kedge-prod-example-prune -- "
         "bash -c 'set -a; . /root/.kedge.env; set +a; /usr/local/bin/kedge prune' "
         ">> /var/log/kedge.log 2>&1"
     ) in rendered
@@ -541,8 +541,8 @@ def test_cron_wrapper_job_names_differ_between_backup_and_prune(ansible_jinja_en
     """alert-pub keys its alert topic off the job-name argument — backup and
     prune failures must not collide under the same name."""
     rendered = _render_cron(ansible_jinja_env, backup_kedge_cron_wrapper="/usr/local/sbin/alert-pub")
-    assert "kedge-prod-genua-backup" in rendered
-    assert "kedge-prod-genua-prune" in rendered
+    assert "kedge-prod-example-backup" in rendered
+    assert "kedge-prod-example-prune" in rendered
 
 
 def test_kedge_cron_deployed_to_etc_crond():

@@ -1,4 +1,4 @@
-"""Tests for ansible/tasks/preflight_vars.yml (AFKI-W-115).
+"""Tests for ansible/tasks/preflight_vars.yml.
 
 Runs ansible-playbook against a tiny wrapper that imports preflight_vars.yml
 and checks that:

@@ -1,4 +1,4 @@
-"""Tests for ``scripts/multinet-label-fix.py`` (W-112 part 1).
+"""Tests for ``scripts/multinet-label-fix.py``.
 
 Covers every branch in ``fix_compose`` and the CLI ``main`` entrypoint:
   * single-network service (no change)

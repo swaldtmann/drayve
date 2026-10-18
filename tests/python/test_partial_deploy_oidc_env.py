@@ -10,7 +10,7 @@ Grafana got ``GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET`` empty and OIDC login broke
 until the next full deploy.
 
 Second finding: ``--tags authelia`` alone executes no task of the authelia role
-(the role hangs under tag ``auth``), yet the AFKI-W-240 guard recommended
+(the role hangs under tag ``auth``), yet the Authelia DB guard recommended
 ``--tags secrets,authelia``.
 
 These tests build a mini playbook from the *real* tasks of ``roles/deploy``
@@ -259,15 +259,15 @@ def test_resolution_is_not_duplicated_in_authelia_role():
 
 
 # --------------------------------------------------------------------------
-# (c) AFKI-W-240 guard hint names a combination that runs the authelia role
+# (c) Authelia DB guard hint names a combination that runs the authelia role
 # --------------------------------------------------------------------------
 
 
 def _guard_fail_msg() -> str:
     for task in yaml.safe_load(AUTHELIA_TASKS.read_text()):
-        if "AFKI-W-240" in task.get("name", "") and task["name"].startswith("Guard"):
+        if "Authelia DB" in task.get("name", "") and task["name"].startswith("Guard"):
             return task["ansible.builtin.assert"]["fail_msg"]
-    raise AssertionError("AFKI-W-240 guard task not found")
+    raise AssertionError("Authelia DB guard task not found")
 
 
 def test_guard_fail_msg_does_not_recommend_ineffective_tags():

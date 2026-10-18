@@ -1,4 +1,4 @@
-"""Tests for the per-host Grafana alert-rules override (DRAYVE-W-014).
+"""Tests for the per-host Grafana alert-rules override.
 
 Alert rule thresholds/labels/host-names are inherently host-specific --
 unlike the framework-fixed contact-point/policy pair just above this task in
@@ -33,7 +33,7 @@ from pathlib import Path
 import pytest
 
 WRAPPER_TASKS = """\
-            # --- roles/monitoring/tasks/main.yml (relevant subset, DRAYVE-W-014) ---
+            # --- roles/monitoring/tasks/main.yml (relevant subset) ---
             - name: Check for host Grafana alert rules override
               ansible.builtin.stat:
                 path: "{{ ops_secrets_root }}/deploy/{{ inventory_hostname }}/grafana-alert-rules.yaml"
@@ -60,7 +60,7 @@ def _make_wrapper(tmp_path: Path) -> Path:
     wrapper = tmp_path / "wrapper.yml"
     wrapper.write_text(
         "---\n"
-        "- name: Test DRAYVE-W-014 Grafana alert-rules override\n"
+        "- name: Test Grafana alert-rules override\n"
         "  hosts: localhost\n"
         "  connection: local\n"
         "  gather_facts: false\n"

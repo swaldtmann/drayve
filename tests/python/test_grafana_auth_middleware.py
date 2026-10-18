@@ -1,10 +1,10 @@
-"""Tests for the Grafana Traefik router's auth@file middleware (EWH-W-131 Folge).
+"""Tests for the Grafana Traefik router's auth@file middleware.
 
 Before this fix, ``docker-compose.yml.j2`` gated ``landing`` and ``dashboard``
 (Traefik's own UI) behind ``auth@file`` whenever ``auth_provider != 'none'``, but
 never gated ``grafana`` the same way — Grafana relied solely on its own native
 login (admin/GF_SECURITY_ADMIN_PASSWORD or OIDC auto-login). Found live on
-ewh-lab (EWH-W-132) when `auth: provider: basic` was rolled out: Landing +
+a lab host when `auth: provider: basic` was rolled out: Landing +
 Dashboard prompted for BasicAuth, Grafana did not.
 
 Run: ``pytest tests/python/test_grafana_auth_middleware.py``

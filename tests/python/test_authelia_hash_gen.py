@@ -1,6 +1,6 @@
 """Regression tests for the Authelia OIDC client-secret hash generation task.
 
-HUB-W-003: Drayve generated pbkdf2 hashes via Python's hashlib + stdlib-base64
+Drayve generated pbkdf2 hashes via Python's hashlib + stdlib-base64
 (`+/` alphabet). Authelia's pbkdf2 decoder expects crypt-format base64 (`./`
 alphabet) and rejects salts/hashes containing `+` with
 "illegal base64 data at input byte N" — probabilistically (~60%) crashing
@@ -21,7 +21,7 @@ TASKS = (ROLE_DIR / "tasks" / "main.yml").read_text(encoding="utf-8")
 
 
 def test_no_python_pbkdf2_generation() -> None:
-    """The role must not call hashlib.pbkdf2_hmac (HUB-W-003 regression)."""
+    """The role must not call hashlib.pbkdf2_hmac (regression)."""
     assert "pbkdf2_hmac" not in TASKS, (
         "Python hashlib.pbkdf2_hmac re-introduced. "
         "It produces stdlib-base64 ('+/') which Authelia's pbkdf2 decoder rejects. "
@@ -30,7 +30,7 @@ def test_no_python_pbkdf2_generation() -> None:
 
 
 def test_no_stdlib_b64_for_hash_encoding() -> None:
-    """Stdlib base64.b64encode for hash-encoding is forbidden (HUB-W-003)."""
+    """Stdlib base64.b64encode for hash-encoding is forbidden."""
     assert "base64.b64encode" not in TASKS, (
         "Stdlib base64.b64encode reintroduced for password-hash encoding. "
         "Authelia expects crypt-format base64; use argon2id via Authelia CLI."

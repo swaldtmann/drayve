@@ -1,4 +1,4 @@
-"""Tests for AFKI-W-124 — early-fail validator for SOPS/quickstart mismatch.
+"""Tests for the early-fail validator for SOPS/quickstart mismatch.
 
 Runs ansible-playbook against a wrapper that imports the secrets-checks
 from ansible/playbooks/validate.yml, with a fake deploy/<host>/secrets.yml
@@ -153,7 +153,7 @@ def test_encrypted_without_age_key_fails_with_sops_message(ansible_available, tm
     # Deliberately do NOT create .age-key.txt
     result = _run(wrapper, root, "myhost")
     if shutil.which("sops") is None:
-        pytest.skip("sops not on PATH; AFKI-W-124 fail-message check needs sops binary")
+        pytest.skip("sops not on PATH; fail-message check needs sops binary")
     combined = result.stdout + result.stderr
     assert result.returncode != 0, combined
     assert "SOPS-encrypted" in combined or "sops -d" in combined, combined

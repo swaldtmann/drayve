@@ -11,7 +11,7 @@ contract tests, not for behavioral parity. Add more stubs here when a
 template starts using them — that's cheaper than duplicating the stub
 in every test module.
 
-Beifang-Anlass: W-144 (S328-Folge13) — test_authelia_template.py and
+Background: test_authelia_template.py and
 test_kedge_template.py duplicated the ``bool``/``to_json`` stubs.
 """
 

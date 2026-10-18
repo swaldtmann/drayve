@@ -1,7 +1,7 @@
-"""Tests for AFKI-W-233 — cross-tag guard: `.env` must not template with
+"""Tests for the cross-tag guard: `.env` must not template with
 empty secrets when a tag-scoped deploy run skips the `secrets` role.
 
-Bug (oops-0092, prod-genua): `ansible-playbook ... --tags monitoring,deploy`
+Bug: `ansible-playbook ... --tags monitoring,deploy`
 skips roles/secrets (tag [secrets]) entirely. The secret facts (lldap_*,
 authelia_*, ...) stay undefined, and roles/deploy's "Template .env" task
 (tag [deploy]) renders templates/env.j2 anyway — every `{{ var | default('') }}`
@@ -16,7 +16,7 @@ an actionable message instead of writing an empty `.env`.
 
 The wrapper below inlines the exact task sequence added to
 roles/secrets/tasks/main.yml and roles/deploy/tasks/main.yml (same
-approach as test_secrets_mode_validator.py / AFKI-W-124) so the test can
+approach as test_secrets_mode_validator.py) so the test can
 run against `hosts: localhost` without a real target host or docker.
 """
 
@@ -42,13 +42,13 @@ PLAINTEXT_SECRETS = textwrap.dedent(
 
 
 def _make_wrapper(tmp_path: Path) -> Path:
-    """Inline copy of the AFKI-W-233 task sequence (secrets sentinel + deploy guard)."""
+    """Inline copy of the task sequence (secrets sentinel + deploy guard)."""
     wrapper = tmp_path / "wrapper.yml"
     wrapper.write_text(
         textwrap.dedent(
             f"""\
             ---
-            - name: Test AFKI-W-233 cross-tag secrets guard
+            - name: Test cross-tag secrets guard
               hosts: localhost
               connection: local
               gather_facts: false
@@ -93,13 +93,13 @@ def _make_wrapper(tmp_path: Path) -> Path:
                   tags: [secrets]
 
                 # --- roles/deploy/tasks/main.yml (relevant subset) ---
-                - name: Check for host secrets file (cross-tag guard, AFKI-W-233)
+                - name: Check for host secrets file (cross-tag guard)
                   ansible.builtin.stat:
                     path: "{{{{ ops_secrets_root }}}}/deploy/{{{{ inventory_hostname }}}}/secrets.yml"
                   register: _deploy_secrets_file_check
                   tags: [deploy]
 
-                - name: Guard — fail if secrets.yml exists but its facts were never loaded (AFKI-W-233)
+                - name: Guard — fail if secrets.yml exists but its facts were never loaded
                   ansible.builtin.assert:
                     that:
                       - not (_deploy_secrets_file_check.stat.exists and drayve_secrets_facts_loaded is not defined)
@@ -109,7 +109,7 @@ def _make_wrapper(tmp_path: Path) -> Path:
                       secrets (Task "Set secret variables", tag [secrets]) hat in diesem
                       Lauf nicht gesetzt. `.env` würde jetzt mit leeren Secret-Werten
                       überschrieben (Jinja default('')) — lldap/Authelia crashen beim
-                      nächsten `docker compose up` (oops-0092).
+                      nächsten `docker compose up`.
                   tags: [deploy]
 
                 - name: Template .env
@@ -164,7 +164,7 @@ def ansible_available() -> None:
 
 
 def test_deploy_only_tag_fires_guard_instead_of_writing_empty_env(ansible_available, tmp_path):
-    """oops-0092 repro: --tags deploy (no `secrets`) must fail hard, not write .env."""
+    """Repro: --tags deploy (no `secrets`) must fail hard, not write .env."""
     wrapper = _make_wrapper(tmp_path)
     root = _layout(tmp_path, "myhost", PLAINTEXT_SECRETS)
     env_dest = tmp_path / ".env"

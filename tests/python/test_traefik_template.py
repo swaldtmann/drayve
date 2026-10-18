@@ -1,4 +1,4 @@
-"""Tests for the traefik static-config Jinja template (W-107).
+"""Tests for the traefik static-config Jinja template.
 
 Renders ``config/traefik/traefik.yml.j2`` with various values for
 ``acme_dns_provider`` / ``acme_dns_propagation_delay`` and verifies that
@@ -43,7 +43,7 @@ def _parse_yaml(rendered: str) -> dict:
 # ---- 1) Backward compatibility — no overrides ----
 
 def test_backward_compat_renders_hetzner_30():
-    """No overrides → defaults match the pre-W-107 hardcoded values."""
+    """No overrides → defaults match the previous hardcoded values."""
     rendered = _render_traefik()
     cfg = _parse_yaml(rendered)
     dns = cfg["certificatesResolvers"]["letsencrypt-dns"]["acme"]["dnsChallenge"]

@@ -52,7 +52,7 @@ def test_authelia_responds(host):
 
 
 def test_authelia_oidc_well_known(host):
-    """W-144: OIDC discovery endpoint must list both registered clients.
+    """OIDC discovery endpoint must list both registered clients.
 
     A failing parse here means the multi-client template rendered invalid YAML
     or Authelia rejected the config — exactly the Forgejo-mount-drift class of
@@ -73,7 +73,7 @@ def test_authelia_oidc_well_known(host):
 
 
 def test_authelia_config_contains_both_clients(host):
-    """W-144: both clients should be rendered in the configuration."""
+    """Both clients should be rendered in the configuration."""
     f = host.file("/opt/drayve/deploy/stack/authelia/configuration.yml")
     assert f.exists
     assert f.contains("client_id: grafana")
@@ -82,7 +82,7 @@ def test_authelia_config_contains_both_clients(host):
 
 
 def test_authelia_env_per_client_secrets(host):
-    """W-144: .env must carry the per-client OIDC secrets (incl. forgejo)."""
+    """.env must carry the per-client OIDC secrets (incl. forgejo)."""
     f = host.file("/opt/drayve/deploy/stack/.env")
     assert f.contains("AUTHELIA_OIDC_GRAFANA_SECRET=")
     assert f.contains("AUTHELIA_OIDC_FORGEJO_SECRET=")

@@ -207,7 +207,7 @@ def ansible_available() -> None:
 
 
 # ============================================================
-# Befund 1 — Grafana alert policy delete guard
+# Bug 1 — Grafana alert policy delete guard
 # ============================================================
 
 
@@ -280,7 +280,7 @@ def test_monitoring_tag_without_any_secrets_file_is_not_blocked(ansible_availabl
 
 
 # ============================================================
-# Befund 2 — CrowdSec bouncer registration guard
+# Bug 2 — CrowdSec bouncer registration guard
 # ============================================================
 
 

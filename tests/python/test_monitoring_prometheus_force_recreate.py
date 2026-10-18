@@ -1,4 +1,4 @@
-"""Tests for DRAYVE-W-012 — Prometheus config reload didn't survive a
+"""Tests for Prometheus config reload didn't survive a
 single-file bind mount.
 
 Bug: Prometheus mounts ``prometheus.yml`` as a single-file bind mount.
@@ -9,10 +9,10 @@ path, so a running container keeps serving the OLD file after the rename.
 The old deploy-role task ("Reload Prometheus config via API", a POST to
 ``/-/reload``) makes Prometheus re-read what it thinks is its config file --
 which, from the container's point of view, never changed. Scrape-job/alert
-changes (e.g. AFKI-W-238's cadvisor gating) were silently never applied
+changes (e.g. the cadvisor gating) were silently never applied
 until someone manually force-recreated the container.
 
-Found live on prod-genua's AFKI-W-241 rollout: the rendered host file had 0
+Found live on a production rollout: the rendered host file had 0
 ``cadvisor`` scrape jobs, ``docker exec prometheus cat .../prometheus.yml``
 still showed 2, host/container inodes differed (683893 vs 526301).
 
@@ -48,7 +48,7 @@ WRAPPER_TASKS = """\
                 prometheus_config: "{{ {'changed': prometheus_config_changed | bool} }}"
               tags: [monitoring]
 
-            # --- roles/deploy/tasks/main.yml (relevant subset, DRAYVE-W-012) ---
+            # --- roles/deploy/tasks/main.yml (relevant subset) ---
             - name: Force-recreate Prometheus on config change
               ansible.builtin.command:
                 cmd: docker compose up -d --force-recreate --no-deps prometheus
@@ -64,7 +64,7 @@ def _make_wrapper(tmp_path: Path) -> Path:
     wrapper = tmp_path / "wrapper.yml"
     wrapper.write_text(
         "---\n"
-        "- name: Test DRAYVE-W-012 Prometheus force-recreate\n"
+        "- name: Test Prometheus force-recreate\n"
         "  hosts: localhost\n"
         "  connection: local\n"
         "  gather_facts: false\n"

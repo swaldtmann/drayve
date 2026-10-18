@@ -1,4 +1,4 @@
-"""Tests for AFKI-W-238 — Prometheus scrape-config vs. monitoring-service gate.
+"""Tests for Prometheus scrape-config vs. monitoring-service gate.
 
 Bug: ``roles/monitoring/tasks/main.yml`` rendered the Prometheus scrape config
 as a single ``copy`` task gated only on ``_mon_prometheus``. The embedded
@@ -6,8 +6,8 @@ as a single ``copy`` task gated only on ``_mon_prometheus``. The embedded
 cadvisor container / node_exporter container were themselves enabled
 (``_mon_cadvisor`` / ``_mon_node_exporter``, mirroring the correctly-gated
 container blocks in ``ansible/templates/docker-compose.yml.j2``). A stack with
-``monitoring_cadvisor: false`` (e.g. drayve-prod-genua, cadvisor disabled for
-a memcg-OOM loop, S328-F193) got a scrape job for a target that structurally
+``monitoring_cadvisor: false`` (e.g. a stack with cadvisor disabled for
+a memcg-OOM loop) got a scrape job for a target that structurally
 never exists — a permanent `target-down` alert (firing since 2026-07-18).
 
 Fix under test: the ``content`` block of the "Deploy Prometheus config" task
@@ -18,7 +18,7 @@ the container-gating pattern already used in docker-compose.yml.j2. The
 ``monitoring_services.traefik`` flag exists anywhere in the compose
 template), so there is no analogous mismatch there.
 
-AFKI-W-240 (Befund 2) adds the same gating for the ``crowdsec`` job: the
+The same gating applies for the ``crowdsec`` job: the
 CrowdSec container is controlled by ``crowdsec_enabled`` (checked in
 ``docker-compose.yml.j2``), not by an ``_mon_*`` flag — the scrape job was
 still hard-wired in regardless, producing the same class of structurally
@@ -101,7 +101,7 @@ def test_prometheus_config_task_still_gated_on_mon_prometheus():
 
 
 def test_cadvisor_job_absent_when_cadvisor_disabled(render):
-    """The AFKI-W-238 repro case: genua-style stack with cadvisor off."""
+    """The repro case: stack with cadvisor off."""
     parsed = render(cadvisor=False, node_exporter=True)
     assert "cadvisor" not in _job_names(parsed)
 
@@ -139,11 +139,11 @@ def test_unconditional_jobs_always_present(render, cadvisor, node_exporter, crow
     assert "traefik" in jobs
 
 
-# ---- crowdsec job follows crowdsec_enabled (AFKI-W-240, Befund 2) ----
+# ---- crowdsec job follows crowdsec_enabled ----
 
 
 def test_crowdsec_job_absent_when_crowdsec_disabled(render):
-    """The AFKI-W-240 repro case: a stack with crowdsec_enabled: false."""
+    """The repro case: a stack with crowdsec_enabled: false."""
     parsed = render(cadvisor=True, node_exporter=True, crowdsec=False)
     assert "crowdsec" not in _job_names(parsed)
 

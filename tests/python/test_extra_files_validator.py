@@ -29,7 +29,7 @@ validator = _load_validator()
 def _base(extra_files):
     return {
         "drayve_version": "0.1.0",
-        "stack": {"name": "genua", "domain": "genua.authbox.de"},
+        "stack": {"name": "myhost", "domain": "myhost.example.com"},
         "extra_files": extra_files,
     }
 
@@ -42,7 +42,7 @@ def _errors(config):
 def test_absent_block_is_valid():
     config = {
         "drayve_version": "0.1.0",
-        "stack": {"name": "genua", "domain": "genua.authbox.de"},
+        "stack": {"name": "myhost", "domain": "myhost.example.com"},
     }
     assert _errors(config) == []
 

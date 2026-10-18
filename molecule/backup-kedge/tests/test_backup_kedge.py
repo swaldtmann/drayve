@@ -85,7 +85,7 @@ def test_kedge_env_repo_set_to_test_path(host):
 
 
 def test_kedge_env_post_hook_wired(host):
-    """KEDGE-W-012: BACKUP_POST_HOOK must render when backup_kedge_post_hook is set —
+    """BACKUP_POST_HOOK must render when backup_kedge_post_hook is set —
     the framework template previously templated BACKUP_PRE_HOOK only, silently
     dropping any freshness-metric export configured for the kedge target."""
     f = host.file("/root/.kedge.env")

@@ -1,4 +1,4 @@
-"""Tests for the Authelia OIDC-clients Jinja template (W-144).
+"""Tests for the Authelia OIDC-clients Jinja template.
 
 Renders ``config/authelia/configuration.yml.j2`` with various values for
 ``authelia_oidc_clients`` / ``authelia_oidc_authorization_policies`` /
@@ -55,7 +55,7 @@ def render(ansible_jinja_env):
         "authelia_jwt_secret": "j",
         "authelia_oidc_hmac_secret": "h",
         "authelia_jwks_pem": "-----BEGIN RSA PRIVATE KEY-----\nstub\n-----END RSA PRIVATE KEY-----\n",
-        # W-144 vars
+        # OIDC client vars
         "authelia_oidc_clients": GRAFANA_LEGACY_DEFAULT,
         "authelia_oidc_clients_default": GRAFANA_LEGACY_DEFAULT,
         "authelia_oidc_authorization_policies": {},

@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests fuer consumer.mk EXTRA_ANSIBLE_VARS-Durchreichung (CW-W-172).
+# Tests fuer consumer.mk EXTRA_ANSIBLE_VARS-Durchreichung.
 #
 # Vor dem Fix referenzierten deploy-check/deploy-check-fast $(EXTRA_ANSIBLE_VARS)
 # nicht — ein Config-Override (z.B. auth:none) landete nie im Validate-Lauf,
@@ -16,7 +16,7 @@
 # ohne den Playbook-Lauf selbst zu riskieren.
 #
 # Override-Syntax ist datei-basiert (-e @override.yml), nicht inline-JSON —
-# das ist das real erprobte Muster (s. EWH-W-132-Cutover-Notizen, inline
+# das ist das real erprobte Muster (inline
 # `-e {"auth":{"provider":"none"}}` zerbricht an Shell-Quoting sobald Make
 # die Recipe-Zeile an /bin/sh uebergibt; kein Regressions-Ziel dieses Tickets).
 #
