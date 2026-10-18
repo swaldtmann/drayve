@@ -41,9 +41,23 @@ all:
           drayve_hostname: test-target
 EOF
 
+    # authelia without lldap uses the file user backend (v0.8.12): validate aborts
+    # without at least one auth.users entry and a matching argon2 hash in the
+    # host secrets. Dummy values, never used against a real service.
     cat > "${FIXTURE}/stack.yaml" <<EOF
 auth:
   provider: authelia
+  users:
+    - name: tester
+      displayname: Tester
+      email: tester@test.invalid
+      groups: [admins]
+EOF
+
+    mkdir -p "${FIXTURE}/deploy/test-target"
+    cat > "${FIXTURE}/deploy/test-target/secrets.yml" <<'EOF'
+authelia_user_password_hashes:
+  tester: "$argon2id$v=19$dummy"
 EOF
 
     cat > "${FIXTURE}/override.yml" <<EOF
