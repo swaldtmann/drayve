@@ -16,6 +16,7 @@ DEPLOY_DIR := deploy
 INVENTORY := $(DEPLOY_DIR)/hosts.yaml
 PYTHON := $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 ANSIBLE_LINT := $(if $(wildcard .venv/bin/ansible-lint),.venv/bin/ansible-lint,ansible-lint)
+# Deliberate and-or chain in the $(shell) below: it only picks a value (uv vs. plain molecule), echo cannot fail, nothing is swallowed.
 MOLECULE := $(if $(wildcard .venv/bin/molecule),PATH="$(CURDIR)/.venv/bin:$(PATH)" .venv/bin/molecule,$(shell command -v uv >/dev/null 2>&1 && echo "uv run molecule" || echo "molecule"))
 
 # Load test env (HCLOUD_TOKEN etc.) if present
@@ -257,7 +258,14 @@ test-unit: test-syntax  ## Run python (pytest) + bash (bats) unit tests + ansibl
 	@echo "==> Running pytest..."
 	@$(PYTHON) -m pytest tests/python/ -q
 	@echo "==> Running bats..."
-	@command -v bats >/dev/null 2>&1 && bats tests/bats/ || echo "bats not installed — skipping"
+	@if [ -n "$(SKIP_BATS)" ]; then \
+		echo "!!! SKIP_BATS set — bats tests NOT run (explicit skip)"; \
+	elif ! command -v bats >/dev/null 2>&1; then \
+		echo "ERROR: bats fehlt: brew install bats-core / apt install bats (oder SKIP_BATS=1 zum ausdruecklichen Ueberspringen)" >&2; \
+		exit 1; \
+	else \
+		bats tests/bats/; \
+	fi
 
 test-syntax: test-syntax-core test-syntax-provision  ## Ansible syntax-check on all playbooks
 
