@@ -383,9 +383,6 @@ services:
       - GF_INSTALL_PLUGINS=yesoreyeram-infinity-datasource
       - CROWDSEC_LAPI_KEY=${CROWDSEC_LAPI_KEY:-}
 {% endif %}
-{% if grafana_alert_api_token | default('') | length > 0 %}
-      - KIGULLS_API_TOKEN=${KIGULLS_API_TOKEN:-}
-{% endif %}
 {% if grafana_smtp_host | default('') | length > 0 %}
       - GF_SMTP_ENABLED=true
       - GF_SMTP_HOST=${GRAFANA_SMTP_HOST:-}:${GRAFANA_SMTP_PORT:-587}
@@ -394,8 +391,8 @@ services:
       - GF_SMTP_FROM_ADDRESS=${GRAFANA_SMTP_FROM_ADDRESS:-}
 {% endif %}
 {% if grafana_slack_token | default('') | length > 0 %}
-      # KIG-W-054 Schritt 2b: Slack-Contact-Point slack-critical liest $SLACK_TOKEN
-      # aus dem Container-Env (Grafana-eigene Var-Expansion in der Alerting-Provisionierung).
+      # The slack-critical contact point reads $SLACK_TOKEN from the container env
+      # (Grafana's own var expansion in alerting provisioning).
       - SLACK_TOKEN=${SLACK_TOKEN}
 {% endif %}
     volumes:

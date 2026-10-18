@@ -308,39 +308,10 @@
   register: grafana_dashboards
   tags: [monitoring, dashboards]
 
-# === Grafana alerting: kigulls-api-webhook contact point + routing policy ===
-# Optional, gated on grafana_alert_api_token — off by default, no config migration
-# for consumers that never set it. CW-W-245: same contact point/policy pattern
-# already hand-copied onto genua/cloud/hub/kakapo, now versioned + wired to a
-# real secret instead of an unset $KIGULLS_API_TOKEN env var.
-- name: Deploy Grafana alert contact point (kigulls-api-webhook)
-  ansible.builtin.copy:
-    src: "{{ ops_deploy_root }}/config/grafana/provisioning/alerting/contact-points.yaml"
-    dest: "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/alerting/contact-points.yaml"
-    owner: "{{ drayve_user }}"
-    group: "{{ drayve_group }}"
-    mode: "0644"
-  when: _mon_grafana and (grafana_alert_api_token | default('') | length > 0)
-  register: grafana_alert_contact_points
-  tags: [monitoring, alerting]
-
-- name: Deploy Grafana alert policy (route to kigulls-api-webhook)
-  ansible.builtin.copy:
-    src: "{{ ops_deploy_root }}/config/grafana/provisioning/alerting/policies.yaml"
-    dest: "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/alerting/policies.yaml"
-    owner: "{{ drayve_user }}"
-    group: "{{ drayve_group }}"
-    mode: "0644"
-  when: _mon_grafana and (grafana_alert_api_token | default('') | length > 0)
-  register: grafana_alert_policies
-  tags: [monitoring, alerting]
-
-# === Grafana alerting: email contact point via SMTP (KIG-W-054) ===
+# === Grafana alerting: email contact point via SMTP ===
 # Optional, gated on grafana_smtp_host — off by default, no config migration
-# for consumers that never set it (same idiom as the kigulls-api-webhook
-# block above). Additive: does not touch policies.yaml/routing, does not
-# retire the webhook contact point — a host can have both deployed, wiring
-# either into the routing policy is a separate step.
+# for consumers that never set it. Routing is wired by the root policy task
+# further down.
 - name: Assert Grafana alert email recipient is configured when SMTP is enabled
   ansible.builtin.assert:
     that:
@@ -376,11 +347,10 @@
   register: grafana_alert_email_contact_point
   tags: [monitoring, alerting]
 
-# === Grafana alerting: Slack contact point for severity=critical (KIG-W-054 Schritt 2b) ===
+# === Grafana alerting: Slack contact point for severity=critical ===
 # Optional, gated on grafana_slack_token — off by default, same idiom as the
-# SMTP block above. Additive: does not touch the root routing by itself —
-# wiring severity=critical into policies.yaml happens in the root-policy
-# block further down, alongside the SMTP root receiver.
+# SMTP block above. Wiring severity=critical into policies.yaml happens in the
+# root-policy block further down, alongside the SMTP root receiver.
 - name: Assert Grafana alert Slack channel is configured when Slack token is set
   ansible.builtin.assert:
     that:
@@ -424,17 +394,9 @@
   register: grafana_alert_slack_contact_point
   tags: [monitoring, alerting]
 
-# === Grafana alerting: root policy for SMTP email + Slack critical (KIG-W-054) ===
-# Found while wiring Slack: policies.yaml is deployed by the webhook block
-# above ONLY when grafana_alert_api_token is set — a host that migrated to
-# SMTP (grafana_alert_api_token unset) never gets a policies.yaml at all,
-# and Grafana alerts silently fall back to its own built-in default contact
-# point instead of grafana-smtp-email. This block replaces that gap: deployed
-# whenever grafana_smtp_host OR grafana_slack_token is set (not just the old
-# webhook token), independent of the webhook path. Runs after the webhook
-# policy task above, so once a host has SMTP and/or Slack configured this
-# becomes the effective policies.yaml (last write wins on the same dest) —
-# that IS the intended cutover away from the webhook root receiver.
+# === Grafana alerting: root policy for SMTP email + Slack critical ===
+# Deployed whenever grafana_smtp_host OR grafana_slack_token is set. Without a
+# policies.yaml Grafana falls back to its own built-in default contact point.
 # Root receiver is grafana-smtp-email when SMTP is configured; if only Slack
 # is configured (no SMTP), root stays on Grafana's own built-in default
 # contact point (grafana-default-email) rather than pointing at an undefined
@@ -455,8 +417,8 @@
           repeat_interval: 4h
       {% if grafana_slack_token | default('') | length > 0 %}
           routes:
-            # KIG-W-054 Schritt 2b: severity=critical zusaetzlich nach Slack.
-            # continue:true -> Root-Receiver feuert trotzdem, kein Ersatz sondern Zusatz.
+            # severity=critical additionally goes to Slack.
+            # continue: true -> the root receiver still fires (addition, not replacement).
             - receiver: slack-critical
               matchers:
                 - severity = critical
@@ -511,15 +473,14 @@
   when: _mon_grafana and not (_grafana_alert_rules_override.stat.exists | default(false))
   tags: [monitoring, alerting]
 
-# AFKI-W-239 (Befund 1, closes oops-0096): the removal below is destructive —
-# it deletes an already-deployed alert config, not just skips deploying one.
-# grafana_alert_api_token comes exclusively from roles/secrets (tag [secrets]).
-# A tag-scoped run without that tag (e.g. --tags monitoring) leaves the token
-# empty and would delete a correctly deployed contact-points.yaml/policies.yaml
-# (this is exactly the oops-0096 incident). Re-stat secrets.yml + the target
-# files here (cheap, independent of whether roles/secrets ran this pass) and
-# fail before the delete, same pattern as AFKI-W-233's deploy-role guard.
-- name: Check for host secrets file (cross-tag guard, AFKI-W-239)
+# The removals below are destructive — they delete an already-deployed alert
+# config, not just skip deploying one. The SMTP/Slack variables come
+# exclusively from roles/secrets (tag [secrets]). A tag-scoped run without
+# that tag (e.g. --tags monitoring) leaves them empty and would delete a
+# correctly deployed config. Re-stat secrets.yml + the target files here
+# (cheap, independent of whether roles/secrets ran this pass) and fail before
+# the delete, same pattern as the deploy-role guard.
+- name: Check for host secrets file (cross-tag guard)
   ansible.builtin.stat:
     path: "{{ ops_secrets_root }}/deploy/{{ inventory_hostname }}/secrets.yml"
   register: _mon_secrets_file_check
@@ -528,49 +489,34 @@
   when: _mon_grafana
   tags: [monitoring, alerting]
 
-- name: Check for existing Grafana alert contact-point file (cross-tag guard, AFKI-W-239)
-  ansible.builtin.stat:
-    path: "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/alerting/contact-points.yaml"
-  register: _mon_alert_contact_points_precheck
-  when: _mon_grafana
-  tags: [monitoring, alerting]
-
-- name: Check for existing Grafana alert policy file (cross-tag guard, AFKI-W-239)
+- name: Check for existing Grafana alert policy file (cross-tag guard)
   ansible.builtin.stat:
     path: "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/alerting/policies.yaml"
   register: _mon_alert_policies_precheck
   when: _mon_grafana
   tags: [monitoring, alerting]
 
-- name: Check for existing Grafana alert contact-point file (email via SMTP) (cross-tag guard, AFKI-W-239)
+- name: Check for existing Grafana alert contact-point file (email via SMTP) (cross-tag guard)
   ansible.builtin.stat:
     path: "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/alerting/contact-points-email.yaml"
   register: _mon_alert_email_contact_point_precheck
   when: _mon_grafana
   tags: [monitoring, alerting]
 
-- name: Check for existing Grafana alert contact-point file (Slack critical) (cross-tag guard, AFKI-W-239)
+- name: Check for existing Grafana alert contact-point file (Slack critical) (cross-tag guard)
   ansible.builtin.stat:
     path: "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/alerting/contact-points-slack-critical.yaml"
   register: _mon_alert_slack_contact_point_precheck
   when: _mon_grafana
   tags: [monitoring, alerting]
 
-- name: Guard — fail instead of deleting Grafana alert config when secrets weren't loaded (AFKI-W-239)
+- name: Guard — fail instead of deleting Grafana alert config when secrets weren't loaded
   ansible.builtin.assert:
     that:
       - >-
         not (
           _mon_secrets_file_check.stat.exists and
           drayve_secrets_facts_loaded is not defined and
-          (grafana_alert_api_token | default('') | length == 0) and
-          (_mon_alert_contact_points_precheck.stat.exists | default(false))
-        )
-      - >-
-        not (
-          _mon_secrets_file_check.stat.exists and
-          drayve_secrets_facts_loaded is not defined and
-          (grafana_alert_api_token | default('') | length == 0) and
           (grafana_smtp_host | default('') | length == 0) and
           (grafana_slack_token | default('') | length == 0) and
           (_mon_alert_policies_precheck.stat.exists | default(false))
@@ -593,29 +539,34 @@
       Secrets nicht geladen — Monitoring-Deploy ohne `secrets`-Tag gefahren?
       deploy/{{ inventory_hostname }}/secrets.yml existiert, aber die Rolle
       secrets (Task "Set secret variables", tag [secrets]) hat in diesem
-      Lauf nicht gesetzt. grafana_alert_api_token bzw. grafana_smtp_host bzw.
-      grafana_slack_token ist deshalb leer, und der naechste Schritt wuerde
-      die bestehende Grafana-Alert-Config (contact-points.yaml/policies.yaml
-      bzw. contact-points-email.yaml bzw. contact-points-slack-critical.yaml)
-      LOESCHEN statt sie unangetastet zu lassen (oops-0096).
+      Lauf nicht gesetzt. grafana_smtp_host bzw. grafana_slack_token ist
+      deshalb leer, und der naechste Schritt wuerde die bestehende
+      Grafana-Alert-Config (policies.yaml bzw. contact-points-email.yaml bzw.
+      contact-points-slack-critical.yaml) LOESCHEN statt sie unangetastet
+      zu lassen.
 
       Fix: `--tags secrets,monitoring` statt `--tags monitoring` allein, oder
       den vollen Lauf ohne Tag-Scoping fahren.
   when: _mon_grafana
   tags: [monitoring, alerting]
 
-- name: Remove Grafana alert contact point/policy when token not configured
+# contact-points.yaml belonged to a contact point that is no longer
+# shipped; remove it if an older deploy left it behind.
+- name: Remove legacy Grafana alert contact point file
   ansible.builtin.file:
-    path: "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/alerting/{{ item }}"
+    path: "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/alerting/contact-points.yaml"
     state: absent
-  loop:
-    - contact-points.yaml
-    - policies.yaml
+  when: _mon_grafana
+  tags: [monitoring, alerting]
+
+- name: Remove Grafana alert policy when neither SMTP nor Slack is configured
+  ansible.builtin.file:
+    path: "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/alerting/policies.yaml"
+    state: absent
   when: >-
-    _mon_grafana and (grafana_alert_api_token | default('') | length == 0) and
-    (item == 'contact-points.yaml' or
-     ((grafana_smtp_host | default('') | length == 0) and
-      (grafana_slack_token | default('') | length == 0)))
+    _mon_grafana and
+    (grafana_smtp_host | default('') | length == 0) and
+    (grafana_slack_token | default('') | length == 0)
   tags: [monitoring, alerting]
 
 - name: Remove Grafana alert contact point (email) when SMTP not configured

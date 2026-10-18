@@ -1,39 +1,32 @@
-"""Tests for KIG-W-054 Schritt 2b — Slack critical-alert contact point +
-the root-policy routing gap it uncovered.
+"""Tests for the Slack critical-alert contact point and the root-policy routing.
 
-Background: drayve already had two independent, off-by-default Grafana
-alert delivery channels: the legacy ``kigulls-api-webhook`` contact point
-(gated on ``grafana_alert_api_token``) and the SMTP email contact point
-(gated on ``grafana_smtp_host``, KIG-W-054, see
-``test_monitoring_smtp_alerting.py``). Neither of them wires
-severity=critical to Slack. This adds a third, independent contact point
-(``type: slack``, gated on the new ``grafana_slack_token`` secret var) and
-fixes a routing gap found while building it: ``policies.yaml`` (the file
-that actually points Grafana's root policy at a receiver) was ONLY ever
-deployed by the webhook block, gated on ``grafana_alert_api_token`` — a host
-that migrated to SMTP-only (token unset) never got a ``policies.yaml`` at
-all, silently falling back to Grafana's own built-in default receiver
-instead of the configured ``grafana-smtp-email`` contact point.
+Drayve has two independent, off-by-default Grafana alert delivery channels
+besides Grafana's own default: the SMTP email contact point (gated on
+``grafana_smtp_host``, see ``test_monitoring_smtp_alerting.py``) and a Slack
+contact point (``type: slack``, gated on the ``grafana_slack_token`` secret
+var) that receives severity=critical alerts.
+
+``policies.yaml`` is the file that points Grafana's root policy at a receiver.
+It is deployed whenever SMTP or Slack is configured; a host with neither never
+gets one and Grafana falls back to its own built-in default receiver.
 
 Four things are covered here, each mirroring an existing test's approach:
 
 1. ``docker-compose.yml.j2`` only emits ``SLACK_TOKEN`` for the grafana
-   container when ``grafana_slack_token`` is set — independent of the
-   webhook/SMTP gates (isolated-snippet + anchor-test approach, same as
+   container when ``grafana_slack_token`` is set, independent of the SMTP
+   gate (isolated-snippet + anchor-test approach, same as
    ``test_monitoring_smtp_alerting.py``).
 2. ``ansible.builtin.assert`` fails fast when ``grafana_slack_token`` is set
    but ``grafana_alert_slack_channel`` is empty.
-3. The AFKI-W-239 cross-tag delete-guard is extended to also protect the new
+3. The cross-tag delete-guard also protects
    ``contact-points-slack-critical.yaml``.
-4. A new, independent ``policies.yaml`` deploy task (root receiver
-   ``grafana-smtp-email`` when SMTP is set, else Grafana's built-in default
-   ``grafana-default-email`` — never an undefined receiver; plus a
-   severity=critical route to ``slack-critical`` with ``continue: true``
-   when Slack is set) fires whenever SMTP or Slack is configured — not just
-   the old webhook token. The existing webhook-path removal task is
-   refined so it only deletes ``policies.yaml`` when webhook, SMTP AND
-   Slack are all unset (it must not clobber a policies.yaml that SMTP/Slack
-   still need), and the AFKI-W-239 guard is extended to match.
+4. The ``policies.yaml`` deploy task (root receiver ``grafana-smtp-email``
+   when SMTP is set, else Grafana's built-in default ``grafana-default-email``
+   -- never an undefined receiver; plus a severity=critical route to
+   ``slack-critical`` with ``continue: true`` when Slack is set) fires
+   whenever SMTP or Slack is configured. The removal task only deletes
+   ``policies.yaml`` when SMTP and Slack are both unset (it must not clobber
+   a policies.yaml that SMTP/Slack still need), and the guard matches.
 
 Run: ``pytest tests/python/test_monitoring_slack_alerting.py``
 """
@@ -61,9 +54,6 @@ TASKS_FILE = REPO_ROOT / "ansible" / "roles" / "monitoring" / "tasks" / "main.ym
 # ============================================================
 
 _GRAFANA_ENV_SNIPPET = (
-    "{% if grafana_alert_api_token | default('') | length > 0 %}\n"
-    "      - KIGULLS_API_TOKEN=${KIGULLS_API_TOKEN:-}\n"
-    "{% endif %}\n"
     "{% if grafana_smtp_host | default('') | length > 0 %}\n"
     "      - GF_SMTP_ENABLED=true\n"
     "{% endif %}\n"
@@ -77,14 +67,12 @@ def _render_env_snippet(
     *,
     grafana_slack_token: str = "",
     grafana_smtp_host: str = "",
-    grafana_alert_api_token: str = "",
 ) -> str:
     env = Environment(undefined=StrictUndefined, keep_trailing_newline=True)
     template = env.from_string(_GRAFANA_ENV_SNIPPET)
     return template.render(
         grafana_slack_token=grafana_slack_token,
         grafana_smtp_host=grafana_smtp_host,
-        grafana_alert_api_token=grafana_alert_api_token,
     )
 
 
@@ -98,20 +86,17 @@ def test_slack_token_set_emits_slack_env_var():
     assert "SLACK_TOKEN=${SLACK_TOKEN}" in out
 
 
-def test_slack_gate_is_independent_of_smtp_and_webhook_gates():
-    """All three channels are additive — setting one must not imply or
-    exclude the others."""
-    out = _render_env_snippet(grafana_alert_api_token="tok123", grafana_smtp_host="smtp.example.com")
-    assert "KIGULLS_API_TOKEN" in out
+def test_slack_gate_is_independent_of_smtp_gate():
+    """Both channels are additive — setting one must not imply or exclude the
+    other."""
+    out = _render_env_snippet(grafana_smtp_host="smtp.example.com")
     assert "GF_SMTP_ENABLED=true" in out
     assert "SLACK_TOKEN" not in out
 
     out = _render_env_snippet(
-        grafana_alert_api_token="tok123",
         grafana_smtp_host="smtp.example.com",
         grafana_slack_token="xoxb-test",
     )
-    assert "KIGULLS_API_TOKEN" in out
     assert "GF_SMTP_ENABLED=true" in out
     assert "SLACK_TOKEN=${SLACK_TOKEN}" in out
 
@@ -125,7 +110,7 @@ def test_compose_template_actually_gates_slack_env_var():
 
 def test_env_template_emits_slack_token_unconditionally_with_empty_default():
     """env.j2 always writes SLACK_TOKEN to .env, empty by default — same
-    idiom as KIGULLS_API_TOKEN/GRAFANA_SMTP_*."""
+    idiom as GRAFANA_SMTP_*."""
     text = ENV_TEMPLATE.read_text()
     assert "SLACK_TOKEN={{ grafana_slack_token | default('') }}" in text
 
@@ -151,7 +136,6 @@ SECRETS_SENTINEL_TASKS = """\
 
             - name: Set secret variables
               ansible.builtin.set_fact:
-                grafana_alert_api_token: "{{ host_secrets.grafana_alert_api_token | default('') }}"
                 grafana_smtp_host: "{{ host_secrets.grafana_smtp_host | default('') }}"
                 grafana_slack_token: "{{ host_secrets.grafana_slack_token | default('') }}"
               when: secrets_file.stat.exists
@@ -165,11 +149,11 @@ SECRETS_SENTINEL_TASKS = """\
               tags: [secrets]
 """
 
-# Inlines the exact task sequence added to roles/monitoring/tasks/main.yml for
-# KIG-W-054 Schritt 2b (Slack assert + deploy + root policy + AFKI-W-239
-# guard + removal), same approach as test_monitoring_smtp_alerting.py.
+# Inlines the exact task sequence from roles/monitoring/tasks/main.yml
+# (Slack assert + deploy + root policy + cross-tag guard + removal), same
+# approach as test_monitoring_smtp_alerting.py.
 SLACK_AND_ROOT_POLICY_TASKS = """\
-            # --- roles/monitoring/tasks/main.yml (KIG-W-054 Schritt 2b) ---
+            # --- roles/monitoring/tasks/main.yml ---
             - name: Assert Grafana alert Slack channel is configured when Slack token is set
               ansible.builtin.assert:
                 that:
@@ -224,35 +208,34 @@ SLACK_AND_ROOT_POLICY_TASKS = """\
               register: grafana_alert_root_policy
               tags: [monitoring, alerting]
 
-            - name: Check for host secrets file (cross-tag guard, AFKI-W-239)
+            - name: Check for host secrets file (cross-tag guard)
               ansible.builtin.stat:
                 path: "{{ ops_secrets_root }}/deploy/{{ inventory_hostname }}/secrets.yml"
               register: _mon_secrets_file_check
               when: _mon_grafana
               tags: [monitoring, alerting]
 
-            - name: Check for existing Grafana alert policy file (cross-tag guard, AFKI-W-239)
+            - name: Check for existing Grafana alert policy file (cross-tag guard)
               ansible.builtin.stat:
                 path: "{{ drayve_deploy_dir }}/alerting/policies.yaml"
               register: _mon_alert_policies_precheck
               when: _mon_grafana
               tags: [monitoring, alerting]
 
-            - name: Check for existing Grafana alert contact-point file (Slack critical) (cross-tag guard, AFKI-W-239)
+            - name: Check for existing Grafana alert contact-point file (Slack critical) (cross-tag guard)
               ansible.builtin.stat:
                 path: "{{ drayve_deploy_dir }}/alerting/contact-points-slack-critical.yaml"
               register: _mon_alert_slack_contact_point_precheck
               when: _mon_grafana
               tags: [monitoring, alerting]
 
-            - name: Guard — fail instead of deleting Grafana alert config when secrets weren't loaded (AFKI-W-239)
+            - name: Guard — fail instead of deleting Grafana alert config when secrets weren't loaded
               ansible.builtin.assert:
                 that:
                   - >-
                     not (
                       _mon_secrets_file_check.stat.exists and
                       drayve_secrets_facts_loaded is not defined and
-                      (grafana_alert_api_token | default('') | length == 0) and
                       (grafana_smtp_host | default('') | length == 0) and
                       (grafana_slack_token | default('') | length == 0) and
                       (_mon_alert_policies_precheck.stat.exists | default(false))
@@ -269,18 +252,14 @@ SLACK_AND_ROOT_POLICY_TASKS = """\
               when: _mon_grafana
               tags: [monitoring, alerting]
 
-            - name: Remove Grafana alert contact point/policy when token not configured
+            - name: Remove Grafana alert policy when neither SMTP nor Slack is configured
               ansible.builtin.file:
-                path: "{{ drayve_deploy_dir }}/alerting/{{ item }}"
+                path: "{{ drayve_deploy_dir }}/alerting/policies.yaml"
                 state: absent
-              loop:
-                - contact-points.yaml
-                - policies.yaml
               when: >-
-                _mon_grafana and (grafana_alert_api_token | default('') | length == 0) and
-                (item == 'contact-points.yaml' or
-                 ((grafana_smtp_host | default('') | length == 0) and
-                  (grafana_slack_token | default('') | length == 0)))
+                _mon_grafana and
+                (grafana_smtp_host | default('') | length == 0) and
+                (grafana_slack_token | default('') | length == 0)
               tags: [monitoring, alerting]
 
             - name: Remove Grafana alert contact point (Slack critical) when Slack not configured
@@ -296,7 +275,7 @@ def _make_wrapper(tmp_path: Path) -> Path:
     wrapper = tmp_path / "wrapper.yml"
     wrapper.write_text(
         "---\n"
-        "- name: Test KIG-W-054 Schritt 2b Slack + root-policy routing\n"
+        "- name: Test Slack + root-policy routing\n"
         "  hosts: localhost\n"
         "  connection: local\n"
         "  gather_facts: false\n"
@@ -383,14 +362,14 @@ def test_slack_enabled_with_channel_deploys_contact_point(ansible_available, tmp
         extra_vars={
             "_mon_grafana": True,
             "drayve_deploy_dir": str(deploy_dir),
-            "grafana_alert_slack_channel": "#00_wooki",
+            "grafana_alert_slack_channel": "#alerts",
         },
         tags="secrets,monitoring",
     )
     combined = result.stdout + result.stderr
     assert result.returncode == 0, combined
     content = (deploy_dir / "alerting" / "contact-points-slack-critical.yaml").read_text()
-    assert "#00_wooki" in content
+    assert "#alerts" in content
     assert "type: slack" in content
 
 
@@ -411,7 +390,7 @@ def test_slack_disabled_by_default_no_contact_point_file(ansible_available, tmp_
     assert not (deploy_dir / "alerting" / "contact-points-slack-critical.yaml").exists()
 
 
-# ---- AFKI-W-239 delete guard extended to the Slack contact point ----
+# ---- cross-tag delete guard covers the Slack contact point ----
 
 
 def test_monitoring_only_tag_fires_guard_instead_of_deleting_slack_contact_point(
@@ -508,7 +487,7 @@ def test_root_policy_receiver_is_grafana_default_when_only_slack_set(ansible_ava
         extra_vars={
             "_mon_grafana": True,
             "drayve_deploy_dir": str(deploy_dir),
-            "grafana_alert_slack_channel": "#00_wooki",
+            "grafana_alert_slack_channel": "#alerts",
         },
         tags="secrets,monitoring",
     )
@@ -536,7 +515,7 @@ def test_root_policy_includes_slack_critical_route_with_continue_true_when_slack
         extra_vars={
             "_mon_grafana": True,
             "drayve_deploy_dir": str(deploy_dir),
-            "grafana_alert_slack_channel": "#00_wooki",
+            "grafana_alert_slack_channel": "#alerts",
         },
         tags="secrets,monitoring",
     )
@@ -569,11 +548,11 @@ def test_root_policy_has_no_slack_route_when_only_smtp_set(ansible_available, tm
     assert "routes" not in doc["policies"][0]
 
 
-# ---- AFKI-W-239 guard + refined removal for policies.yaml ----
+# ---- guard + refined removal for policies.yaml ----
 
 
 def test_monitoring_only_tag_fires_guard_instead_of_deleting_root_policy(ansible_available, tmp_path):
-    """oops-0096-class repro: --tags monitoring (no secrets) must not delete
+    """Repro: --tags monitoring (no secrets) must not delete
     an existing, correctly deployed SMTP/Slack root policy."""
     wrapper = _make_wrapper(tmp_path)
     root = _layout(tmp_path, "myhost", secrets_body="lldap_jwt_secret: x\n")
@@ -597,7 +576,7 @@ def test_secrets_plus_monitoring_with_smtp_and_slack_unset_deletes_root_policy_a
     ansible_available, tmp_path
 ):
     """Legitimate case: secrets loaded, host never configured SMTP or Slack
-    (and no webhook token either) — deletion is correct and must not be
+    — deletion is correct and must not be
     blocked by the guard."""
     wrapper = _make_wrapper(tmp_path)
     root = _layout(tmp_path, "myhost", secrets_body="lldap_jwt_secret: x\n")
@@ -619,10 +598,10 @@ def test_secrets_plus_monitoring_with_smtp_and_slack_unset_deletes_root_policy_a
 def test_root_policy_survives_when_only_slack_disabled_but_smtp_still_configured(
     ansible_available, tmp_path
 ):
-    """Refined removal condition: the webhook-path removal task must not
-    delete policies.yaml just because Slack got disabled — SMTP still owns
-    the file. Simulates a host that never had a webhook token, previously
-    configured SMTP+Slack, and now dropped Slack again."""
+    """Refined removal condition: the removal task must not delete
+    policies.yaml just because Slack got disabled — SMTP still owns the file.
+    Simulates a host that previously configured SMTP+Slack and now dropped
+    Slack again."""
     wrapper = _make_wrapper(tmp_path)
     root = _layout(tmp_path, "myhost", secrets_body="grafana_smtp_host: smtp.example.com\n")
     deploy_dir = tmp_path / "deploy_dir"
@@ -665,12 +644,10 @@ def test_real_tasks_file_has_root_policy_task_and_smtp_slack_gating():
     assert "grafana_alert_root_policy" in text
 
 
-def test_real_tasks_file_keeps_webhook_and_smtp_paths_untouched():
-    """Regression guard: the additive Slack feature + root-policy fix must
-    not have removed or renamed the existing webhook/SMTP tasks."""
+def test_real_tasks_file_keeps_smtp_path_untouched():
+    """Regression guard: the Slack feature + root-policy task must not have
+    removed or renamed the SMTP tasks."""
     text = TASKS_FILE.read_text()
-    assert "Deploy Grafana alert contact point (kigulls-api-webhook)" in text
-    assert "Deploy Grafana alert policy (route to kigulls-api-webhook)" in text
-    assert "Remove Grafana alert contact point/policy when token not configured" in text
     assert "Deploy Grafana alert contact point (email via SMTP)" in text
     assert "Remove Grafana alert contact point (email) when SMTP not configured" in text
+    assert "Remove Grafana alert policy when neither SMTP nor Slack is configured" in text

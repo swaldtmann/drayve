@@ -1,17 +1,10 @@
-"""Tests for KIG-W-054 — optional Grafana alert email contact point via SMTP.
+"""Tests for the optional Grafana alert email contact point via SMTP.
 
-Background: the only Grafana alert delivery channel drayve could configure
-was the ``kigulls-api-webhook`` contact point, gated on
-``grafana_alert_api_token``. KIgulls-Schwarm is being retired (KIG-W-054),
-so drayve gains a second, independent delivery channel: a ``type: email``
-contact point wired to Grafana's built-in SMTP support, gated on the new
-``grafana_smtp_host`` secret var — same on/off idiom as the webhook path
-(``roles/monitoring/tasks/main.yml`` line ~278), so a host that never sets
-``grafana_smtp_host`` sees zero behavior change. Additive only: the webhook
-contact point, ``policies.yaml`` and its routing are untouched.
+Drayve can configure a ``type: email`` contact point wired to Grafana's
+built-in SMTP support, gated on the ``grafana_smtp_host`` secret var, so a host
+that never sets ``grafana_smtp_host`` sees zero behavior change.
 
-Three things are covered here, each mirroring an existing test's approach
-for the analogous webhook feature:
+Three things are covered here:
 
 1. ``docker-compose.yml.j2`` only emits ``GF_SMTP_*`` env vars for the
    grafana container when ``grafana_smtp_host`` is set (isolated-snippet +
@@ -19,11 +12,10 @@ for the analogous webhook feature:
 2. ``ansible.builtin.assert`` fails fast when ``grafana_smtp_host`` is set
    but ``grafana_alert_email_to`` is empty, instead of silently deploying a
    contact point that mails nobody.
-3. The AFKI-W-239 cross-tag delete-guard (that already protects
-   ``contact-points.yaml``/``policies.yaml``) also protects the new
-   ``contact-points-email.yaml`` — a ``--tags monitoring`` run without
-   ``secrets`` must not delete an already-deployed email contact point (same
-   repro shape as ``test_monitoring_deploy_secrets_scope_guard.py``).
+3. The cross-tag delete-guard also protects ``contact-points-email.yaml`` --
+   a ``--tags monitoring`` run without ``secrets`` must not delete an
+   already-deployed email contact point (same repro shape as
+   ``test_monitoring_deploy_secrets_scope_guard.py``).
 
 Run: ``pytest tests/python/test_monitoring_smtp_alerting.py``
 """
@@ -53,9 +45,6 @@ TASKS_FILE = REPO_ROOT / "ansible" / "roles" / "monitoring" / "tasks" / "main.ym
 # — same isolation approach as test_grafana_auth_middleware.py (the full
 # compose template needs a long context dict to render end-to-end).
 _GRAFANA_ENV_SNIPPET = (
-    "{% if grafana_alert_api_token | default('') | length > 0 %}\n"
-    "      - KIGULLS_API_TOKEN=${KIGULLS_API_TOKEN:-}\n"
-    "{% endif %}\n"
     "{% if grafana_smtp_host | default('') | length > 0 %}\n"
     "      - GF_SMTP_ENABLED=true\n"
     "      - GF_SMTP_HOST=${GRAFANA_SMTP_HOST:-}:${GRAFANA_SMTP_PORT:-587}\n"
@@ -66,13 +55,10 @@ _GRAFANA_ENV_SNIPPET = (
 )
 
 
-def _render_env_snippet(*, grafana_smtp_host: str = "", grafana_alert_api_token: str = "") -> str:
+def _render_env_snippet(*, grafana_smtp_host: str = "") -> str:
     env = Environment(undefined=StrictUndefined, keep_trailing_newline=True)
     template = env.from_string(_GRAFANA_ENV_SNIPPET)
-    return template.render(
-        grafana_smtp_host=grafana_smtp_host,
-        grafana_alert_api_token=grafana_alert_api_token,
-    )
+    return template.render(grafana_smtp_host=grafana_smtp_host)
 
 
 def test_no_smtp_host_emits_no_gf_smtp_vars():
@@ -93,18 +79,6 @@ def test_smtp_host_set_emits_all_gf_smtp_vars():
     assert "GF_SMTP_FROM_ADDRESS=${GRAFANA_SMTP_FROM_ADDRESS:-}" in out
 
 
-def test_smtp_gate_is_independent_of_webhook_token_gate():
-    """Both channels are additive/independent — setting one must not imply
-    or exclude the other."""
-    out = _render_env_snippet(grafana_alert_api_token="tok123")
-    assert "KIGULLS_API_TOKEN" in out
-    assert "GF_SMTP_ENABLED" not in out
-
-    out = _render_env_snippet(grafana_smtp_host="smtp.example.com", grafana_alert_api_token="tok123")
-    assert "KIGULLS_API_TOKEN" in out
-    assert "GF_SMTP_ENABLED=true" in out
-
-
 def test_compose_template_actually_gates_smtp_env_vars():
     """Anchor test: the production template was changed, not just this snippet."""
     text = COMPOSE_TEMPLATE.read_text()
@@ -116,7 +90,7 @@ def test_compose_template_actually_gates_smtp_env_vars():
 
 def test_env_template_emits_smtp_vars_unconditionally_with_empty_default():
     """env.j2 (unlike docker-compose.yml.j2) always writes the GRAFANA_SMTP_*
-    lines to .env, empty by default — same idiom as KIGULLS_API_TOKEN."""
+    lines to .env, empty by default."""
     text = ENV_TEMPLATE.read_text()
     assert "GRAFANA_SMTP_HOST={{ grafana_smtp_host | default('') }}" in text
     assert "GRAFANA_SMTP_PORT={{ grafana_smtp_port | default('') }}" in text
@@ -126,7 +100,7 @@ def test_env_template_emits_smtp_vars_unconditionally_with_empty_default():
 
 
 # ============================================================
-# 2 + 3 — ansible-playbook wrapper tests (assert + AFKI-W-239 delete guard)
+# 2 + 3 — ansible-playbook wrapper tests (assert + cross-tag delete guard)
 # ============================================================
 
 SECRETS_SENTINEL_TASKS = """\
@@ -158,11 +132,11 @@ SECRETS_SENTINEL_TASKS = """\
               tags: [secrets]
 """
 
-# Inlines the exact task sequence added to roles/monitoring/tasks/main.yml for
-# KIG-W-054 (assert + deploy + AFKI-W-239 delete guard + removal), same
-# approach as test_monitoring_deploy_secrets_scope_guard.py.
+# Inlines the exact task sequence from roles/monitoring/tasks/main.yml
+# (assert + deploy + cross-tag delete guard + removal), same approach as
+# test_monitoring_deploy_secrets_scope_guard.py.
 SMTP_EMAIL_CONTACT_POINT_TASKS = """\
-            # --- roles/monitoring/tasks/main.yml (KIG-W-054) ---
+            # --- roles/monitoring/tasks/main.yml ---
             - name: Assert Grafana alert email recipient is configured when SMTP is enabled
               ansible.builtin.assert:
                 that:
@@ -188,21 +162,21 @@ SMTP_EMAIL_CONTACT_POINT_TASKS = """\
               register: grafana_alert_email_contact_point
               tags: [monitoring, alerting]
 
-            - name: Check for host secrets file (cross-tag guard, AFKI-W-239)
+            - name: Check for host secrets file (cross-tag guard)
               ansible.builtin.stat:
                 path: "{{ ops_secrets_root }}/deploy/{{ inventory_hostname }}/secrets.yml"
               register: _mon_secrets_file_check
               when: _mon_grafana
               tags: [monitoring, alerting]
 
-            - name: Check for existing Grafana alert contact-point file (email via SMTP) (cross-tag guard, AFKI-W-239)
+            - name: Check for existing Grafana alert contact-point file (email via SMTP) (cross-tag guard)
               ansible.builtin.stat:
                 path: "{{ drayve_deploy_dir }}/alerting/contact-points-email.yaml"
               register: _mon_alert_email_contact_point_precheck
               when: _mon_grafana
               tags: [monitoring, alerting]
 
-            - name: Guard — fail instead of deleting Grafana alert config when secrets weren't loaded (AFKI-W-239)
+            - name: Guard — fail instead of deleting Grafana alert config when secrets weren't loaded
               ansible.builtin.assert:
                 that:
                   - >-
@@ -230,7 +204,7 @@ def _make_wrapper(tmp_path: Path) -> Path:
     wrapper = tmp_path / "wrapper.yml"
     wrapper.write_text(
         "---\n"
-        "- name: Test KIG-W-054 SMTP alert contact point\n"
+        "- name: Test SMTP alert contact point\n"
         "  hosts: localhost\n"
         "  connection: local\n"
         "  gather_facts: false\n"
@@ -349,13 +323,13 @@ def test_smtp_disabled_by_default_no_contact_point_file(ansible_available, tmp_p
     assert not (deploy_dir / "alerting" / "contact-points-email.yaml").exists()
 
 
-# ---- AFKI-W-239 delete guard extended to the email contact point ----
+# ---- cross-tag delete guard covers the email contact point ----
 
 
 def test_monitoring_only_tag_fires_guard_instead_of_deleting_email_contact_point(
     ansible_available, tmp_path
 ):
-    """oops-0096-class repro for the new SMTP path: --tags monitoring (no
+    """Repro for the SMTP path: --tags monitoring (no
     secrets) must not delete an existing, correctly deployed email contact
     point."""
     wrapper = _make_wrapper(tmp_path)
@@ -431,15 +405,14 @@ def test_real_tasks_file_has_smtp_assert_and_deploy_and_guard():
     assert "Deploy Grafana alert contact point (email via SMTP)" in text
     assert "Remove Grafana alert contact point (email) when SMTP not configured" in text
     assert "grafana_alert_email_contact_point" in text
-    # AFKI-W-239 guard extended, not replaced.
     assert "_mon_alert_email_contact_point_precheck" in text
     assert "grafana_smtp_host | default('') | length == 0" in text
 
 
-def test_real_tasks_file_keeps_webhook_path_untouched():
-    """Regression guard: the additive SMTP feature must not have removed or
-    reworked the existing webhook contact-point/policy tasks."""
+def test_real_tasks_file_has_no_webhook_path():
+    """The legacy webhook contact point is gone; only the cleanup of its file
+    remains."""
     text = TASKS_FILE.read_text()
-    assert "Deploy Grafana alert contact point (kigulls-api-webhook)" in text
-    assert "Deploy Grafana alert policy (route to kigulls-api-webhook)" in text
-    assert "Remove Grafana alert contact point/policy when token not configured" in text
+    assert "webhook" not in text
+    assert "grafana_alert_api_token" not in text
+    assert "Remove legacy Grafana alert contact point file" in text
