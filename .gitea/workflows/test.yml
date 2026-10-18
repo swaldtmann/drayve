@@ -30,7 +30,11 @@ jobs:
           ansible-galaxy collection install -r ansible/requirements.yml
 
       - name: Ansible Lint
-        run: cd $WORKDIR/ansible && ansible-lint playbooks/ roles/ 2>&1 | grep -v "^WARNING"
+        # Runner default shell is `bash -e {0}` without pipefail: the pipe's exit
+        # code would be grep's, so a lint failure was swallowed. Explicit pipefail.
+        run: |
+          set -o pipefail
+          cd $WORKDIR/ansible && ansible-lint playbooks/ roles/ 2>&1 | grep -v "^WARNING"
 
       - name: Ansible Syntax Check
         run: |
@@ -62,6 +66,11 @@ jobs:
 
       - name: Pytest unit tests (template + role contracts)
         run: cd $WORKDIR && python3 -m pytest tests/python/ -v
+
+      - name: Bats unit tests (consumer.mk, watchdog)
+        run: |
+          apt-get update -qq && apt-get install -y -qq bats > /dev/null
+          cd $WORKDIR && bats tests/bats/
 
       # AFKI-W-197 — Push-statt-Pull: roter main-Run schickt EINE Nachricht an
       # Stephans Messenger (#00_wooki). Gate: nur wenn ein Schritt davor failt
