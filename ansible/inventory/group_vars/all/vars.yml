@@ -118,7 +118,7 @@ mem_prometheus: 512m
 mem_grafana: 256m
 mem_node_exporter: 32m
 mem_cadvisor: 64m
-mem_loki: 512m
+mem_loki: 1g
 mem_promtail: 64m
 mem_authentik_server: 512m
 mem_authentik_worker: 512m

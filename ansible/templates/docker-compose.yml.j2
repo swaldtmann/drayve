@@ -409,6 +409,17 @@ services:
       - "traefik.http.routers.grafana.middlewares=auth@file"
 {% endif %}
       - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+{% if grafana_health_allowlist | default([]) | length > 0 %}
+      # Optional: /api/health (exact path) reachable without auth@file from the listed sources only.
+      - "traefik.http.routers.grafana-health.rule=Host(`grafana.{{ drayve_domain }}`) && Path(`/api/health`)"
+      - "traefik.http.routers.grafana-health.entrypoints=websecure"
+      - "traefik.http.routers.grafana-health.tls=true"
+      - "traefik.http.routers.grafana-health.tls.certresolver={{ traefik_certresolver }}"
+      - "traefik.http.routers.grafana-health.priority=1000"
+      - "traefik.http.routers.grafana-health.middlewares=grafana-health-allowlist"
+      - "traefik.http.routers.grafana-health.service=grafana"
+      - "traefik.http.middlewares.grafana-health-allowlist.ipallowlist.sourcerange={{ grafana_health_allowlist | join(',') }}"
+{% endif %}
 {% endif %}
 
 {% if monitoring_services.loki | default(false) | bool %}

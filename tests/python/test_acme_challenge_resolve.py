@@ -136,7 +136,7 @@ def test_no_router_hardcodes_letsencrypt_certresolver():
     not a hardcoded resolver name (which made acme_dns_provider inert)."""
     text = COMPOSE_TEMPLATE.read_text()
     assert 'certresolver=letsencrypt"' not in text
-    assert text.count("certresolver={{ traefik_certresolver }}") == 7
+    assert text.count("certresolver={{ traefik_certresolver }}") == 8
 
 
 def test_traefik_defaults_has_matching_certresolver_default():

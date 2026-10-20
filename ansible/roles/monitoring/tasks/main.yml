@@ -140,6 +140,8 @@
         delete_request_store: filesystem
       limits_config:
         retention_period: "{{ monitoring_loki_retention_period }}"
+        max_entries_limit_per_query: {{ monitoring_loki_max_entries_limit_per_query }}
+        max_query_series: {{ monitoring_loki_max_query_series }}
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
     mode: "0644"
@@ -232,6 +234,8 @@
     - "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/dashboards/json"
     - "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/datasources"
     - "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/alerting"
+    # Grafana scans provisioning/plugins at every start and logs an error if it is missing.
+    - "{{ drayve_deploy_dir }}/monitoring/grafana/provisioning/plugins"
   when: _mon_grafana
   tags: [monitoring, dashboards]
 

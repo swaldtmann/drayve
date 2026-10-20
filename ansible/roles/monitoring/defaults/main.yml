@@ -31,6 +31,22 @@ grafana_alert_slack_username: "drayve"
 # Loki retention (Go duration, e.g. "168h", "720h"). Enforced by the compactor.
 monitoring_loki_retention_period: "168h"
 
+# Loki query limits (limits_config). The defaults are the Loki upstream
+# defaults of the pinned version (grafana/loki 3.3.2: max_entries_limit_per_query
+# 5000, max_query_series 500) — shipped unchanged so behaviour does not move.
+# Lower them if a single query over long log lines can exhaust mem_loki
+# (5000 entries of 16 KiB lines already needs ~80 MiB of raw data per query,
+# before Loki's own overhead).
+monitoring_loki_max_entries_limit_per_query: 5000
+monitoring_loki_max_query_series: 500
+
+# Grafana /api/health without Authelia/basic auth for these sources only
+# (list of IPs/CIDRs), e.g. for an external monitoring probe. Empty (default):
+# no extra router, nothing changes. When set, an extra Traefik router matches
+# exactly Host(grafana.<domain>) && Path(`/api/health`) (no prefix), carries an
+# ipAllowList middleware and no auth@file. All other paths stay protected.
+grafana_health_allowlist: []
+
 # Optional HTTP Basic-Auth username for the Promtail Loki client
 # (monitoring.loki_url pointing at an external Loki behind Basic-Auth).
 # Password lives in secrets.yml (monitoring_loki_basic_auth_password,
