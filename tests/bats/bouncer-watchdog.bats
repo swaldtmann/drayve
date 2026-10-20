@@ -1,8 +1,8 @@
 #!/usr/bin/env bats
-# Tests fuer drayve-bouncer-watchdog.
-# Deckt alle Pfade in main(), is_healthy_status(), probe(), restart_traefik().
+# Tests for drayve-bouncer-watchdog.
+# Covers all paths in main(), is_healthy_status(), probe(), restart_traefik().
 #
-# Lauf: bats tests/bats/bouncer-watchdog.bats
+# Run: bats tests/bats/bouncer-watchdog.bats
 
 SCRIPT="${BATS_TEST_DIRNAME}/../../ansible/roles/traefik/files/drayve-bouncer-watchdog.sh"
 
@@ -14,7 +14,7 @@ setup() {
     export TIMEOUT=5
     export URL="https://test.invalid/"
 
-    # Mock-Bins erzeugen — werden statt curl/logger/docker aufgerufen.
+    # Create mock bins — called instead of curl/logger/docker.
     mkdir -p "${TMP}/bin"
     cat > "${TMP}/bin/mock-logger" <<'EOF'
 #!/usr/bin/env bash
@@ -150,18 +150,18 @@ teardown() {
 }
 
 @test "main: 403 + recent marker (< threshold) → no restart" {
-    # Marker 10s alt, threshold 60s → noch nicht restart
+    # Marker 10s old, threshold 60s → no restart yet
     echo $(( $(date +%s) - 10 )) > "${FAIL_FILE}"
     export CURL_BIN="${TMP}/bin/mock-curl-403"
-    export DOCKER_BIN="${TMP}/bin/mock-docker-fail" # darf nicht aufgerufen werden
+    export DOCKER_BIN="${TMP}/bin/mock-docker-fail" # must not be called
     run bash "${SCRIPT}"
     [ "${status}" -eq 0 ]
     [ -f "${FAIL_FILE}" ]
     ! grep -q "restarting traefik" "${TMP}/log.out"
 }
 
-@test "main: 403 + alter marker (>= threshold) → restart traefik, marker weg" {
-    # Marker 120s alt, threshold 60s → restart
+@test "main: 403 + old marker (>= threshold) → restart traefik, marker gone" {
+    # Marker 120s old, threshold 60s → restart
     echo $(( $(date +%s) - 120 )) > "${FAIL_FILE}"
     export CURL_BIN="${TMP}/bin/mock-curl-403"
     export DOCKER_BIN="${TMP}/bin/mock-docker-ok"
@@ -172,8 +172,8 @@ teardown() {
     grep -q "traefik restart issued" "${TMP}/log.out"
 }
 
-@test "main: 403 + alter marker + docker fail → log + marker weg" {
-    # Restart-Versuch scheitert: trotzdem Marker geloescht (eine Episode)
+@test "main: 403 + old marker + docker fail → log + marker gone" {
+    # Restart attempt fails: marker is deleted anyway (one episode)
     echo $(( $(date +%s) - 120 )) > "${FAIL_FILE}"
     export CURL_BIN="${TMP}/bin/mock-curl-403"
     export DOCKER_BIN="${TMP}/bin/mock-docker-fail"
@@ -183,7 +183,7 @@ teardown() {
     grep -q "restart FAILED" "${TMP}/log.out"
 }
 
-@test "main: curl timeout + alter marker → restart traefik" {
+@test "main: curl timeout + old marker → restart traefik" {
     echo $(( $(date +%s) - 120 )) > "${FAIL_FILE}"
     export CURL_BIN="${TMP}/bin/mock-curl-timeout"
     export DOCKER_BIN="${TMP}/bin/mock-docker-ok"
@@ -193,11 +193,11 @@ teardown() {
     grep -q "restarting traefik" "${TMP}/log.out"
 }
 
-# ===== Robustheit =====
+# ===== Robustness =====
 
-@test "main: korrupter Marker (leer) → defensiv restart bei fail" {
-    # Leerer Marker → fail_since=0 → elapsed=now (gross) → restart triggert.
-    # Defensives Verhalten: lieber einmal zuviel restarten als ewig haengen.
+@test "main: corrupt marker (empty) → defensive restart on fail" {
+    # Empty marker → fail_since=0 → elapsed=now (large) → restart triggers.
+    # Defensive behaviour: better one restart too many than hanging forever.
     echo "" > "${FAIL_FILE}"
     export CURL_BIN="${TMP}/bin/mock-curl-403"
     export DOCKER_BIN="${TMP}/bin/mock-docker-ok"
@@ -207,8 +207,8 @@ teardown() {
     grep -q "restarting traefik" "${TMP}/log.out"
 }
 
-@test "main: ENV-Defaults greifen wenn nichts gesetzt" {
-    # Kein FAIL_FILE/THRESHOLD/...: curl ueber default URL geht ins leere
+@test "main: ENV defaults apply when nothing is set" {
+    # No FAIL_FILE/THRESHOLD/...: curl against the default URL goes nowhere
     unset FAIL_FILE THRESHOLD TIMEOUT STACK_DIR URL
     export CURL_BIN="${TMP}/bin/mock-curl-200"
     run bash "${SCRIPT}"

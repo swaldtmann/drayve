@@ -15,7 +15,7 @@
       "gridPos": { "h": 4, "w": 12, "x": 0, "y": 0 },
       "id": 1,
       "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "auto", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
-      "title": "Backup-Alter local (kedge-local)",
+      "title": "Backup age local (kedge-local)",
       "type": "stat",
       "targets": [
         {
@@ -34,7 +34,7 @@
       "gridPos": { "h": 4, "w": 12, "x": 12, "y": 0 },
       "id": 2,
       "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "auto", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
-      "title": "Backup-Alter remote (kedge-remote)",
+      "title": "Backup age remote (kedge-remote)",
       "type": "stat",
       "targets": [
         {
@@ -53,7 +53,7 @@
       "gridPos": { "h": 16, "w": 24, "x": 0, "y": 4 },
       "id": 3,
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
-      "title": "Backup-Alter (7 Tage, Sägezahn = täglicher Lauf)",
+      "title": "Backup age (7 days, sawtooth = daily run)",
       "type": "timeseries",
       "targets": [
         {

@@ -7,13 +7,13 @@
 # otherwise the channel turns into noise.
 #
 # Env:
-#   SLACK_BOT_TOKEN   (Pflicht ausser DRY_RUN)  Slack chat:write Bot-Token.
+#   SLACK_BOT_TOKEN   (required except DRY_RUN)  Slack chat:write bot token.
 #   SLACK_CHANNEL     (required)  Slack channel ID to post to. No default.
-#   CI_REPO CI_WORKFLOW CI_RUN_URL CI_REF CI_SHA CI_RUN_NUMBER  Kontext (Workflow).
-#   DRY_RUN=1         (optional)  Payload nach stdout statt echtem Slack-Post.
+#   CI_REPO CI_WORKFLOW CI_RUN_URL CI_REF CI_SHA CI_RUN_NUMBER  Context (workflow).
+#   DRY_RUN=1         (optional)  Payload to stdout instead of a real Slack post.
 #
-# Token nie auf stdout, nie in argv: curl liest den Auth-Header via `--config -`
-# von stdin (analog persona-push, das den Token via env-Python haelt).
+# Token never on stdout, never in argv: curl reads the auth header via `--config -`
+# from stdin (like persona-push, which holds the token via env Python).
 set -euo pipefail
 
 CHANNEL="${SLACK_CHANNEL:-}"
@@ -31,7 +31,7 @@ SHORT="${SHA:0:10}"
 
 TEXT=":red_circle: CI failed on main: ${REPO} — workflow *${WF}* on \`${REF}\` (run #${RUNNO}). Commit \`${SHORT}\`. ${URL}"
 
-# Payload via env+Python bauen (sauberes JSON-Escaping, kein argv-Leak des Texts).
+# Build the payload via env+Python (clean JSON escaping, no argv leak of the text).
 PAYLOAD=$(CH="$CHANNEL" TX="$TEXT" python3 -c 'import json,os;print(json.dumps({"channel":os.environ["CH"],"text":os.environ["TX"]}))')
 
 if [[ "${DRY_RUN:-0}" == "1" ]]; then
@@ -40,7 +40,7 @@ if [[ "${DRY_RUN:-0}" == "1" ]]; then
 fi
 
 if [[ -z "${SLACK_BOT_TOKEN:-}" ]]; then
-  echo "notify-ci-failure: SLACK_BOT_TOKEN fehlt (Repo-Secret)" >&2
+  echo "notify-ci-failure: SLACK_BOT_TOKEN is not set (repo secret)" >&2
   exit 1
 fi
 
@@ -50,7 +50,7 @@ RESP=$(printf 'header = "Authorization: Bearer %s"\n' "$SLACK_BOT_TOKEN" \
       --data "$PAYLOAD")
 
 if ! printf '%s' "$RESP" | grep -q '"ok":true'; then
-  echo "notify-ci-failure: Slack-Post fehlgeschlagen: ${RESP}" >&2
+  echo "notify-ci-failure: Slack post failed: ${RESP}" >&2
   exit 1
 fi
-echo "notify-ci-failure: gepostet nach ${CHANNEL}"
+echo "notify-ci-failure: posted to ${CHANNEL}"

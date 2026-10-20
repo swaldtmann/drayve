@@ -2,25 +2,25 @@
 # host-base-update — applies the host-base-update role to all Ubuntu hosts
 # in scope (auto_update != false in the inventory).
 #
-# Flaechige unattended-upgrades-Hygiene.
+# Broad-coverage unattended-upgrades hygiene.
 # Reboots are NOT triggered here — host-update.yml handles that.
 #
 # Inventory:
-#   Nutzt ein zentrales Inventory-Skript (filtert ssh_alias,
+#   Uses a central inventory script (filters ssh_alias,
 #   ki_freigabe=true, status!=retiring/decommissioned, patch.auto_update!=false).
 #
-# Aufruf:
+# Usage:
 #   cd <drayve checkout>/ansible
 #   ansible-playbook -i <your inventory script or file> \
 #     playbooks/host-base-update.yml [--limit myhost] [--check --diff]
 #
-# Idempotenz-Beweis: zweiter Lauf erwartet `changed=0`.
+# Idempotence proof: a second run is expected to report `changed=0`.
 
 - name: Apply host-base-update role
   hosts: all
-  # become: nicht noetig — alle Inventory-Hosts haben Direct-Root-Login
-  # (ssh_user=root oder named-user mit uid=0). host-update.yml (apt-upgrade + reboot)
-  # bleibt unkritisch, weil Tasks ohnehin als root laufen.
+  # become: not needed — all inventory hosts have direct root login
+  # (ssh_user=root or a named user with uid=0). host-update.yml (apt-upgrade + reboot)
+  # stays uncritical because tasks run as root anyway.
   gather_facts: true
 
   pre_tasks:

@@ -1,9 +1,9 @@
-# consumer.mk — Drayve-Konsumenten-Makefile-Snippet
+# consumer.mk — Drayve consumer Makefile snippet
 #
-# Konsumenten-Repos haengen sich per `include` ein und setzen NAME +
-# bei Bedarf SECRETS_FILE / ENV_FILE / AGE_KEY_LINK.
+# Consumer repos hook in via `include` and set NAME +
+# SECRETS_FILE / ENV_FILE / AGE_KEY_LINK where needed.
 #
-# Bootstrap im Konsumenten-Makefile (vor dem Include):
+# Bootstrap in the consumer Makefile (before the include):
 #
 #   NAME := myhost
 #   DRAYVE_REF ?= v0.3.1
@@ -22,27 +22,27 @@
 #
 #   -include $(DRAYVE_DIR)/ansible/consumer.mk
 #
-# Variantenpunkte (Default-Werte):
-#   NAME              — required, Inventory-Group + Snapshot-Host
+# Variation points (default values):
+#   NAME              — required, inventory group + snapshot host
 #   SECRETS_FILE      — secrets.yml
 #   ENV_FILE          — env.override
 #   SOPS_AGE_KEY_FILE — $(HOME)/.config/sops/age/drayve-$(NAME).txt
 #   SNAPSHOT_HOST     — $(NAME)
-#   AGE_KEY_LINK      — leer = aus, "1" = symlink deploy/.age-key.txt anlegen
-#                       (in deploy-prod/-check/backup-deploy als Prerequisite)
-#   PROD_SNAPSHOT     — optionaler Befehl, wird als
-#                       `<cmd> <host> --reason <text>` aufgerufen (darf eigene
-#                       Argumente enthalten); leer = kein Snapshot
-#   DRAYVE_REF        — git-ref fuer vendor (kommt aus Konsument)
-#   EXTRA_ANSIBLE_VARS — leer = aus, sonst an deploy-prod/-check/-check-fast/
-#                       backup-deploy angehaengt, gilt fuer alle Targets identisch
-#                       Dateibasiert setzen, nicht inline-JSON —
-#                       z.B. -e @override.yml (inline "-e '{"a":{"b":"c"}}'"
-#                       zerbricht an Shell-Quoting, sobald Make die
-#                       Recipe-Zeile an /bin/sh uebergibt)
+#   AGE_KEY_LINK      — empty = off, "1" = create symlink deploy/.age-key.txt
+#                       (as a prerequisite of deploy-prod/-check/backup-deploy)
+#   PROD_SNAPSHOT     — optional command, called as
+#                       `<cmd> <host> --reason <text>` (may contain its own
+#                       arguments); empty = no snapshot
+#   DRAYVE_REF        — git ref for vendor (comes from the consumer)
+#   EXTRA_ANSIBLE_VARS — empty = off, otherwise appended to deploy-prod/-check/-check-fast/
+#                       backup-deploy, applies identically to all targets.
+#                       Set file-based, not inline JSON —
+#                       e.g. -e @override.yml (inline "-e '{"a":{"b":"c"}}'"
+#                       breaks on shell quoting as soon as Make hands the
+#                       recipe line to /bin/sh)
 
 ifndef NAME
-$(error consumer.mk: NAME ist nicht gesetzt. Setze NAME := <inventory-group> vor dem include.)
+$(error consumer.mk: NAME is not set. Set NAME := <inventory-group> before the include.)
 endif
 
 SECRETS_FILE      ?= secrets.yml
@@ -73,16 +73,16 @@ age-key-link:  ## Create deploy/.age-key.txt symlink (drayve secrets role expect
 	@ln -sf $(SOPS_AGE_KEY_FILE) deploy/.age-key.txt
 	@echo "deploy/.age-key.txt -> $(SOPS_AGE_KEY_FILE)"
 
-pre-snapshot:  ## Pre-Deploy snapshot via PROD_SNAPSHOT (SKIP_SNAPSHOT=1 ueberspringt)
+pre-snapshot:  ## Pre-Deploy snapshot via PROD_SNAPSHOT (SKIP_SNAPSHOT=1 skips it)
 	@if [ -n "$(SKIP_SNAPSHOT)" ]; then \
-		echo "pre-snapshot: SKIP_SNAPSHOT gesetzt — uebersprungen (Notfall-Override)"; \
+		echo "pre-snapshot: SKIP_SNAPSHOT set — skipped (emergency override)"; \
 	elif [ -z "$(PROD_SNAPSHOT)" ]; then \
 		echo "pre-snapshot: PROD_SNAPSHOT not set — no pre-deploy snapshot taken"; \
 	else \
 		$(PROD_SNAPSHOT) $(SNAPSHOT_HOST) --reason "drayve-deploy-$(DRAYVE_REF)"; \
 	fi
 
-deploy-prod: $(DEPLOY_DEPS)  ## Deploy DRAYVE_REF to host (CONFIRM=y to skip prompt, SKIP_SNAPSHOT=1 ueberspringt Snapshot, EXTRA_ANSIBLE_VARS fuer Overrides)
+deploy-prod: $(DEPLOY_DEPS)  ## Deploy DRAYVE_REF to host (CONFIRM=y to skip prompt, SKIP_SNAPSHOT=1 skips the snapshot, EXTRA_ANSIBLE_VARS for overrides)
 	@[ "$(CONFIRM)" = "y" ] || { printf "Deploy $(DRAYVE_REF) to $(NAME) PRODUCTION? [y/N] "; read ans; [ "$$ans" = "y" ] || exit 1; }
 	$(ANSIBLE) playbooks/deploy.yml -l $(NAME) -e deploy_ref=$(DRAYVE_REF) -e ops_secrets_root=$(CURDIR) -e @$(CURDIR)/stack.yaml $(EXTRA_ANSIBLE_VARS)
 
@@ -93,13 +93,13 @@ backup-deploy: $(CHECK_DEPS)  ## Apply backup.yml to host: installs/updates kedg
 deploy-check: $(CHECK_DEPS)  ## Deep dry-run: deploy.yml --check (KNOWN-BROKEN in v0.4.x, prefer deploy-check-fast)
 	$(ANSIBLE) playbooks/deploy.yml -l $(NAME) -e deploy_ref=$(DRAYVE_REF) -e ops_secrets_root=$(CURDIR) -e @$(CURDIR)/stack.yaml --check $(EXTRA_ANSIBLE_VARS)
 
-deploy-check-fast: $(CHECK_DEPS)  ## Fast static validation: stack.yaml + secrets, no host contact (EXTRA_ANSIBLE_VARS fuer Overrides)
+deploy-check-fast: $(CHECK_DEPS)  ## Fast static validation: stack.yaml + secrets, no host contact (EXTRA_ANSIBLE_VARS for overrides)
 	$(ANSIBLE) playbooks/validate.yml -l $(NAME) -e deploy_ref=$(DRAYVE_REF) -e ops_secrets_root=$(CURDIR) -e @$(CURDIR)/stack.yaml $(EXTRA_ANSIBLE_VARS)
 
 secrets-edit:  ## Edit SECRETS_FILE via sops
 	sops $(SECRETS_FILE)
 
-secrets-edit-env:  ## Edit ENV_FILE via sops (dotenv-Typ explizit)
+secrets-edit-env:  ## Edit ENV_FILE via sops (dotenv type explicit)
 	sops --input-type dotenv --output-type dotenv $(ENV_FILE)
 
 ping:  ## Ansible ping target host

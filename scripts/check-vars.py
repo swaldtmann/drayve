@@ -1,22 +1,22 @@
 #!/usr/bin/env python3
 """
-Pre-Inventur: greppt Jinja-Var-Refs in ansible/ + molecule/ und checkt
-ob sie irgendwo definiert sind (defaults, group_vars, set_fact, vars,
-register, role-args, loop_var).
+Pre-inventory: greps Jinja var refs in ansible/ + molecule/ and checks
+whether they are defined anywhere (defaults, group_vars, set_fact, vars,
+register, role args, loop_var).
 
-Lehre aus einem Cascade-Fehler: Variable referenziert, aber nirgends
-definiert — schlug erst auf Hetzner auf. Dieser Check faengt die Klasse
-lokal.
+Lesson from a cascade failure: a variable was referenced but never
+defined — it only blew up on Hetzner. This check catches that class
+locally.
 
-References mit `| default(...)` oder `is defined`/`is not defined` werden
-als guarded gewertet und nicht gemeldet.
+References with `| default(...)` or `is defined`/`is not defined` are
+treated as guarded and not reported.
 
 Usage:
     python3 scripts/check-vars.py [--whitelist FILE]
 
 Exit:
-    0 — alle Refs definiert, guarded, oder whitelisted
-    1 — undefined Refs gefunden (Liste auf stderr)
+    0 — all refs defined, guarded, or whitelisted
+    1 — undefined refs found (list on stderr)
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ from typing import Any
 try:
     import yaml
 except ImportError:
-    print("ERROR: pyyaml fehlt. pip install pyyaml", file=sys.stderr)
+    print("ERROR: pyyaml missing. pip install pyyaml", file=sys.stderr)
     sys.exit(2)
 
 # Ansible-magic + Jinja-builtins.
@@ -64,12 +64,12 @@ MAGIC = {
 }
 
 VAR_REF_GUARD = re.compile(
-    # Var-Ref + optional ggf direkter `| default(...)` oder `is (not )?defined`.
+    # Var ref + optionally a direct `| default(...)` or `is (not )?defined` guard.
     r"\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)"
     r"(?P<guard>\s*\|\s*default\b|\s+is\s+(?:not\s+)?defined\b)?"
 )
 
-# Jinja-Schleifen: {% for X in ... %} oder {% for X, Y in ... %}
+# Jinja loops: {% for X in ... %} or {% for X, Y in ... %}
 JINJA_FOR = re.compile(
     r"\{%\s*for\s+([a-zA-Z_][a-zA-Z0-9_]*)"
     r"(?:\s*,\s*([a-zA-Z_][a-zA-Z0-9_]*))?\s+in\b"
@@ -97,7 +97,7 @@ def load_yaml_safe(path: Path) -> Any:
 
 
 def walk_definitions(node: Any, defs: set[str]) -> None:
-    """Rekursiv durch yaml-AST: set_fact, register, vars, loop_var."""
+    """Recurse through the yaml AST: set_fact, register, vars, loop_var."""
     if isinstance(node, dict):
         for k, v in node.items():
             if k in ("set_fact", "ansible.builtin.set_fact"):
@@ -137,7 +137,7 @@ def collect_definitions(root: Path) -> set[str]:
         if isinstance(data, dict):
             defs.update(k for k in data if isinstance(k, str))
 
-    # Alle yml in ansible/ + molecule/ rekursiv durchgehen
+    # Walk all yml files in ansible/ + molecule/ recursively
     for base in ("ansible", "molecule"):
         for f in (root / base).glob("**/*.yml"):
             if "/.venv/" in str(f):
@@ -145,7 +145,7 @@ def collect_definitions(root: Path) -> set[str]:
             data = load_yaml_safe(f)
             walk_definitions(data, defs)
 
-    # Jinja {% for X in ... %} und {% set X = ... %} aus allen yml-Files
+    # Jinja {% for X in ... %} and {% set X = ... %} from all yml files
     for base in ("ansible", "molecule"):
         for f in (root / base).glob("**/*.yml"):
             if "/.venv/" in str(f):
@@ -209,11 +209,11 @@ def main() -> int:
     parser.add_argument(
         "--whitelist",
         type=Path,
-        help="Datei mit Whitelist-Vars, eine pro Zeile (# = Kommentar)",
+        help="File with whitelisted vars, one per line (# = comment)",
     )
     parser.add_argument(
         "--quiet", action="store_true",
-        help="Nur Exit-Code, kein Output",
+        help="Exit code only, no output",
     )
     args = parser.parse_args()
     root = Path(args.root)

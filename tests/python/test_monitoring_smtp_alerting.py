@@ -187,7 +187,7 @@ SMTP_EMAIL_CONTACT_POINT_TASKS = """\
                       (_mon_alert_email_contact_point_precheck.stat.exists | default(false))
                     )
                 fail_msg: |
-                  Secrets nicht geladen -- Monitoring-Deploy ohne `secrets`-Tag gefahren?
+                  Secrets not loaded -- monitoring deploy run without the `secrets` tag?
               when: _mon_grafana
               tags: [monitoring, alerting]
 
@@ -306,7 +306,7 @@ def test_smtp_enabled_with_recipient_deploys_contact_point(ansible_available, tm
 
 
 def test_smtp_disabled_by_default_no_contact_point_file(ansible_available, tmp_path):
-    """kein grafana_smtp_host gesetzt -> keine email-Contact-Point-Datei."""
+    """no grafana_smtp_host set -> no email contact point file."""
     wrapper = _make_wrapper(tmp_path)
     root = _layout(tmp_path, "myhost", secrets_body=None)
     deploy_dir = tmp_path / "deploy_dir"
@@ -346,7 +346,7 @@ def test_monitoring_only_tag_fires_guard_instead_of_deleting_email_contact_point
     )
     combined = result.stdout + result.stderr
     assert result.returncode != 0, combined
-    assert "Secrets nicht geladen" in combined, combined
+    assert "Secrets not loaded" in combined, combined
     assert (deploy_dir / "alerting" / "contact-points-email.yaml").exists(), (
         "contact-points-email.yaml must survive when the guard fires"
     )

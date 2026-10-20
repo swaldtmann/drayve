@@ -248,7 +248,7 @@ SLACK_AND_ROOT_POLICY_TASKS = """\
                       (_mon_alert_slack_contact_point_precheck.stat.exists | default(false))
                     )
                 fail_msg: |
-                  Secrets nicht geladen -- Monitoring-Deploy ohne `secrets`-Tag gefahren?
+                  Secrets not loaded -- monitoring deploy run without the `secrets` tag?
               when: _mon_grafana
               tags: [monitoring, alerting]
 
@@ -412,7 +412,7 @@ def test_monitoring_only_tag_fires_guard_instead_of_deleting_slack_contact_point
     )
     combined = result.stdout + result.stderr
     assert result.returncode != 0, combined
-    assert "Secrets nicht geladen" in combined, combined
+    assert "Secrets not loaded" in combined, combined
     assert (deploy_dir / "alerting" / "contact-points-slack-critical.yaml").exists()
 
 
@@ -570,7 +570,7 @@ def test_monitoring_only_tag_fires_guard_instead_of_deleting_root_policy(ansible
     )
     combined = result.stdout + result.stderr
     assert result.returncode != 0, combined
-    assert "Secrets nicht geladen" in combined, combined
+    assert "Secrets not loaded" in combined, combined
     assert (deploy_dir / "alerting" / "policies.yaml").exists()
 
 

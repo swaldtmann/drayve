@@ -1,26 +1,26 @@
 #!/usr/bin/env bats
-# Tests fuer consumer.mk EXTRA_ANSIBLE_VARS-Durchreichung.
+# Tests for consumer.mk EXTRA_ANSIBLE_VARS pass-through.
 #
-# Vor dem Fix referenzierten deploy-check/deploy-check-fast $(EXTRA_ANSIBLE_VARS)
-# nicht — ein Config-Override (z.B. auth:none) landete nie im Validate-Lauf,
-# der Fast-Check pruefte immer den stack.yaml-Default. Nur deploy-prod hatte
-# das Var schon (lokaler Override in ewh-stack/Makefile).
+# Before the fix, deploy-check/deploy-check-fast did not reference $(EXTRA_ANSIBLE_VARS)
+# — a config override (e.g. auth:none) never reached the validate run,
+# the fast check always validated the stack.yaml default. Only deploy-prod had
+# the var already (local override in ewh-stack/Makefile).
 #
-# Baut eine Wegwerf-Consumer-Fixture (Makefile + hosts.yaml + stack.yaml) und
-# ruft deploy-check-fast echt lokal auf (connection: local in validate.yml,
-# kein SSH/keine Secrets noetig) — prueft im Ansible-Debug-Output, ob
-# EXTRA_ANSIBLE_VARS tatsaechlich den auth.provider ueberschreibt. Fuer
-# deploy-check/deploy-prod (die deploy.yml/--check anfassen, teils
-# KNOWN-BROKEN in v0.4.x, s. consumer.mk-Kommentar) reicht ein `make -n`
-# Dry-Run, der nur die Variable-Durchreichung in die Kommandozeile prueft,
-# ohne den Playbook-Lauf selbst zu riskieren.
+# Builds a throwaway consumer fixture (Makefile + hosts.yaml + stack.yaml) and
+# really calls deploy-check-fast locally (connection: local in validate.yml,
+# no SSH/no secrets needed) — checks in the Ansible debug output whether
+# EXTRA_ANSIBLE_VARS actually overrides auth.provider. For
+# deploy-check/deploy-prod (which touch deploy.yml/--check, partly
+# KNOWN-BROKEN in v0.4.x, see the consumer.mk comment) a `make -n`
+# dry run is enough; it only checks that the variable is passed into the command line,
+# without risking the playbook run itself.
 #
-# Override-Syntax ist datei-basiert (-e @override.yml), nicht inline-JSON —
-# das ist das real erprobte Muster (inline
-# `-e {"auth":{"provider":"none"}}` zerbricht an Shell-Quoting sobald Make
-# die Recipe-Zeile an /bin/sh uebergibt; kein Regressions-Ziel dieses Tickets).
+# Override syntax is file-based (-e @override.yml), not inline JSON —
+# that is the pattern actually proven in practice (inline
+# `-e {"auth":{"provider":"none"}}` breaks on shell quoting as soon as Make
+# hands the recipe line to /bin/sh; not a regression target of this ticket).
 #
-# Lauf: bats tests/bats/consumer-mk-extra-vars.bats
+# Run: bats tests/bats/consumer-mk-extra-vars.bats
 
 DRAYVE_ROOT="${BATS_TEST_DIRNAME}/../.."
 
@@ -81,14 +81,14 @@ teardown() {
     rm -rf "${TMP}"
 }
 
-@test "deploy-check-fast ohne EXTRA_ANSIBLE_VARS validiert gegen stack.yaml-Default (Regression)" {
+@test "deploy-check-fast without EXTRA_ANSIBLE_VARS validates against the stack.yaml default (regression)" {
     cd "${FIXTURE}"
     run make deploy-check-fast
     [ "$status" -eq 0 ]
     [[ "$output" == *"auth          = authelia"* ]]
 }
 
-@test "deploy-check-fast MIT EXTRA_ANSIBLE_VARS validiert gegen den Override, nicht gegen stack.yaml" {
+@test "deploy-check-fast WITH EXTRA_ANSIBLE_VARS validates against the override, not stack.yaml" {
     cd "${FIXTURE}"
     run make deploy-check-fast EXTRA_ANSIBLE_VARS="-e @${FIXTURE}/override.yml"
     [ "$status" -eq 0 ]
@@ -96,14 +96,14 @@ teardown() {
     [[ "$output" != *"auth          = authelia"* ]]
 }
 
-@test "deploy-check reicht EXTRA_ANSIBLE_VARS an die Ansible-Kommandozeile durch" {
+@test "deploy-check passes EXTRA_ANSIBLE_VARS through to the Ansible command line" {
     cd "${FIXTURE}"
     run make -n deploy-check EXTRA_ANSIBLE_VARS="-e @${FIXTURE}/override.yml"
     [ "$status" -eq 0 ]
     [[ "$output" == *"-e @${FIXTURE}/override.yml"* ]]
 }
 
-@test "deploy-prod reicht EXTRA_ANSIBLE_VARS weiterhin durch (bestand schon vor dem Fix)" {
+@test "deploy-prod still passes EXTRA_ANSIBLE_VARS through (already worked before the fix)" {
     cd "${FIXTURE}"
     run make -n deploy-prod CONFIRM=y EXTRA_ANSIBLE_VARS="-e @${FIXTURE}/override.yml"
     [ "$status" -eq 0 ]

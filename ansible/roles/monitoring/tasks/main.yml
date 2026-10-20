@@ -540,17 +540,17 @@
           (_mon_alert_slack_contact_point_precheck.stat.exists | default(false))
         )
     fail_msg: |
-      Secrets nicht geladen — Monitoring-Deploy ohne `secrets`-Tag gefahren?
-      deploy/{{ inventory_hostname }}/secrets.yml existiert, aber die Rolle
-      secrets (Task "Set secret variables", tag [secrets]) hat in diesem
-      Lauf nicht gesetzt. grafana_smtp_host bzw. grafana_slack_token ist
-      deshalb leer, und der naechste Schritt wuerde die bestehende
-      Grafana-Alert-Config (policies.yaml bzw. contact-points-email.yaml bzw.
-      contact-points-slack-critical.yaml) LOESCHEN statt sie unangetastet
-      zu lassen.
+      Secrets not loaded — monitoring deploy run without the `secrets` tag?
+      deploy/{{ inventory_hostname }}/secrets.yml exists, but the role
+      secrets (task "Set secret variables", tag [secrets]) did not set
+      anything in this run. grafana_smtp_host or grafana_slack_token is
+      therefore empty, and the next step would DELETE the existing
+      Grafana alert config (policies.yaml or contact-points-email.yaml or
+      contact-points-slack-critical.yaml) instead of leaving it
+      untouched.
 
-      Fix: `--tags secrets,monitoring` statt `--tags monitoring` allein, oder
-      den vollen Lauf ohne Tag-Scoping fahren.
+      Fix: `--tags secrets,monitoring` instead of `--tags monitoring` alone, or run
+      the full play without tag scoping.
   when: _mon_grafana
   tags: [monitoring, alerting]
 

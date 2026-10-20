@@ -1,9 +1,9 @@
-# Whitelist fuer scripts/check-vars.py.
-# Vars die legitim referenziert werden, aber nicht in roles/defaults oder
-# group_vars stehen — z.B. weil sie via -e CLI-Override, vars_files
-# (stack.yaml) oder include_vars (secrets.yml/sops) geladen werden.
+# Whitelist for scripts/check-vars.py.
+# Vars that are legitimately referenced but are not defined in roles/defaults or
+# group_vars — e.g. because they are loaded via -e CLI override, vars_files
+# (stack.yaml) or include_vars (secrets.yml/sops).
 #
-# Eine Var pro Zeile, # = Kommentar.
+# One var per line, # = comment.
 
 # CLI-Overrides (via consumer.mk: ansible-playbook ... -e drayve_name=NAME)
 drayve_name
