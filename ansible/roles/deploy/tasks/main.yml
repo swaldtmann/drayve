@@ -359,16 +359,10 @@
   ansible.builtin.import_tasks: ../../../tasks/authelia_oidc_resolve.yml
   tags: [deploy]
 
-- name: Template .env
-  ansible.builtin.template:
-    src: "{{ ops_deploy_root }}/ansible/templates/env.j2"
-    dest: "{{ drayve_deploy_dir }}/.env"
-    owner: "{{ drayve_user }}"
-    group: "{{ drayve_group }}"
-    mode: "0600"
-  no_log: true
-  tags: [deploy]
-
+# env.override is resolved BEFORE "Template .env" and rendered into the same
+# file by env.j2 (markers `# BEGIN/END USER APP SECRETS (from env.override)`),
+# so exactly one task writes .env. The former template-then-blockinfile
+# sequence reported changed twice on every run when an override existed.
 - name: Check for env.override
   ansible.builtin.stat:
     path: "{{ ops_secrets_root }}/deploy/{{ inventory_hostname }}/env.override"
@@ -406,16 +400,14 @@
   when: env_override.stat.exists
   tags: [deploy]
 
-- name: Append env.override to .env
-  ansible.builtin.blockinfile:
-    path: "{{ drayve_deploy_dir }}/.env"
-    marker: "# {mark} USER APP SECRETS (from env.override)"
-    block: "{{ env_override_content }}"
+- name: Template .env
+  ansible.builtin.template:
+    src: "{{ ops_deploy_root }}/ansible/templates/env.j2"
+    dest: "{{ drayve_deploy_dir }}/.env"
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
     mode: "0600"
   no_log: true
-  when: env_override.stat.exists
   tags: [deploy]
 
 # === Label Scanner — scan compose files for drayve.* labels ===

@@ -24,6 +24,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
      text is neutral (`CI failed on main: ...`). The workflow passes it from the
      repo variable `SLACK_CHANNEL`; set that variable where the workflow runs.
 
+### Fixed
+- **`.env` tasks no longer report `changed` on every deploy when an `env.override`
+  exists.** The role used to template `.env` without the override block and then
+  append it with `blockinfile`, so both tasks changed on every run and the
+  idempotence check never converged. The override is now resolved first and
+  rendered into `.env` by `env.j2` in a single task. The block keeps its
+  `# BEGIN/END USER APP SECRETS (from env.override)` markers, so existing hosts
+  see no diff on upgrade.
+
 ## [0.8.13] - 2026-10-13
 
 ### Added
