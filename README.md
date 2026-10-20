@@ -1,7 +1,5 @@
 # drayve
 
-> This GitHub repository is a read-only mirror; the source of truth lives elsewhere. There is no public issue tracker (see [CONTRIBUTING.md](CONTRIBUTING.md)).
-
 Generic Ops framework for Docker stacks. Provision, deploy, monitor, secure, backup — from a single `stack.yaml`.
 
 One config file. One command. Full stack.
@@ -101,7 +99,7 @@ SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
 NAME        := my-host           # required: inventory group + snapshot host
-DRAYVE_REF  ?= v0.4.0            # tag/branch in drayve to vendor
+DRAYVE_REF  ?= v0.9.0            # tag/branch in drayve to vendor
 DRAYVE_REPO ?= https://github.com/swaldtmann/drayve.git
 DRAYVE_DIR  := vendor/drayve
 
@@ -267,6 +265,10 @@ The Makefile loads `.env.test` automatically. Alternatively, `export HCLOUD_TOKE
 ## Built with
 
 This project is developed with [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (Anthropic Claude Opus 4.6).
+
+## Repository
+
+This GitHub repository is a read-only mirror; the source of truth lives elsewhere. There is no public issue tracker (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 
 ## License
 
