@@ -158,6 +158,38 @@ Notes:
 - `make validate`, `deploy-check-fast` and `deploy.yml` abort when a URL is missing, when
   `forward_auth_url` is not `https://`, when its path is not `/api/authz/forward-auth`, or when `portal_url` lies outside `cookie_domain`.
 
+#### Probing the login page (Blackbox exporter)
+
+With `authelia` and `authelia_remote`, Authelia answers a request **without** an
+`Accept: text/html` header with `401` instead of the `302` redirect to the portal (seen on
+Authelia v4.39.x, `getAuthzRedirectStatusCode` in `internal/handlers/handler_authz_util.go`;
+not re-verified against every release). The Blackbox exporter sends no `Accept` header, so
+a probe of a protected URL sees `401`; `curl` sends `Accept: */*` and gets the `302`. If you
+probe login pages with the Blackbox exporter, set the header in the module:
+
+```yaml
+modules:
+  http_login_redirect:
+    prober: http
+    http:
+      headers:
+        Accept: text/html
+      no_follow_redirects: true
+      valid_status_codes: [302]
+```
+
+#### Behaviour when Authelia is unavailable
+
+The `auth@file` forwardAuth middleware is fail-closed by design: if Authelia does not
+answer, Traefik returns an error and every router behind `auth@file` is unreachable,
+including for users with a valid session. With `auth_provider: authelia_remote` the second
+host depends on the Authelia of the first host, so it is locked out too when that host or
+the link between the hosts is down. This is deliberate: fail-open would expose the protected
+services. Monitor Authelia from outside (e.g. a Blackbox probe; `grafana_health_allowlist`
+below gives an unauthenticated health endpoint for such a probe). A host that must stay
+reachable on its own needs its own Authelia.
+
+
 ### `monitoring`
 
 | Key | Type | Default | Description |
@@ -181,6 +213,15 @@ Alert delivery is off by default. These are plain Ansible variables (set them in
 | `grafana_alert_email_to` | — | Recipient of the alert mail. Required when `grafana_smtp_host` (secret) is set |
 | `grafana_alert_slack_channel` | — | Slack channel (ID or `#name`) for severity=critical alerts. Required when `grafana_slack_token` (secret) is set |
 | `grafana_alert_slack_username` | `drayve` | Display name the Slack bot posts under |
+
+#### Loki limits and Grafana health endpoint (Ansible variables)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `monitoring_loki_max_entries_limit_per_query` | `5000` | Loki `limits_config.max_entries_limit_per_query`. Default = Loki upstream default of the pinned version (3.3.2). Lower it if queries over long log lines exhaust `mem_loki` |
+| `monitoring_loki_max_query_series` | `500` | Loki `limits_config.max_query_series`. Default = Loki upstream default of the pinned version (3.3.2) |
+| `mem_loki` | `1g` | Memory limit of the Loki container (was `512m` until 0.8.13, where one query with `limit=5000` over 16 KiB lines got Loki OOM-killed) |
+| `grafana_health_allowlist` | `[]` | List of IPs/CIDRs allowed to call Grafana `/api/health` **without** `auth@file`, e.g. for a monitoring probe. Empty: no extra router, nothing changes. Set: an extra Traefik router (`grafana-health`, priority 1000) matches exactly `Host(grafana.<domain>) && Path(/api/health)` (no prefix) with an `ipAllowList` middleware; all other paths stay behind `auth@file`. Behind a proxy or CDN Traefik sees the proxy address, not the client |
 
 ### `security`
 
@@ -317,7 +358,7 @@ Beyond `stack.yaml`, Ansible role defaults can be overridden in `ansible/invento
 | `acme_email` | — | Set via `stack.acme_email` (see above) |
 | `ssh_password_auth` | `no` | SSH password authentication |
 | `ssh_root_login` | `prohibit-password` | SSH root login policy |
-| `mem_*` | varies | Memory limits per container (e.g. `mem_grafana: 256m`) |
+| `mem_*` | varies | Memory limits per container (e.g. `mem_grafana: 256m`; `mem_loki` is `1g`) |
 | `authelia_reset_db_on_key_change` | `false` | Authelia: a config change never deletes `db.sqlite3` (2FA registrations, sessions). A changed `storage_encryption_key` is detected via `.storage_encryption_key.sha256` next to the DB and aborts the deploy. Set to `true` to delete the DB instead (all users must re-register their second factor) |
 
 ## Pinned images and how to bump them

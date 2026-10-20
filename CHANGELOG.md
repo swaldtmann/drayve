@@ -9,7 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- `monitoring_loki_max_entries_limit_per_query` and `monitoring_loki_max_query_series`
+  render into Loki `limits_config`. Defaults are the Loki 3.3.2 upstream defaults
+  (5000 / 500), so behaviour does not change unless you set them.
+- `grafana_health_allowlist` (default `[]`): list of IPs/CIDRs that may call Grafana
+  `/api/health` without `auth@file`, through an extra Traefik router for the exact path
+  with an `ipAllowList` middleware. Empty renders nothing.
+- Docs: Blackbox probes of Authelia-protected pages need `Accept: text/html` (Authelia
+  answers `401` instead of `302` without it); behaviour when Authelia is unavailable
+  (fail-closed, also for `authelia_remote`).
+
+### Fixed
+- Grafana no longer logs "Failed to read plugin provisioning files" at every start: the
+  monitoring role now creates `monitoring/grafana/provisioning/plugins`.
+
 ### Changed
+- `mem_loki` default raised from `512m` to `1g` (Loki was OOM-killed by a query over long
+  log lines).
 - **Breaking: no shipped defaults that point at the maintainer's infrastructure.**
   A missing value now stops the run early with a clear message instead of
   falling back to a private endpoint. Set these explicitly:
