@@ -1,56 +1,56 @@
 ---
-# host-update — Rolling Full-Upgrade + Reboot fuer Ubuntu-Hosts.
+# host-update — rolling full upgrade + reboot for Ubuntu hosts.
 #
-# Pendant zu host-base-update.yml: apt-Pakete
-# einmalig ausrollen, optional Reboot, Services vorher/nachher abgleichen.
+# Counterpart to host-base-update.yml: rolls out apt packages once,
+# optionally reboots, and compares services before/after.
 #
-# Nutzt ein zentrales Inventory-Skript (Filter wie host-base-update.yml:
+# Uses a central inventory script (filters as in host-base-update.yml:
 # ssh_alias + ki_freigabe + status != retiring/decommissioned/deleted/
 # destroyed + patch.auto_update != false).
 #
-# Aufruf (Pilot gegen einen Host):
+# Usage (pilot against one host):
 #   cd <drayve checkout>/ansible
 #   ansible-playbook -i <your inventory script or file> \
 #     playbooks/host-update.yml --limit myhost
 #
-# Rolling gegen viele Hosts (serial=1 ist im Play schon gesetzt):
+# Rolling against many hosts (serial=1 is already set in the play):
 #   ansible-playbook -i .../inventory-from-servers.sh playbooks/host-update.yml \
 #     --limit "web-1,web-2"
 #
-# Override Reboot-Verhalten:
-#   -e hu_reboot_if_required=false   # nur upgrade, kein Reboot
-#   -e hu_reboot_timeout=600         # SSH-Wait nach Reboot (Default 300s)
-#   -e hu_apt_full_upgrade=false     # nur apt upgrade, kein full-upgrade
+# Override reboot behaviour:
+#   -e hu_reboot_if_required=false   # upgrade only, no reboot
+#   -e hu_reboot_timeout=600         # SSH wait after reboot (default 300s)
+#   -e hu_apt_full_upgrade=false     # plain apt upgrade, no full-upgrade
 #
 # Docker hold and external domain smokes:
-# - Docker-Pakete (docker-ce, docker-ce-cli, containerd.io,
-#   docker-compose-plugin) werden vor dem apt-Lauf gehalten (apt-mark hold)
-#   und nach Reboot+Recovery wieder freigegeben. Verhindert das Race, das
-#   einen Traefik-Ausfall ausgeloest hat:
-#   docker-ce-Postinstall restartet docker.service MITTEN im apt-Upgrade.
-# - Externe Domain-Smokes (von der Control-Maschine, nicht vom Host) gegen
-#   die `domains:`-Liste des Hosts (durchgereicht via Inventory). Default: nur WARN-Report. Hard-Fail
-#   nur wenn `domains_required_up: true` fuer den Host gesetzt ist.
+# - Docker packages (docker-ce, docker-ce-cli, containerd.io,
+#   docker-compose-plugin) are held (apt-mark hold) before the apt run
+#   and released again after reboot + recovery. Prevents the race that
+#   caused a Traefik outage:
+#   the docker-ce postinstall restarts docker.service IN THE MIDDLE of the apt upgrade.
+# - External domain smokes (from the control machine, not from the host) against
+#   the host's `domains:` list (passed through via inventory). Default: WARN report only. Hard fail
+#   only if `domains_required_up: true` is set for the host.
 
 - name: Rolling host update
   hosts: all
   gather_facts: true
-  serial: 1   # nie batch — bewusst sequentiell
+  serial: 1   # never batch — deliberately sequential
 
   vars:
     hu_reboot_if_required: true
     hu_reboot_timeout: 300
     hu_apt_full_upgrade: true
-    # Beide Docker-Paketierungs-Schemata: Docker's offizielles apt-Repo
-    # (docker-ce*, containerd.io, docker-compose-plugin) UND Ubuntus eigene
-    # Repos (docker.io, containerd, docker-compose-v2) -- welches ein Host
-    # nutzt haengt davon ab, wie Docker installiert wurde (get-docker.sh vs.
-    # `apt install docker.io`). Live-Fund: hu_docker_packages
-    # hardcodete nur das erste Schema, dpkg_selections("hold") schlug fehl mit
-    # "Failed to find package" und brach den kompletten Lauf VOR dem Upgrade ab
-    # (kein Schaden, aber kein Patch). Gefiltert auf tatsaechlich installierte
-    # Pakete via hu_docker_packages_present (s. pre_tasks), keine Hardcode-Liste
-    # mehr direkt in hold/unhold.
+    # Both Docker packaging schemes: Docker's official apt repo
+    # (docker-ce*, containerd.io, docker-compose-plugin) AND Ubuntu's own
+    # repos (docker.io, containerd, docker-compose-v2) -- which one a host
+    # uses depends on how Docker was installed (get-docker.sh vs.
+    # `apt install docker.io`). Live finding: hu_docker_packages
+    # hardcoded only the first scheme, dpkg_selections("hold") failed with
+    # "Failed to find package" and aborted the whole run BEFORE the upgrade
+    # (no damage, but no patch). Filtered to actually installed
+    # packages via hu_docker_packages_present (see pre_tasks), no hardcoded list
+    # any more directly in hold/unhold.
     hu_docker_packages:
       - docker-ce
       - docker-ce-cli
@@ -59,34 +59,34 @@
       - docker.io
       - containerd
       - docker-compose-v2
-    # domains/domains_required_up bewusst NICHT hier mit Default vorbelegt:
-    # "play vars" haben HOEHERE Prioritaet als "inventory host vars" (Ansible-
-    # Variablen-Praezedenz) -- ein Default hier wuerde die echten, per
-    # Inventory durchgereichten Werte fuer
-    # JEDEN Host ueberschreiben statt nur als Fallback zu wirken (live verifiziert:
-    # domains_checked kam als [] obwohl das Inventory 2 Domains lieferte). Default steht stattdessen an jeder Nutzungsstelle
-    # per Jinja `| default(...)`.
+    # domains/domains_required_up deliberately NOT given a default here:
+    # "play vars" have HIGHER precedence than "inventory host vars" (Ansible
+    # variable precedence) -- a default here would override the real values
+    # passed through via inventory for
+    # EVERY host instead of acting only as a fallback (verified live:
+    # domains_checked came out as [] although the inventory supplied 2 domains). The default lives at each point of use
+    # via Jinja `| default(...)`.
 
   pre_tasks:
     - name: Skip non-Ubuntu hosts cleanly (HAOS, FreeBSD, etc.)
       ansible.builtin.meta: end_host
       when: ansible_distribution != "Ubuntu"
 
-    # docker-Pakete VOR dem apt full-upgrade festhalten.
-    # RCA Traefik-Ausfall: docker-ce-Postinstall
-    # ruft mitten im apt-Lauf "systemctl restart docker" auf -- Container die
-    # in diesem Race-Window stoppen, kommen ohne den Recovery-Step (post_tasks
-    # unten) nicht zurueck. Hold verhindert das Docker-Update in DIESEM Lauf
-    # komplett; Freigabe passiert erst nach Reboot+Recovery (post_tasks).
+    # Hold docker packages BEFORE the apt full-upgrade.
+    # RCA Traefik outage: the docker-ce postinstall
+    # calls "systemctl restart docker" in the middle of the apt run -- containers that
+    # stop in this race window do not come back without the recovery step (post_tasks
+    # below). Hold prevents the Docker update entirely in THIS run;
+    # release only happens after reboot + recovery (post_tasks).
     - name: Detect docker presence (pre-upgrade)
       ansible.builtin.command: which docker
       register: hu_docker_present_pre
       changed_when: false
       failed_when: false
 
-    # Nur tatsaechlich installierte Pakete filtern (s. hu_docker_packages
-    # Kommentar oben) -- dpkg_selections("hold") auf ein unbekanntes Paket
-    # ist ein harter Fehler ("Failed to find package"), kein no-op.
+    # Filter to actually installed packages only (see hu_docker_packages
+    # comment above) -- dpkg_selections("hold") on an unknown package
+    # is a hard error ("Failed to find package"), not a no-op.
     - name: Gather installed package facts
       ansible.builtin.package_facts:
       when: hu_docker_present_pre.rc == 0
@@ -193,10 +193,10 @@
           - "default_ipv4"
           - "virtual"
 
-    # Docker-Pakete nach Reboot+Recovery wieder freigeben,
-    # damit host-base-update (unattended-upgrades, security-only) sie wieder normal
-    # patchen kann. Nutzt dieselbe Pre-Upgrade-Erkennung (hu_docker_present_pre)
-    # statt neu zu detektieren -- ein apt full-upgrade entfernt docker-ce nicht.
+    # Release docker packages again after reboot + recovery,
+    # so that host-base-update (unattended-upgrades, security-only) can patch them normally
+    # again. Uses the same pre-upgrade detection (hu_docker_present_pre)
+    # instead of detecting anew -- an apt full-upgrade does not remove docker-ce.
     - name: Unhold docker packages after upgrade+reboot
       ansible.builtin.dpkg_selections:
         name: "{{ item }}"
@@ -204,23 +204,23 @@
       loop: "{{ hu_docker_packages_present | default([]) }}"
       when: hu_docker_present_pre.rc == 0
 
-    # Container-Recovery (RCA Traefik-Ausfall)
-    # docker-ce/containerd via apt-upgrade triggert ein docker.service-Restart
-    # mid-dist-upgrade. Container die in dem schmalen Race-Window (zwischen
-    # docker-Daemon-Restart und Ansible-Reboot) im "stopped"-Zwischenzustand
-    # waren, kommen beim Boot nicht mehr hoch — Docker startet beim Boot nur
-    # Container deren persistierter State "running" war. Hier abgefangen:
-    # alle exited/created Container mit RestartPolicy != "no" werden gestartet.
+    # Container recovery (RCA Traefik outage)
+    # docker-ce/containerd via apt-upgrade triggers a docker.service restart
+    # mid-dist-upgrade. Containers that were in the "stopped" intermediate state in the narrow race window (between
+    # docker daemon restart and Ansible reboot)
+    # do not come back up at boot -- at boot Docker only starts
+    # containers whose persisted state was "running". Caught here:
+    # all exited/created containers with RestartPolicy != "no" are started.
     #
-    # Live-Fund: "on-failure" heisst per Docker-Semantik
-    # "nur neu starten wenn der letzte Exit-Code != 0 war" -- ein sauber mit
-    # 0 durchgelaufener Einmal-Job (z.B. zammad-init) BLEIBT bei Docker
-    # bewusst stehen. Die Recovery-Filterung ignorierte den Exit-Code und
-    # startete on-failure-Container immer neu, auch nach Exit 0 -- harmlos
-    # bei idempotenten Init-Skripten, aber semantisch falsch (kein Recovery-
-    # Fall, nur unnoetiger Re-Run). "always"/"unless-stopped" bleiben
-    # unveraendert (die sollen so oder so immer laufen, exit-code-unabhaengig
-    # -- genau der traefik-Fall aus der urspruenglichen RCA).
+    # Live finding: "on-failure" means by Docker semantics
+    # "only restart if the last exit code was != 0" -- a one-shot job (e.g. zammad-init)
+    # that finished cleanly with 0 deliberately STAYS stopped in Docker.
+    # The recovery filter ignored the exit code and
+    # always restarted on-failure containers, even after exit 0 -- harmless
+    # for idempotent init scripts, but semantically wrong (not a recovery
+    # case, just an unnecessary re-run). "always"/"unless-stopped" stay
+    # unchanged (they should always run anyway, regardless of exit code
+    # -- exactly the traefik case from the original RCA).
     - name: Detect docker presence
       ansible.builtin.command: which docker
       register: hu_docker_present
@@ -293,20 +293,20 @@
         - uname -r
         - uptime
 
-    # Externe Domain-Smokes von der Control-Maschine aus
-    # (nicht vom Host selbst -- ein Check von innen wuerde einen kaputten
-    # externen Pfad wie Traefik/DNS/Cloud-Firewall nicht sehen). Quelle:
-    # `domains:`-Liste des Hosts, durchgereicht via Inventory. Leere Liste -> Task hat 0 Iterationen,
-    # laeuft sauber durch (kein when noetig, Ansible skippt leere loops).
+    # External domain smokes from the control machine
+    # (not from the host itself -- a check from the inside would not see a broken
+    # external path such as Traefik/DNS/cloud firewall). Source:
+    # the host's `domains:` list, passed through via inventory. Empty list -> task has 0 iterations,
+    # runs through cleanly (no when needed, Ansible skips empty loops).
     #
-    # Live-Fund: direkt nach "SSH wieder da" waren
-    # alle 6 Domains 403/404 -- Traefik/Authelia waren nach dem Reboot noch
-    # nicht vollstaendig warm. ~90s spaeter (manueller curl) waren alle 6
-    # sauber (302 Authelia-Redirect bzw. 200). Kein echter Ausfall, sondern
-    # ein Timing-Race zwischen "SSH erreichbar" und "Reverse-Proxy/Auth-
-    # Backend fertig hochgefahren". Retry statt Blind-Sleep: wartet nur so
-    # lange wie noetig, pro Domain unabhaengig (verschiedene Backends werden
-    # unterschiedlich schnell warm).
+    # Live finding: right after "SSH is back", all
+    # 6 domains returned 403/404 -- Traefik/Authelia were not yet
+    # fully warm after the reboot. ~90s later (manual curl) all 6
+    # were fine (302 Authelia redirect or 200). Not a real outage but
+    # a timing race between "SSH reachable" and "reverse proxy/auth
+    # backend fully up". Retry instead of blind sleep: waits only as
+    # long as needed, per domain independently (different backends warm up
+    # at different speeds).
     - name: External domain smokes (from control host)
       ansible.builtin.uri:
         url: "https://{{ item }}"
@@ -344,12 +344,12 @@
           - "domains_checked={{ domains | default([]) }}"
           - "domains_down={{ hu_domains_down }}"
 
-    # Hinweis: hu_services_lost wird nur als WARN gemeldet (im Final report
-    # oben sichtbar). Grund: `systemctl --state=running` ist ein Snapshot —
-    # on-demand-Services (polkit, fsckd, timedated, snapd) sind nach Reboot
-    # haeufig nicht "running" obwohl sie funktional aktiv sind. Echter
-    # Service-Gesundheits-Check passiert ueber failed-units + ggf. Stack-
-    # spezifische Smokes (pro Host separat).
+    # Note: hu_services_lost is only reported as WARN (visible in the final report
+    # above). Reason: `systemctl --state=running` is a snapshot —
+    # on-demand services (polkit, fsckd, timedated, snapd) are often not
+    # "running" after a reboot even though they are functionally active. A real
+    # service health check happens via failed units + optionally stack-
+    # specific smokes (separately per host).
 
     - name: Hard fail when new failed units appeared
       ansible.builtin.fail:
@@ -358,7 +358,7 @@
 
     - name: Hard fail when required domains are down
       ansible.builtin.fail:
-        msg: "domains_required_up=true fuer {{ inventory_hostname }}, aber nicht erreichbar: {{ hu_domains_down }}"
+        msg: "domains_required_up=true for {{ inventory_hostname }}, but not reachable: {{ hu_domains_down }}"
       when:
         - domains_required_up | default(false) | bool
         - hu_domains_down | length > 0

@@ -105,7 +105,7 @@ GRAFANA_ALERT_GUARD_TASKS = """\
                       (_mon_alert_policies_precheck.stat.exists | default(false))
                     )
                 fail_msg: |
-                  Secrets nicht geladen -- Monitoring-Deploy ohne `secrets`-Tag gefahren?
+                  Secrets not loaded -- monitoring deploy run without the `secrets` tag?
               when: _mon_grafana
               tags: [monitoring, alerting]
 
@@ -134,7 +134,7 @@ CROWDSEC_GUARD_TASKS = """\
                 that:
                   - not (_deploy_crowdsec_secrets_file_check.stat.exists and drayve_secrets_facts_loaded is not defined)
                 fail_msg: |
-                  Secrets nicht geladen -- CrowdSec-Bouncer-Registrierung ohne `secrets`-Tag gefahren?
+                  Secrets not loaded -- CrowdSec bouncer registration run without the `secrets` tag?
               when: crowdsec_enabled
               tags: [deploy, crowdsec]
 
@@ -235,7 +235,7 @@ def test_monitoring_only_tag_fires_guard_instead_of_deleting_alert_config(
     )
     combined = result.stdout + result.stderr
     assert result.returncode != 0, combined
-    assert "Secrets nicht geladen" in combined, combined
+    assert "Secrets not loaded" in combined, combined
     assert (deploy_dir / "alerting" / "policies.yaml").exists(), (
         "policies.yaml must survive when the guard fires"
     )
@@ -299,7 +299,7 @@ def test_crowdsec_tag_alone_fires_guard(ansible_available, tmp_path):
     )
     combined = result.stdout + result.stderr
     assert result.returncode != 0, combined
-    assert "Secrets nicht geladen" in combined, combined
+    assert "Secrets not loaded" in combined, combined
     assert not marker.exists(), "registration must not be reached when the guard fires"
 
 
@@ -318,7 +318,7 @@ def test_deploy_plus_crowdsec_tags_fires_guard(ansible_available, tmp_path):
     )
     combined = result.stdout + result.stderr
     assert result.returncode != 0, combined
-    assert "Secrets nicht geladen" in combined, combined
+    assert "Secrets not loaded" in combined, combined
     assert not marker.exists()
 
 

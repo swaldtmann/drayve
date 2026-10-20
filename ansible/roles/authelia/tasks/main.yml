@@ -109,7 +109,7 @@
   tags: [authelia]
 
 - name: Generate Argon2id hash for OIDC client secret (per client)
-  # argon2id via Authelia-CLI, kein Python-pwhash mehr.
+  # argon2id via Authelia CLI, no Python pwhash any more.
   ansible.builtin.shell:
     cmd: |
       set -o pipefail
@@ -310,18 +310,18 @@
           (_authelia_db_precheck.stat.exists | default(false))
         )
     fail_msg: |
-      Secrets nicht geladen — Authelia-Deploy ohne `secrets`-Tag gefahren?
-      deploy/{{ inventory_hostname }}/secrets.yml existiert, aber die Rolle
-      secrets (Task "Set secret variables", tag [secrets]) hat in diesem
-      Lauf nicht gesetzt. Die authelia_*-Secrets (JWT/Session/Storage-
-      Encryption/LDAP/OIDC) rendern deshalb leer, "Deploy Authelia
-      configuration" gilt dadurch als geaendert und wuerde eine kaputte
-      Konfiguration (leere Secrets) neben der bestehenden Authelia-DB
-      (db.sqlite3 — 2FA-Registrierungen, Sessions, Tokens) ausrollen.
+      Secrets not loaded — Authelia deploy run without the `secrets` tag?
+      deploy/{{ inventory_hostname }}/secrets.yml exists, but the role
+      secrets (task "Set secret variables", tag [secrets]) did not set
+      anything in this run. The authelia_* secrets (JWT/session/storage
+      encryption/LDAP/OIDC) therefore render empty, "Deploy Authelia
+      configuration" counts as changed and would roll out a broken
+      configuration (empty secrets) next to the existing Authelia DB
+      (db.sqlite3 — 2FA registrations, sessions, tokens).
 
-      Fix: `--tags secrets,auth` (die Authelia-Rolle haengt per include_role
-      im Block mit Tag `auth`; `authelia` allein fuehrt keinen ihrer Tasks
-      aus), oder den vollen Lauf ohne Tag-Scoping fahren.
+      Fix: `--tags secrets,auth` (the Authelia role is pulled in via include_role
+      in the block tagged `auth`; `authelia` alone runs none of its tasks),
+      or run the full play without tag scoping.
   when: authelia_config.changed | default(false)
   tags: [authelia]
 

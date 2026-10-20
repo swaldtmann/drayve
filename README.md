@@ -264,7 +264,7 @@ The Makefile loads `.env.test` automatically. Alternatively, `export HCLOUD_TOKE
 
 ## Built with
 
-This project is developed with [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (Anthropic Claude Opus 4.6).
+This project is developed with [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 
 ## Repository
 

@@ -20,7 +20,7 @@ Env:
 Exit 0 on success/no-op (cron-safe), 1 only on a hard error (missing token /
 hcloud lib). Logs to stdout.
 
-Anlass: 2 verwaiste ``test-basic`` liefen 38 Tage.
+Background: 2 orphaned ``test-basic`` hosts ran for 38 days.
 """
 
 from __future__ import annotations

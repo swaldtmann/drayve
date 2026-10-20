@@ -79,8 +79,8 @@ jobs:
       # an earlier step failed AND it was a push to main (PRs + tags stay
       # silent). Runs #58-60 (16.05.-10.06.) were red for a month unnoticed
       # because the CI UI is a pull surface.
-      # Letzter Schritt im selben Job statt eigener Job: jeder Job kostet auf
-      # dem Ein-Job-Runner einen kompletten Reset-Zyklus (~140 s).
+      # Last step in the same job instead of a separate job: every job costs a
+      # full reset cycle (~140 s) on the single-job runner.
       - name: Notify Slack on red main
         if: ${{ failure() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         env:

@@ -1,8 +1,9 @@
 [Unit]
-Description=Drayve Bouncer-Watchdog TimerDocumentation=https://github.com/StephanWaldtmann/drayve
+Description=Drayve Bouncer-Watchdog Timer
+Documentation=https://github.com/swaldtmann/drayve
 
 [Timer]
-# Alle bouncer_watchdog_interval_seconds einen Tick.
+# One tick every bouncer_watchdog_interval_seconds.
 OnBootSec=60s
 OnUnitActiveSec={{ bouncer_watchdog_interval_seconds }}s
 AccuracySec=1s

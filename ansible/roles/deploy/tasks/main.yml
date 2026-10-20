@@ -73,13 +73,13 @@
     acme_email: "{{ stack.acme_email | default(acme_email) | default('') }}"
   tags: [deploy]
 
-# stack.acme_challenge steuerte bislang gar keinen
-# Ansible-Var (kein Resolve-Task) UND selbst waere der Wert wirkungslos
-# gewesen, weil jeder Router-Label in docker-compose.yml.j2 fest auf den
-# httpChallenge-Resolver "letsencrypt" zeigte statt auf eine Variable.
-# acme_dns_provider/-env_vars/-propagation_delay wurden aus demselben Grund
-# nie aus stack.yaml gelesen — die Ansible-Var-Defaults aus
-# roles/traefik/defaults/main.yml griffen immer, egal was in stack.yaml stand.
+# stack.acme_challenge so far controlled no
+# Ansible var at all (no resolve task) AND the value would have been ineffective
+# anyway, because every router label in docker-compose.yml.j2 was hard-wired to the
+# httpChallenge resolver "letsencrypt" instead of pointing at a variable.
+# acme_dns_provider/-env_vars/-propagation_delay were never read from
+# stack.yaml for the same reason — the Ansible var defaults from
+# roles/traefik/defaults/main.yml always won, whatever stack.yaml said.
 - name: Resolve acme_challenge from stack.yaml
   ansible.builtin.set_fact:
     acme_challenge: "{{ stack.acme_challenge | default('http') }}"
@@ -340,15 +340,15 @@
     that:
       - not (_deploy_secrets_file_check.stat.exists and drayve_secrets_facts_loaded is not defined)
     fail_msg: |
-      Secrets nicht geladen — Deploy ohne `secrets`-Tag gefahren?
-      deploy/{{ inventory_hostname }}/secrets.yml existiert, aber die Rolle
-      secrets (Task "Set secret variables", tag [secrets]) hat in diesem
-      Lauf nicht gesetzt. `.env` würde jetzt mit leeren Secret-Werten
-      überschrieben (Jinja default('')) — lldap/Authelia crashen beim
-      nächsten `docker compose up`.
+      Secrets not loaded — deploy run without the `secrets` tag?
+      deploy/{{ inventory_hostname }}/secrets.yml exists, but the role
+      secrets (task "Set secret variables", tag [secrets]) did not set
+      anything in this run. `.env` would now be overwritten with empty
+      secret values (Jinja default('')) — lldap/Authelia crash on the
+      next `docker compose up`.
 
-      Fix: `--tags secrets,deploy` statt `--tags deploy` allein, oder den
-      vollen Lauf ohne Tag-Scoping fahren.
+      Fix: `--tags secrets,deploy` instead of `--tags deploy` alone, or run the
+      full play without tag scoping.
   tags: [deploy]
 
 # Client list + client secrets behind AUTHELIA_OIDC_<ID>_SECRET in env.j2.
@@ -579,11 +579,11 @@
     chdir: "{{ drayve_deploy_dir }}"
   become: true
   become_user: "{{ drayve_user }}"
-  # 'Started' allein zaehlt nicht: Compose druckt das auch wenn ein Container
-  # ohne jede Config-Aenderung neu gestartet wird (depends_on:service_healthy
-  # wird bei jedem 'up' neu ausgewertet, kann bei Health-Poll-Race einen bereits
-  # korrekten Container einfach neu starten). Nur 'Created'/'Recreated' zeigen
-  # echte Drift (molecule (authelia) Idempotence-Flake).
+  # 'Started' alone does not count: Compose prints it even when a container
+  # is restarted without any config change (depends_on:service_healthy
+  # is re-evaluated on every 'up' and can simply restart an already
+  # correct container on a health-poll race). Only 'Created'/'Recreated' show
+  # real drift (molecule (authelia) idempotence flake).
   changed_when: "'Created' in compose_up.stderr or 'Recreated' in compose_up.stderr"
   register: compose_up
   tags: [deploy]
@@ -711,16 +711,15 @@
     that:
       - not (_deploy_crowdsec_secrets_file_check.stat.exists and drayve_secrets_facts_loaded is not defined)
     fail_msg: |
-      Secrets nicht geladen — CrowdSec-Bouncer-Registrierung ohne `secrets`-Tag
-      gefahren? deploy/{{ inventory_hostname }}/secrets.yml existiert, aber
-      die Rolle secrets (Task "Set secret variables", tag [secrets]) hat in
-      diesem Lauf nicht gesetzt. crowdsec_bouncer_key/crowdsec_lapi_key sind
-      deshalb leer — die Registrierung wuerde jetzt still uebersprungen und
-      der Bouncer bliebe unbemerkt unregistriert.
+      Secrets not loaded — CrowdSec bouncer registration run without the `secrets` tag?
+      deploy/{{ inventory_hostname }}/secrets.yml exists, but
+      the role secrets (task "Set secret variables", tag [secrets]) did not
+      set anything in this run. crowdsec_bouncer_key/crowdsec_lapi_key are
+      therefore empty — the registration would now be silently skipped and
+      the bouncer would stay unregistered without anyone noticing.
 
-      Fix: `--tags secrets,deploy,crowdsec` statt `--tags deploy,crowdsec`
-      (oder `--tags crowdsec`) allein, oder den vollen Lauf ohne Tag-Scoping
-      fahren.
+      Fix: `--tags secrets,deploy,crowdsec` instead of `--tags deploy,crowdsec`
+      (or `--tags crowdsec`) alone, or run the full play without tag scoping.
   when: crowdsec_enabled
   tags: [deploy, crowdsec]
 

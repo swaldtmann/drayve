@@ -3,7 +3,7 @@
 Runs ansible-playbook against a tiny wrapper that imports preflight_vars.yml
 and checks that:
 - all required vars present -> success
-- any required var missing/empty -> failure with sprechende Meldung
+- any required var missing/empty -> failure with a meaningful message
 
 Requires ansible-playbook on PATH (true in the .venv).
 """

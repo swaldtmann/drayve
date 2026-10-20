@@ -104,12 +104,12 @@ def _make_wrapper(tmp_path: Path) -> Path:
                     that:
                       - not (_deploy_secrets_file_check.stat.exists and drayve_secrets_facts_loaded is not defined)
                     fail_msg: |
-                      Secrets nicht geladen — Deploy ohne `secrets`-Tag gefahren?
-                      deploy/{{{{ inventory_hostname }}}}/secrets.yml existiert, aber die Rolle
-                      secrets (Task "Set secret variables", tag [secrets]) hat in diesem
-                      Lauf nicht gesetzt. `.env` würde jetzt mit leeren Secret-Werten
-                      überschrieben (Jinja default('')) — lldap/Authelia crashen beim
-                      nächsten `docker compose up`.
+                      Secrets not loaded — deploy run without the `secrets` tag?
+                      deploy/{{{{ inventory_hostname }}}}/secrets.yml exists, but the role
+                      secrets (task "Set secret variables", tag [secrets]) did not set
+                      anything in this run. `.env` would now be overwritten with empty secret values
+                      (Jinja default('')) — lldap/Authelia crash on the
+                      next `docker compose up`.
                   tags: [deploy]
 
                 - name: Template .env
@@ -171,7 +171,7 @@ def test_deploy_only_tag_fires_guard_instead_of_writing_empty_env(ansible_availa
     result = _run(wrapper, root, "myhost", env_dest, tags="deploy")
     combined = result.stdout + result.stderr
     assert result.returncode != 0, combined
-    assert "Secrets nicht geladen" in combined, combined
+    assert "Secrets not loaded" in combined, combined
     assert not env_dest.exists(), ".env must not be written when the guard fires"
 
 

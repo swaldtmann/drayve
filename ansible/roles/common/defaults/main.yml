@@ -11,10 +11,10 @@ common_packages:
 swap_size_mb: 2048
 swap_file: /swapfile
 
-# Public SSH key fuer drayve_user authorized_keys.
-# Default versucht ~/.ssh/id_ed25519.pub des Ansible-Controllers; fehlt der
-# Schluessel (z.B. in CI ohne Key), wird der authorized_key-Task skipped.
-# Override via stack.yaml oder -e drayve_ssh_authorized_key=...
+# Public SSH key for the drayve_user authorized_keys.
+# By default tries ~/.ssh/id_ed25519.pub of the Ansible controller; if the
+# key is missing (e.g. in CI without a key), the authorized_key task is skipped.
+# Override via stack.yaml or -e drayve_ssh_authorized_key=...
 drayve_ssh_authorized_key: "{{ lookup('file', '~/.ssh/id_ed25519.pub', errors='ignore') | default('', true) }}"
 
 # The docker role's daemon.json.j2 fixes log-driver=journald, which by

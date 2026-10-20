@@ -1,7 +1,7 @@
 ---
-# === Defaults fuer ops_*-Roots ===
-# Greifen wenn von aussen nichts gesetzt ist (Molecule-Tests). Prod-Pfad
-# ueberschreibt via consumer.mk -e ops_secrets_root=...
+# === Defaults for ops_*-roots ===
+# Apply when nothing is set from outside (Molecule tests). The prod path
+# is overridden via consumer.mk -e ops_secrets_root=...
 - name: Set ops_repo_root default
   ansible.builtin.set_fact:
     ops_repo_root: "{{ ops_repo_root | default(playbook_dir | regex_replace('/(ansible(/playbooks)?|molecule/[^/]+)$', ''), true) }}"

@@ -305,8 +305,8 @@
   tags: [traefik, logrotate]
 
 # === Bouncer-Watchdog ===
-# systemd-Timer + Self-Heal-Script gegen Plugin-fail-closed/Hold nach
-# LAPI-Restart oder akkumuliertem Stream-State.
+# systemd timer + self-heal script against plugin fail-closed / hold after
+# a LAPI restart or accumulated stream state.
 
 - name: Deploy bouncer-watchdog script
   ansible.builtin.copy:

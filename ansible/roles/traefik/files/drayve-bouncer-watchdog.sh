@@ -1,32 +1,32 @@
 #!/usr/bin/env bash
-# Drayve Bouncer-Watchdog — Self-Heal CrowdSec-Bouncer-Plugin .
+# Drayve bouncer watchdog — self-heal for the CrowdSec-Bouncer plugin.
 #
-# Faengt zwei Plugin-Failure-Modi:
-#   (a) fail-closed nach LAPI-Restart    → HTTP 4xx/5xx ohne Decision-Bezug
-#   (b) Hold-Mode nach Stream-State-Drift → HTTP-Stream haengt, kein Response
+# Catches two plugin failure modes:
+#   (a) fail-closed after a LAPI restart    → HTTP 4xx/5xx unrelated to any decision
+#   (b) hold mode after stream-state drift  → HTTP stream hangs, no response
 #
-# Strategie: pro Tick ein curl gegen ${URL} mit ${TIMEOUT}s. Bei Misserfolg
-# (HTTP nicht 2xx/3xx oder curl-Timeout) wird ein Marker mit Erst-Fehlzeit
-# geschrieben. Dauert der Failure ueber ${THRESHOLD}s an, restartet das Skript
-# Traefik via `docker compose restart traefik` und loescht den Marker. Erfolg
-# loescht den Marker.
+# Strategy: one curl against ${URL} per tick with ${TIMEOUT}s. On failure
+# (HTTP not 2xx/3xx or curl timeout) a marker with the first-failure time
+# is written. If the failure lasts longer than ${THRESHOLD}s, the script restarts
+# Traefik via `docker compose restart traefik` and deletes the marker. Success
+# deletes the marker.
 #
-# Idempotent — ein Restart pro Failure-Episode, nicht pro Tick.
-# Logs nach syslog (tag drayve-bouncer-watchdog), Exit immer 0 (Timer-Driver).
+# Idempotent — one restart per failure episode, not per tick.
+# Logs to syslog (tag drayve-bouncer-watchdog), always exits 0 (timer driver).
 #
-# Variablen via Environment (systemd-Service-Unit setzt sie):
-#   URL        — Health-Check-URL (Apex-Domain ueblich)
-#   THRESHOLD  — Sekunden bis Restart-Trigger (Default 60)
-#   TIMEOUT    — curl --max-time (Default 10)
-#   STACK_DIR  — docker compose Pfad (Default /opt/drayve/deploy/stack)
-#   FAIL_FILE  — Pfad fuer Fail-Marker (Default /var/run/drayve-bouncer-watchdog.fail)
-#   LOGGER_BIN — fuer Tests: alternative Logger-Implementation (Default logger)
-#   CURL_BIN   — fuer Tests: alternative curl-Implementation (Default curl)
-#   DOCKER_BIN — fuer Tests: alternative docker-Implementation (Default docker)
+# Variables via environment (the systemd service unit sets them):
+#   URL        — health-check URL (apex domain is typical)
+#   THRESHOLD  — seconds until the restart trigger (default 60)
+#   TIMEOUT    — curl --max-time (default 10)
+#   STACK_DIR  — docker compose path (default /opt/drayve/deploy/stack)
+#   FAIL_FILE  — path of the fail marker (default /var/run/drayve-bouncer-watchdog.fail)
+#   LOGGER_BIN — for tests: alternative logger implementation (default logger)
+#   CURL_BIN   — for tests: alternative curl implementation (default curl)
+#   DOCKER_BIN — for tests: alternative docker implementation (default docker)
 #
-# Exit-Codes:
-#   0 — alles ok / Marker gesetzt / Restart angestossen
-# (kein non-zero — der Timer soll nie fehlschlagen)
+# Exit codes:
+#   0 — all ok / marker set / restart triggered
+# (never non-zero — the timer must never fail)
 
 set -uo pipefail
 
@@ -95,7 +95,7 @@ main() {
     return 0
 }
 
-# Wenn als Library gesourced (BATS), nicht direkt ausfuehren.
+# When sourced as a library (BATS), do not execute directly.
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     main
     exit 0

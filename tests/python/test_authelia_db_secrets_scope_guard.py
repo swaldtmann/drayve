@@ -107,7 +107,7 @@ WRAPPER_TASKS = """\
                       (_authelia_db_precheck.stat.exists | default(false))
                     )
                 fail_msg: |
-                  Secrets nicht geladen -- Authelia-Deploy ohne `secrets`-Tag gefahren?
+                  Secrets not loaded -- Authelia deploy run without the `secrets` tag?
               when: authelia_config.changed | default(false)
               tags: [authelia]
 
@@ -193,7 +193,7 @@ def test_authelia_only_tag_fires_guard_instead_of_deleting_db(ansible_available,
     )
     combined = result.stdout + result.stderr
     assert result.returncode != 0, combined
-    assert "Secrets nicht geladen" in combined, combined
+    assert "Secrets not loaded" in combined, combined
     assert (data_dir / "db.sqlite3").exists(), "db.sqlite3 must survive when the guard fires"
 
 

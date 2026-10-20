@@ -55,10 +55,10 @@ crowdsec_signal_sharing: false
 crowdsec_whitelist_ips:
   - "127.0.0.1"
 
-# Bouncer-Watchdog: Self-Heal gegen Plugin-fail-closed/Hold
-# nach LAPI-Restart oder akkumuliertem Stream-State. Curlt periodisch gegen
-# eine bekannte 200-Route, restartet Traefik wenn Plugin laenger als
-# threshold_seconds nicht antwortet/403 zurueckgibt.
+# Bouncer watchdog: self-heal against plugin fail-closed / hold
+# after a LAPI restart or accumulated stream state. Curls periodically against
+# a known 200 route, restarts Traefik if the plugin does not respond for longer than
+# threshold_seconds or returns 403.
 bouncer_watchdog_enabled: true
 bouncer_watchdog_check_url: "https://{{ drayve_domain }}/"
 bouncer_watchdog_interval_seconds: 30

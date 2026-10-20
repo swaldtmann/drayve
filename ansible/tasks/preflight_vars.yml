@@ -2,7 +2,7 @@
 # Drayve preflight — validate that critical deployment variables are set
 # before any role runs. Included from deploy.yml, backup.yml, burn.yml.
 #
-# Catches the "kryptische Variable-Resolution-Meldung"-class of failures
+# Catches the "cryptic variable-resolution message" class of failures
 # (typically: group_vars/all/vars.yml not loaded due to inventory layout).
 
 - name: Drayve preflight — required deployment variables

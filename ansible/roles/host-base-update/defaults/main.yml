@@ -1,34 +1,34 @@
 ---
-# host-base-update — flaechige unattended-upgrades-Hygiene fuer Ubuntu-Hosts.
-# Security-only, kein Auto-Reboot. host-update.yml (Rolling Full-Upgrade) ist eigenes
-# Playbook, das diese Role NICHT ablueost sondern ergaenzt.
+# host-base-update — broad-coverage unattended-upgrades hygiene for Ubuntu hosts.
+# Security-only, no auto-reboot. host-update.yml (rolling full upgrade) is a separate
+# playbook that this role does NOT replace but complements.
 
-# Paket-Steuerung
+# Package control
 hbu_packages:
   - unattended-upgrades
-  - update-notifier-common  # liefert /var/run/reboot-required-Logik
-  - apt-listchanges          # optional: Changelogs vor Update
+  - update-notifier-common  # provides the /var/run/reboot-required logic
+  - apt-listchanges          # optional: changelogs before update
 
 # Periodic-Schalter (-> /etc/apt/apt.conf.d/20auto-upgrades)
-hbu_periodic_update_lists: "1"        # apt update jede Nacht
-hbu_periodic_download: "1"            # Pakete pre-fetchen
-hbu_periodic_unattended: "1"          # unattended-upgrades ausfuehren
-hbu_periodic_autoclean: "7"           # apt-cache-Aufraeumung 7-taegig
+hbu_periodic_update_lists: "1"        # apt update every night
+hbu_periodic_download: "1"            # pre-fetch packages
+hbu_periodic_unattended: "1"          # run unattended-upgrades
+hbu_periodic_autoclean: "7"           # apt cache cleanup every 7 days
 
-# unattended-upgrades Verhalten (-> /etc/apt/apt.conf.d/50unattended-upgrades)
-hbu_security_only: true               # nur ${distro_id}:${distro_codename}-security
-hbu_auto_reboot: false                # dieses Playbook rebootet NICHT — host-update.yml macht das kontrolliert
+# unattended-upgrades behaviour (-> /etc/apt/apt.conf.d/50unattended-upgrades)
+hbu_security_only: true               # only ${distro_id}:${distro_codename}-security
+hbu_auto_reboot: false                # this playbook does NOT reboot — host-update.yml does that in a controlled way
 hbu_auto_reboot_time: "03:00"
-hbu_remove_unused_kernel: true        # alte Kernel automatisch entfernen
-hbu_remove_unused_deps: true          # automatisch installierte Abhaengigkeiten
+hbu_remove_unused_kernel: true        # remove old kernels automatically
+hbu_remove_unused_deps: true          # automatically installed dependencies
 hbu_remove_new_unused_deps: true
-hbu_minimal_steps: true               # Updates in kleinen apt-Calls — robust bei Abbruch
+hbu_minimal_steps: true               # updates in small apt calls — robust on abort
 
-# Mail-Reporting (leer = kein Mail)
+# Mail reporting (empty = no mail)
 hbu_mail_recipient: ""
 hbu_mail_only_on_error: false
 
-# Optionale Package-Blocks (z.B. docker.io festhalten weil docker-ce installiert ist)
+# Optional package blocks (e.g. hold docker.io because docker-ce is installed)
 hbu_package_blacklist: []
   # - "docker.io"
   # - "docker-ce"
