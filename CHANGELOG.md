@@ -9,24 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-### Added
-- `monitoring_loki_max_entries_limit_per_query` and `monitoring_loki_max_query_series`
-  render into Loki `limits_config`. Defaults are the Loki 3.3.2 upstream defaults
-  (5000 / 500), so behaviour does not change unless you set them.
-- `grafana_health_allowlist` (default `[]`): list of IPs/CIDRs that may call Grafana
-  `/api/health` without `auth@file`, through an extra Traefik router for the exact path
-  with an `ipAllowList` middleware. Empty renders nothing.
-- Docs: Blackbox probes of Authelia-protected pages need `Accept: text/html` (Authelia
-  answers `401` instead of `302` without it); behaviour when Authelia is unavailable
-  (fail-closed, also for `authelia_remote`).
-
-### Fixed
-- Grafana no longer logs "Failed to read plugin provisioning files" at every start: the
-  monitoring role now creates `monitoring/grafana/provisioning/plugins`.
+## [0.9.0] - 2026-10-20
 
 ### Changed
-- `mem_loki` default raised from `512m` to `1g` (Loki was OOM-killed by a query over long
-  log lines).
 - **Breaking: no shipped defaults that point at the maintainer's infrastructure.**
   A missing value now stops the run early with a clear message instead of
   falling back to a private endpoint. Set these explicitly:
@@ -40,6 +25,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
      built-in channel; the script exits non-zero without it), and the message
      text is neutral (`CI failed on main: ...`). The workflow passes it from the
      repo variable `SLACK_CHANNEL`; set that variable where the workflow runs.
+- **Breaking: the retired alert webhook contact point is gone.** The monitoring
+  role no longer deploys the webhook contact point and its routing policy; alert
+  delivery is Slack and/or SMTP only. The `.env` loses the empty webhook line,
+  which can recreate the Grafana container once on the first deploy.
+- `mem_loki` default raised from `512m` to `1g` (Loki was OOM-killed by a query
+  over long log lines).
+- `make provision` asks for confirmation like `make burn` (`CONFIRM=y` skips it).
+- Git hooks are opt-in: `make setup` no longer installs them, run `make hooks`.
+
+### Added
+- `monitoring_loki_max_entries_limit_per_query` and `monitoring_loki_max_query_series`
+  render into Loki `limits_config`. Defaults are the Loki 3.3.2 upstream defaults
+  (5000 / 500), so behaviour does not change unless you set them.
+- `grafana_health_allowlist` (default `[]`): list of IPs/CIDRs that may call Grafana
+  `/api/health` without `auth@file`, through an extra Traefik router for the exact path
+  with an `ipAllowList` middleware. Empty renders nothing.
+- Docs: Blackbox probes of Authelia-protected pages need `Accept: text/html` (Authelia
+  answers `401` instead of `302` without it); behaviour when Authelia is unavailable
+  (fail-closed by design, also for `authelia_remote`).
 
 ### Fixed
 - **`.env` tasks no longer report `changed` on every deploy when an `env.override`
@@ -49,6 +53,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   rendered into `.env` by `env.j2` in a single task. The block keeps its
   `# BEGIN/END USER APP SECRETS (from env.override)` markers, so existing hosts
   see no diff on upgrade.
+- Grafana no longer logs "Failed to read plugin provisioning files" at every start: the
+  monitoring role now creates `monitoring/grafana/provisioning/plugins`.
+- `make test-unit` fails when a bats test fails or bats is missing (it used to
+  report success); CI runs the bats suite, and the lint and syntax-check steps
+  fail on `ansible-lint` and playbook syntax errors.
+- `make status`, `make bans` and `make unban` exit non-zero when SSH fails.
+- Internal host names and tracker IDs removed from comments, docs and tests.
 
 ## [0.8.13] - 2026-10-13
 
