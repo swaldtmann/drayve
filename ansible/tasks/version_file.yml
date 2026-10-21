@@ -1,0 +1,114 @@
+---
+# Last step of a successful playbooks/deploy.yml run: write {{ drayve_root }}/VERSION
+# (default /opt/drayve/VERSION, mode 0644, world-readable) so anyone on the host
+# can see which drayve / site / kedge produced the running stack.
+#
+# Format (key=value, one line each, stable and machine-readable):
+#   drayve=<deploy_ref or 'unknown'> (<short commit of the drayve checkout>)
+#   site=<basename of ops_secrets_root> <short commit>[ dirty]   | site=unknown
+#   kedge=<git describe on the host | none | not-installed>
+#   deployed=<ISO-8601 with offset>
+#   from=<hostname of the control machine>
+#
+# Idempotence: the drayve/site/kedge lines are the identity of a deploy. If the
+# file on the host already carries the same identity, `deployed=` and `from=` are
+# taken over from it, so a repeated identical run reports no change. A new
+# timestamp is only written when something above actually changed.
+#
+# "dirty" means tracked files differ from HEAD (untracked files are ignored).
+# The commit is only reported when the directory is itself the root of a git
+# work tree, so a plain vendored copy never reports the commit of the repo
+# that happens to contain it.
+- name: Look up control-machine facts for the VERSION file
+  delegate_to: localhost
+  become: false
+  run_once: true
+  check_mode: false
+  tags: [deploy]
+  block:
+    - name: Short commit and dirty state of the drayve checkout
+      ansible.builtin.command:
+        argv:
+          - sh
+          - -c
+          - >-
+            p=$(git -C "$1" rev-parse --show-prefix 2>/dev/null) && [ -z "$p" ] || exit 3;
+            git -C "$1" rev-parse --short HEAD || exit 3;
+            if [ -n "$(git -C "$1" status --porcelain --untracked-files=no)" ]; then echo dirty; else echo clean; fi
+          - _
+          - "{{ ops_deploy_root }}"
+      register: vf_drayve_probe
+      changed_when: false
+      failed_when: false
+
+    - name: Short commit and dirty state of the site repo
+      ansible.builtin.command:
+        argv:
+          - sh
+          - -c
+          - >-
+            p=$(git -C "$1" rev-parse --show-prefix 2>/dev/null) && [ -z "$p" ] || exit 3;
+            git -C "$1" rev-parse --short HEAD || exit 3;
+            if [ -n "$(git -C "$1" status --porcelain --untracked-files=no)" ]; then echo dirty; else echo clean; fi
+          - _
+          - "{{ ops_secrets_root }}"
+      register: vf_site_probe
+      changed_when: false
+      failed_when: false
+      when: (ops_secrets_root | default('')) | length > 0
+
+    - name: Hostname of the control machine
+      ansible.builtin.command:
+        cmd: hostname
+      register: vf_from_probe
+      changed_when: false
+      failed_when: false
+
+- name: Read kedge version on the host for the VERSION file
+  ansible.builtin.include_role:
+    name: backup
+    tasks_from: kedge_version_fact
+
+- name: Read the existing VERSION file
+  ansible.builtin.slurp:
+    src: "{{ drayve_root }}/VERSION"
+  register: vf_previous
+  failed_when: false
+  check_mode: false
+  tags: [deploy]
+
+- name: Assemble the VERSION identity lines
+  vars:
+    vf_drayve_ok: "{{ (vf_drayve_probe.rc | default(1)) == 0 }}"
+    vf_site_ok: "{{ (vf_site_probe.rc | default(1)) == 0 }}"
+    vf_drayve_commit: "{{ (' (' ~ vf_drayve_probe.stdout_lines[0] ~ ')') if vf_drayve_ok else '' }}"
+    vf_site_dirty: "{{ ' dirty' if (vf_site_ok and vf_site_probe.stdout_lines[1] == 'dirty') else '' }}"
+    vf_site_value: >-
+      {{ (ops_secrets_root | basename ~ ' ' ~ vf_site_probe.stdout_lines[0] ~ vf_site_dirty)
+      if vf_site_ok else 'unknown' }}
+  ansible.builtin.set_fact:
+    vf_identity: |-
+      drayve={{ (deploy_ref | default('', true)) or 'unknown' }}{{ vf_drayve_commit }}
+      site={{ vf_site_value }}
+      kedge={{ backup_deploy_kedge_version }}
+  tags: [deploy]
+
+- name: Reuse deployed/from of an identical previous deploy, else stamp now
+  ansible.builtin.set_fact:
+    vf_content: |-
+      {% set prev = (vf_previous.content | b64decode) if vf_previous.content is defined else '' %}
+      {% if prev.startswith(vf_identity ~ '\ndeployed=') %}
+      {{ prev | trim }}
+      {% else %}
+      {{ vf_identity }}
+      deployed={{ now().astimezone().isoformat(timespec='seconds') }}
+      from={{ (vf_from_probe.stdout | default('') | trim) or 'unknown' }}
+      {% endif %}
+  tags: [deploy]
+
+- name: Write the VERSION file
+  ansible.builtin.copy:
+    content: "{{ vf_content | trim }}\n"
+    dest: "{{ drayve_root }}/VERSION"
+    mode: "0644"
+  tags: [deploy]

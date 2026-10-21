@@ -233,7 +233,7 @@
       </div>
     </section>
 
-    <footer>drayve {{ drayve_version | default('0.1.0') }}</footer>
+    <footer>drayve {{ (deploy_ref | default('', true) | regex_replace('^v', '')) or drayve_version | default('dev', true) }}</footer>
   </div>
 </body>
 </html>

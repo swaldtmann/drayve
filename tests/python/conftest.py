@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 from typing import Callable
 
@@ -62,7 +63,13 @@ def _ansible_mandatory(value, msg: str = "Mandatory variable not set"):
     return value
 
 
+def _ansible_regex_replace(value: object, pattern: str, replacement: str = "") -> str:
+    """Mimic Ansible's ``| regex_replace`` filter."""
+    return re.sub(pattern, replacement, str(value))
+
+
 def _install_ansible_filters(env: Environment) -> None:
+    env.filters["regex_replace"] = _ansible_regex_replace
     env.filters["bool"] = _ansible_bool
     env.filters["to_json"] = lambda v, **_: json.dumps(v)
     env.filters["to_nice_json"] = lambda v, indent=4, **_: json.dumps(v, indent=indent)
