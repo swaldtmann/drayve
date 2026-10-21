@@ -25,6 +25,15 @@ evt.Meta.traefik_router_name startsWith 'nextcloud@' && evt.Meta.http_verb == 'G
 EXPR_END
 )"
 
+# Second expression: Nextcloud Deck loads every card of a board with one GET
+# (/apps/deck/api/v1.x/boards/N/stacks/N/cards/N, all 200) -> http-crawl-non_statics.
+# The common log format carries the query string in http_path, so an optional
+# ?... tail is allowed; nothing else may follow the card id.
+EXPR_DECK="$(cat <<'EXPR_END'
+evt.Meta.traefik_router_name startsWith 'nextcloud@' && evt.Meta.http_verb == 'GET' && evt.Meta.http_status == '200' && evt.Meta.http_path matches '^(/index\\.php)?/apps/deck/api/v1\\.[0-9]+/boards/[0-9]+/stacks/[0-9]+/cards/[0-9]+(\\?[^/]*)?$'
+EXPR_END
+)"
+
 cleanup() { docker rm -f "$NAME" >/dev/null 2>&1; rm -rf "${WORK:?}"; }
 trap cleanup EXIT
 
@@ -44,6 +53,9 @@ def variant(ip, suffix, statuses):
     # status-path look-alikes that the narrowed expression must NOT whitelist
     return [line(ip, PFX + suffix(i), statuses[i % len(statuses)], i, "nextcloud@docker")
             for i in range(1, 61)]
+def deck(ip, router, status, tail=lambda i: "", index=False):
+    base = ("/index.php" if index else "") + "/apps/deck/api/v1.0/boards/7/stacks/3/cards/"
+    return [line(ip, f"{base}{1000 + i}{tail(i)}", status, i, router) for i in range(1, 61)]
 sets = {
     # A: the real-world burst, on the nextcloud router
     "A_status_nextcloud": status_paths("203.0.113.11", "nextcloud@docker"),
@@ -57,18 +69,26 @@ sets = {
     "E_encoded_slash": variant("203.0.113.15", lambda i: f"..%2Fadmin{i}.php", [404]),
     "F_extra_segment": variant("203.0.113.16", lambda i: f"user{i:02d}/extra{i}", [404]),
     "G_status_401_403": variant("203.0.113.17", lambda i: f"user{i:02d}", [401, 403]),
+    # H-L: Deck card burst (60 distinct card ids) and look-alikes
+    "H_deck_nextcloud": deck("203.0.113.21", "nextcloud@docker", 200),
+    "I_deck_other_router": deck("203.0.113.22", "other@docker", 200),
+    "J_deck_404": deck("203.0.113.23", "nextcloud@docker", 404),
+    "K_deck_extra_segment": deck("203.0.113.24", "nextcloud@docker", 200, tail=lambda i: f"/attachments/{i}"),
+    "L_deck_query_string": deck("203.0.113.25", "nextcloud@docker", 200, tail=lambda i: f"?x={i}"),
+    "M_deck_v1_0_index_php": deck("203.0.113.26", "nextcloud@docker", 200, index=True),
 }
 for name, lines in sets.items():
     open(f"{out}/{name}.log", "w").write("\n".join(lines) + "\n")
 PY
 
-SETS=(A_status_nextcloud B_random404_nextcloud C_status_other D_query_string E_encoded_slash F_extra_segment G_status_401_403)
+SETS=(A_status_nextcloud B_random404_nextcloud C_status_other D_query_string E_encoded_slash F_extra_segment G_status_401_403 H_deck_nextcloud I_deck_other_router J_deck_404 K_deck_extra_segment L_deck_query_string M_deck_v1_0_index_php)
 
-run_mode() { # $1 = without|with
-  local mode="$1" mount=()
-  if [ "$mode" = with ]; then
+run_mode() { # $1 = without|old|with  (old = user_status expression only)
+  local mode="$1" mount=() exprs=("$EXPR")
+  [ "$mode" = with ] && exprs+=("$EXPR_DECK")
+  if [ "$mode" != without ]; then
     "$PYTHON" "$ROOT/tests/crowdsec/render_whitelist.py" \
-      "$("$PYTHON" -c 'import json,sys; print(json.dumps({"crowdsec_whitelist": ["127.0.0.1"], "crowdsec_whitelist_expressions": [sys.argv[1]]}))' "$EXPR")" \
+      "$("$PYTHON" -c 'import json,sys; print(json.dumps({"crowdsec_whitelist": ["127.0.0.1"], "crowdsec_whitelist_expressions": sys.argv[1:]}))' "${exprs[@]}")" \
       >"$WORK/whitelist.yaml" || { echo "FAIL: render"; FAILS=$((FAILS+1)); return; }
     mount=(-v "$WORK/whitelist.yaml:/etc/crowdsec/parsers/s02-enrich/whitelist.yaml:ro")
   fi
@@ -96,6 +116,7 @@ run_mode() { # $1 = without|with
 
 declare -A OVERFLOWS
 run_mode without
+run_mode old
 run_mode with
 
 check() { # $1 label, $2 mode, $3 set, $4 expect: over|quiet
@@ -115,6 +136,14 @@ check "with exception: (i) query string still overflows"    with    D_query_stri
 check "with exception: (ii) ..%2F suffix still overflows"   with    E_encoded_slash      over
 check "with exception: (iii) extra segment still overflows" with    F_extra_segment      over
 check "with exception: (iv) status 401/403 still overflows" with    G_status_401_403     over
+check "without deck exception: deck burst overflows (RED)" old     H_deck_nextcloud     over
+check "with deck exception: deck burst is quiet"           with    H_deck_nextcloud     quiet
+check "with deck exception: other router still overflows"  with    I_deck_other_router  over
+check "with deck exception: status 404 still overflows"    with    J_deck_404           over
+check "with deck exception: extra segment still overflows" with    K_deck_extra_segment over
+check "with deck exception: /index.php v1.0 form is quiet" with    M_deck_v1_0_index_php quiet
+check "with deck exception: ?query tail on card id is quiet" with    L_deck_query_string  quiet
+check "with deck exception: user_status burst still quiet" with    A_status_nextcloud   quiet
 
 [ "$FAILS" = 0 ] && echo "PASS" || echo "$FAILS check(s) failed"
 [ "$FAILS" = 0 ]
