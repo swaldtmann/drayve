@@ -40,3 +40,53 @@ def test_service_unit_sets_resolve_ip_from_role_variable() -> None:
 def test_defaults_pin_probe_to_loopback() -> None:
     text = (TEMPLATES.parent / "defaults" / "main.yml").read_text(encoding="utf-8")
     assert 'bouncer_watchdog_resolve_ip: "127.0.0.1"' in text
+
+
+def _rendered_unit_url(**ctx: object) -> str:
+    """Render the real defaults + service unit the way the traefik role sees them.
+
+    The traefik role runs BEFORE the deploy role (playbooks/deploy.yml), so the
+    deploy role's `landing_domain` fact does not exist yet. Only group_vars
+    (`landing_domain: ""`) and stack.yaml (`services.landing.domain`) are known.
+    """
+    import jinja2
+    import yaml
+
+    defaults = yaml.safe_load(
+        (TEMPLATES.parent / "defaults" / "main.yml").read_text(encoding="utf-8")
+    )
+    jenv = jinja2.Environment(undefined=jinja2.StrictUndefined)
+    context = {"drayve_domain": "example.org", **ctx}
+    context["bouncer_watchdog_check_url"] = jenv.from_string(
+        defaults["bouncer_watchdog_check_url"]
+    ).render(context)
+    context.update(
+        bouncer_watchdog_resolve_ip="127.0.0.1",
+        bouncer_watchdog_threshold_seconds=60,
+        bouncer_watchdog_curl_timeout=10,
+        drayve_deploy_dir="/opt/drayve/deploy/stack",
+    )
+    unit = jenv.from_string(
+        (TEMPLATES / "bouncer-watchdog.service.j2").read_text(encoding="utf-8")
+    ).render(context)
+    lines = [ln for ln in unit.splitlines() if ln.startswith("Environment=URL=")]
+    assert len(lines) == 1
+    return lines[0].removeprefix("Environment=URL=")
+
+
+def test_probe_url_uses_stack_landing_domain() -> None:
+    url = _rendered_unit_url(
+        landing_domain="", services={"landing": {"domain": "dash.example.org"}}
+    )
+    assert url == "https://dash.example.org/"
+
+
+def test_probe_url_uses_landing_domain_var() -> None:
+    assert _rendered_unit_url(landing_domain="dash.example.org") == (
+        "https://dash.example.org/"
+    )
+
+
+def test_probe_url_falls_back_to_drayve_domain() -> None:
+    assert _rendered_unit_url() == "https://example.org/"
+    assert _rendered_unit_url(landing_domain="", services={}) == "https://example.org/"

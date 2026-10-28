@@ -18,6 +18,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `curl --resolve <host>:<port>:<ip>` (SNI and Host routing unchanged). New
   role variable `bouncer_watchdog_resolve_ip`, default `127.0.0.1`; set to `""`
   for the previous behaviour.
+- **Watchdog probe host is now the landing domain.** Pinned to loopback, a
+  `drayve_domain` that this Traefik has no router for (apex owned by another
+  site, landing on `services.landing.domain`) returns 404 and would cause a
+  restart loop. `bouncer_watchdog_check_url` now defaults to
+  `services.landing.domain` / `landing_domain`, falling back to `drayve_domain`.
+  With the landing disabled and no app on the apex, set the URL explicitly.
 
 ## [0.9.0] - 2026-10-20
 

@@ -60,7 +60,16 @@ crowdsec_whitelist_ips:
 # a known 200 route, restarts Traefik if the plugin does not respond for longer than
 # threshold_seconds or returns 403.
 bouncer_watchdog_enabled: true
-bouncer_watchdog_check_url: "https://{{ drayve_domain }}/"
+# The probe host must be one this Traefik has a router for: the landing domain
+# (services.landing.domain in stack.yaml, else drayve_domain). The traefik role
+# runs before the deploy role, so the deploy role's landing_domain fact is not
+# set yet; group_vars defines landing_domain as "" (hence the `or` chain, not
+# `default()`). Caveat: with landing disabled (services.landing.enabled: false)
+# there is no router for the apex unless the app itself owns it; if it does
+# not, the probe gets 404 and the watchdog restarts Traefik in a loop. Then set
+# bouncer_watchdog_check_url to a host this Traefik serves, or disable the
+# watchdog (bouncer_watchdog_enabled: false).
+bouncer_watchdog_check_url: "https://{{ (landing_domain | default('', true)) or ((services | default({})).landing | default({})).domain | default('', true) or drayve_domain }}/"
 # Pin the probe to this IP (curl --resolve <host>:<port>:<ip>) so it hits THIS
 # host's Traefik even when the public DNS name of drayve_domain points to
 # another server. Host name stays in the URL (SNI + Host routing intact).
