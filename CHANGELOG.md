@@ -18,6 +18,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Fixed
 - The landing page footer showed a hard-coded `0.1.0` (the stack.yaml schema
   version). It now shows the version from `deploy_ref`, `dev` if none is given.
+- **Bouncer watchdog no longer restarts a Traefik container that was just
+  (re)created.** The timer starts in the traefik role, before the stack exists,
+  so its restart tick (marker + 60 s) could land exactly while the deploy role ran
+  `docker compose up -d --force-recreate traefik`. The race left the new container
+  without a network and the next `compose up` recreated it (molecule `integration`
+  idempotence failure in the v0.9.1 gate, earlier `backup` in v0.8.12). The watchdog
+  now skips the restart and resets its marker while Traefik is `created`/`restarting`
+  or has run for less than the threshold.
 
 ## [0.9.1] - 2026-10-28
 

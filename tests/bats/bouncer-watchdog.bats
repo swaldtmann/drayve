@@ -310,3 +310,87 @@ EOS
     [ ! -f "${FAIL_FILE}" ]
     grep -q "recovery" "${TMP}/log.out"
 }
+
+# ===== warm-up guard: never restart a Traefik container that was just (re)created =====
+# Molecule integration idempotence flake: the watchdog timer starts in the
+# traefik role, long before the stack exists. It fails the probe until the
+# stack is up, and its restart tick (marker + 60 s) can land exactly while the
+# deploy role runs `docker compose up -d --force-recreate traefik`. The race
+# leaves the new container without a network, the next `compose up` recreates it.
+
+# UTC timestamp N seconds ago in docker's StartedAt layout (GNU date or BSD date).
+ts_ago() {
+    local e=$(( $(date +%s) - $1 ))
+    date -u -d "@${e}" +%Y-%m-%dT%H:%M:%S.123456789Z 2>/dev/null ||
+        date -u -r "${e}" +%Y-%m-%dT%H:%M:%S.123456789Z
+}
+
+# Mock docker: `inspect` answers with $INSPECT_OUT / exits $INSPECT_RC,
+# `compose ...` is recorded in $TMP/docker.calls.
+make_mock_docker_warmup() {
+    cat > "${TMP}/bin/mock-docker-warmup" <<'EOS'
+#!/usr/bin/env bash
+if [[ "$1" == "inspect" ]]; then
+    [[ -n "${INSPECT_OUT:-}" ]] && echo "${INSPECT_OUT}"
+    exit "${INSPECT_RC:-0}"
+fi
+echo "$*" >> "${TMP}/docker.calls"
+exit 0
+EOS
+    chmod +x "${TMP}/bin/mock-docker-warmup"
+    export DOCKER_BIN="${TMP}/bin/mock-docker-warmup"
+}
+
+@test "main: old marker + traefik running only 5 s → NO restart, marker reset" {
+    make_mock_docker_warmup
+    export INSPECT_OUT="running $(ts_ago 5)"
+    echo $(( $(date +%s) - 120 )) > "${FAIL_FILE}"
+    export CURL_BIN="${TMP}/bin/mock-curl-403"
+    run bash "${SCRIPT}"
+    [ "${status}" -eq 0 ]
+    [ ! -f "${FAIL_FILE}" ]
+    [ ! -f "${TMP}/docker.calls" ]
+    ! grep -q "restarting traefik" "${TMP}/log.out"
+    grep -q "no restart" "${TMP}/log.out"
+}
+
+@test "main: old marker + traefik just created (not started yet) → NO restart" {
+    make_mock_docker_warmup
+    export INSPECT_OUT="created 0001-01-01T00:00:00Z"
+    echo $(( $(date +%s) - 120 )) > "${FAIL_FILE}"
+    export CURL_BIN="${TMP}/bin/mock-curl-403"
+    run bash "${SCRIPT}"
+    [ "${status}" -eq 0 ]
+    [ ! -f "${TMP}/docker.calls" ]
+    ! grep -q "restarting traefik" "${TMP}/log.out"
+}
+
+@test "main: old marker + traefik running for 5 min → restart as before" {
+    make_mock_docker_warmup
+    export INSPECT_OUT="running $(ts_ago 300)"
+    echo $(( $(date +%s) - 120 )) > "${FAIL_FILE}"
+    export CURL_BIN="${TMP}/bin/mock-curl-403"
+    run bash "${SCRIPT}"
+    [ "${status}" -eq 0 ]
+    [ ! -f "${FAIL_FILE}" ]
+    grep -q "compose restart traefik" "${TMP}/docker.calls"
+    grep -q "restarting traefik" "${TMP}/log.out"
+}
+
+@test "main: old marker + traefik exited → restart as before" {
+    make_mock_docker_warmup
+    export INSPECT_OUT="exited $(ts_ago 5)"
+    echo $(( $(date +%s) - 120 )) > "${FAIL_FILE}"
+    export CURL_BIN="${TMP}/bin/mock-curl-403"
+    run bash "${SCRIPT}"
+    grep -q "compose restart traefik" "${TMP}/docker.calls"
+}
+
+@test "main: old marker + no traefik container (inspect fails) → restart attempt as before" {
+    make_mock_docker_warmup
+    export INSPECT_RC=1
+    echo $(( $(date +%s) - 120 )) > "${FAIL_FILE}"
+    export CURL_BIN="${TMP}/bin/mock-curl-403"
+    run bash "${SCRIPT}"
+    grep -q "compose restart traefik" "${TMP}/docker.calls"
+}
