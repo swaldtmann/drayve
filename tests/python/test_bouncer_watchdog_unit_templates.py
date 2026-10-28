@@ -30,3 +30,13 @@ def test_description_and_documentation_on_separate_lines(name: str) -> None:
     assert "Documentation=" not in desc[0], (
         f"{name}: Documentation= is glued onto the Description= line"
     )
+
+
+def test_service_unit_sets_resolve_ip_from_role_variable() -> None:
+    text = (TEMPLATES / "bouncer-watchdog.service.j2").read_text(encoding="utf-8")
+    assert "Environment=RESOLVE_IP={{ bouncer_watchdog_resolve_ip }}" in text
+
+
+def test_defaults_pin_probe_to_loopback() -> None:
+    text = (TEMPLATES.parent / "defaults" / "main.yml").read_text(encoding="utf-8")
+    assert 'bouncer_watchdog_resolve_ip: "127.0.0.1"' in text

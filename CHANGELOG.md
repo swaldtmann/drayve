@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- **Bouncer watchdog probes this host's Traefik, not whatever the public DNS
+  name points to.** The probe used `bouncer_watchdog_check_url` over public DNS;
+  if `drayve_domain` resolves to another server, the watchdog saw a foreign
+  healthy site (missing a dead local Traefik) or a foreign outage (restarting a
+  healthy local Traefik in a loop). The probe now pins the host via
+  `curl --resolve <host>:<port>:<ip>` (SNI and Host routing unchanged). New
+  role variable `bouncer_watchdog_resolve_ip`, default `127.0.0.1`; set to `""`
+  for the previous behaviour.
+
 ## [0.9.0] - 2026-10-20
 
 ### Changed

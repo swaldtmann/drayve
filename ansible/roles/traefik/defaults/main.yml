@@ -61,6 +61,12 @@ crowdsec_whitelist_ips:
 # threshold_seconds or returns 403.
 bouncer_watchdog_enabled: true
 bouncer_watchdog_check_url: "https://{{ drayve_domain }}/"
+# Pin the probe to this IP (curl --resolve <host>:<port>:<ip>) so it hits THIS
+# host's Traefik even when the public DNS name of drayve_domain points to
+# another server. Host name stays in the URL (SNI + Host routing intact).
+# Traefik publishes 443 (and 80) on the host, so loopback is correct. Set to
+# "" to probe via public DNS as before.
+bouncer_watchdog_resolve_ip: "127.0.0.1"
 bouncer_watchdog_interval_seconds: 30
 bouncer_watchdog_threshold_seconds: 60
 bouncer_watchdog_curl_timeout: 10

@@ -7,6 +7,7 @@ Requires=docker.service
 [Service]
 Type=oneshot
 Environment=URL={{ bouncer_watchdog_check_url }}
+Environment=RESOLVE_IP={{ bouncer_watchdog_resolve_ip }}
 Environment=THRESHOLD={{ bouncer_watchdog_threshold_seconds }}
 Environment=TIMEOUT={{ bouncer_watchdog_curl_timeout }}
 Environment=STACK_DIR={{ drayve_deploy_dir }}
