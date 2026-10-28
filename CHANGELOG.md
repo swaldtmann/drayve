@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-10-28
+
 ### Fixed
 - **Bouncer watchdog probes this host's Traefik, not whatever the public DNS
   name points to.** The probe used `bouncer_watchdog_check_url` over public DNS;
