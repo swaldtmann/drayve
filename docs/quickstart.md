@@ -92,6 +92,8 @@ This will:
 6. Deploy monitoring stack (Grafana, Prometheus, Loki — depending on profile)
 7. Deploy CrowdSec (intrusion detection)
 
+As its last step a successful `deploy.yml` run writes `/opt/drayve/VERSION` on the host (world-readable, `key=value` lines: `drayve`, `site`, `kedge`, `deployed`, `from`), so you can see on the server which release and site commit produced the running stack.
+
 After provisioning, your services are available at:
 - `https://shop.example.com` — Landing page
 - `https://grafana.shop.example.com` — Grafana dashboards (if monitoring: full)

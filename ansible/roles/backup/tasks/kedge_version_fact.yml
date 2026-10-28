@@ -1,0 +1,37 @@
+---
+# Read-only, included at the end of playbooks/deploy.yml (via tasks/version_file.yml)
+# through `include_role: name=backup tasks_from=kedge_version_fact`.
+#
+# Sets the fact `backup_deploy_kedge_version` for /opt/drayve/VERSION:
+#   none           backup disabled or target is not kedge
+#   not-installed  target is kedge but the checkout is missing / has no tag
+#   <describe>     output of `git describe --tags` in backup_kedge_install_dir
+# Never fails, never changes the host. Same enable/target resolution as
+# kedge_version_hint.yml.
+- name: Kedge version for the VERSION file (backup enabled, target kedge)
+  when:
+    - (backup.enabled | default(backup_enabled) | default(false) | bool)
+    - (backup.target | default(backup_target) | default('local')) == 'kedge'
+  tags: [backup]
+  block:
+    # git module cannot describe without touching the checkout; this is read-only.
+    - name: Read kedge version on the host (read-only)  # noqa: command-instead-of-module
+      ansible.builtin.command:
+        cmd: "git -C {{ backup_kedge_install_dir }} describe --tags"
+      register: backup_kedge_fact_probe
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Remember kedge version
+      ansible.builtin.set_fact:
+        backup_deploy_kedge_version: >-
+          {{ (backup_kedge_fact_probe.stdout | trim)
+          if (backup_kedge_fact_probe.rc == 0 and (backup_kedge_fact_probe.stdout | trim) != '')
+          else 'not-installed' }}
+
+- name: No kedge target
+  ansible.builtin.set_fact:
+    backup_deploy_kedge_version: 'none'
+  when: backup_deploy_kedge_version is not defined
+  tags: [backup]

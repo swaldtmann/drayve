@@ -61,3 +61,9 @@
       ansible.builtin.include_role:
         name: backup
         tasks_from: kedge_version_hint
+
+    # Last step on purpose: only reached when everything above succeeded.
+    # Records which drayve / site / kedge produced the running stack in
+    # {{ drayve_root }}/VERSION (see tasks/version_file.yml).
+    - name: Write the VERSION file
+      ansible.builtin.import_tasks: ../tasks/version_file.yml

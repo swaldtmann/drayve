@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- `deploy.yml` writes `/opt/drayve/VERSION` (mode 0644) as its last step:
+  `drayve=<deploy_ref> (<commit>)`, `site=<name> <commit>[ dirty]`,
+  `kedge=<version|none|not-installed>`, `deployed=<ISO-8601>`, `from=<control host>`.
+  Repeated identical deploys keep `deployed=`/`from=` unchanged, so the run reports no change.
+
+### Fixed
+- The landing page footer showed a hard-coded `0.1.0` (the stack.yaml schema
+  version). It now shows the version from `deploy_ref`, `dev` if none is given.
+
 ## [0.9.1] - 2026-10-28
 
 ### Fixed
