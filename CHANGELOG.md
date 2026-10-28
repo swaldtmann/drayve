@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-10-28
+
 ### Added
 - `deploy.yml` writes `/opt/drayve/VERSION` (mode 0644) as its last step:
   `drayve=<deploy_ref> (<commit>)`, `site=<name> <commit>[ dirty]`,
