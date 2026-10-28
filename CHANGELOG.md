@@ -24,6 +24,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   restart loop. `bouncer_watchdog_check_url` now defaults to
   `services.landing.domain` / `landing_domain`, falling back to `drayve_domain`.
   With the landing disabled and no app on the apex, set the URL explicitly.
+- **Watchdog counts HTTP 401 as healthy.** The landing router carries Basic-Auth
+  (`auth@file`), so the unauthenticated probe gets 401. The CrowdSec bouncer is a
+  global entrypoint middleware that runs before it, hence 401 shows Traefik is up
+  and the bouncer let the request through. 403 and timeouts still count as failure.
 
 ## [0.9.0] - 2026-10-20
 

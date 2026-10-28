@@ -267,3 +267,46 @@ EOS
     ! grep -q -- "--resolve" "${TMP}/curl.args"
     grep -q -- "https://example.test/" "${TMP}/curl.args"
 }
+
+# ===== 401 = alive: Basic-Auth sits behind the bouncer =====
+
+@test "is_healthy_status: 401 is healthy (auth@file answers behind the bouncer)" {
+    source "${SCRIPT}"
+    is_healthy_status 401
+}
+
+@test "is_healthy_status: 402 and 403 stay NOT healthy" {
+    source "${SCRIPT}"
+    ! is_healthy_status 402
+    ! is_healthy_status 403
+}
+
+@test "main: 401 + no marker → noop (no marker, no restart)" {
+    cat > "${TMP}/bin/mock-curl-401" <<'EOS'
+#!/usr/bin/env bash
+echo -n "401"
+exit 0
+EOS
+    chmod +x "${TMP}/bin/mock-curl-401"
+    export CURL_BIN="${TMP}/bin/mock-curl-401"
+    source "${SCRIPT}"
+    run main
+    [ "${status}" -eq 0 ]
+    [ ! -f "${FAIL_FILE}" ]
+}
+
+@test "main: 401 + existing marker → recovery, marker removed" {
+    cat > "${TMP}/bin/mock-curl-401" <<'EOS'
+#!/usr/bin/env bash
+echo -n "401"
+exit 0
+EOS
+    chmod +x "${TMP}/bin/mock-curl-401"
+    export CURL_BIN="${TMP}/bin/mock-curl-401"
+    date +%s > "${FAIL_FILE}"
+    source "${SCRIPT}"
+    run main
+    [ "${status}" -eq 0 ]
+    [ ! -f "${FAIL_FILE}" ]
+    grep -q "recovery" "${TMP}/log.out"
+}

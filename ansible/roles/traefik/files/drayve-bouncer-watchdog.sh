@@ -6,7 +6,7 @@
 #   (b) hold mode after stream-state drift  → HTTP stream hangs, no response
 #
 # Strategy: one curl against ${URL} per tick with ${TIMEOUT}s. On failure
-# (HTTP not 2xx/3xx or curl timeout) a marker with the first-failure time
+# (HTTP not 2xx/3xx/401 or curl timeout) a marker with the first-failure time
 # is written. If the failure lasts longer than ${THRESHOLD}s, the script restarts
 # Traefik via `docker compose restart traefik` and deletes the marker. Success
 # deletes the marker.
@@ -48,9 +48,14 @@ log() {
     "${LOGGER_BIN}" -t drayve-bouncer-watchdog "$1"
 }
 
+# 2xx/3xx, plus 401: the landing router carries auth@file (Basic-Auth), which
+# answers 401 to an unauthenticated probe. The bouncer plugin is a global
+# entrypoint middleware and runs before router middlewares, so a 401 proves
+# Traefik is up and the bouncer let the request through. 403 (bouncer
+# fail-closed) and timeouts stay unhealthy.
 is_healthy_status() {
     local code="$1"
-    [[ "${code}" =~ ^[23][0-9][0-9]$ ]]
+    [[ "${code}" =~ ^[23][0-9][0-9]$ || "${code}" == "401" ]]
 }
 
 probe() {
