@@ -19,6 +19,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - The landing page footer showed a hard-coded `0.1.0` (the stack.yaml schema
   version). It now shows the version from `deploy_ref`, `dev` if none is given.
 
+## [0.9.1] - 2026-10-28
+
+### Fixed
+- **Bouncer watchdog probes this host's Traefik, not whatever the public DNS
+  name points to.** The probe used `bouncer_watchdog_check_url` over public DNS;
+  if `drayve_domain` resolves to another server, the watchdog saw a foreign
+  healthy site (missing a dead local Traefik) or a foreign outage (restarting a
+  healthy local Traefik in a loop). The probe now pins the host via
+  `curl --resolve <host>:<port>:<ip>` (SNI and Host routing unchanged). New
+  role variable `bouncer_watchdog_resolve_ip`, default `127.0.0.1`; set to `""`
+  for the previous behaviour.
+- **Watchdog probe host is now the landing domain.** Pinned to loopback, a
+  `drayve_domain` that this Traefik has no router for (apex owned by another
+  site, landing on `services.landing.domain`) returns 404 and would cause a
+  restart loop. `bouncer_watchdog_check_url` now defaults to
+  `services.landing.domain` / `landing_domain`, falling back to `drayve_domain`.
+  With the landing disabled and no app on the apex, set the URL explicitly.
+- **Watchdog counts HTTP 401 as healthy.** The landing router carries Basic-Auth
+  (`auth@file`), so the unauthenticated probe gets 401. The CrowdSec bouncer is a
+  global entrypoint middleware that runs before it, hence 401 shows Traefik is up
+  and the bouncer let the request through. 403 and timeouts still count as failure.
+
 ## [0.9.0] - 2026-10-20
 
 ### Changed

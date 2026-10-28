@@ -6,7 +6,7 @@
 #   (b) hold mode after stream-state drift  → HTTP stream hangs, no response
 #
 # Strategy: one curl against ${URL} per tick with ${TIMEOUT}s. On failure
-# (HTTP not 2xx/3xx or curl timeout) a marker with the first-failure time
+# (HTTP not 2xx/3xx/401 or curl timeout) a marker with the first-failure time
 # is written. If the failure lasts longer than ${THRESHOLD}s, the script restarts
 # Traefik via `docker compose restart traefik` and deletes the marker. Success
 # deletes the marker.
@@ -16,6 +16,10 @@
 #
 # Variables via environment (the systemd service unit sets them):
 #   URL        — health-check URL (apex domain is typical)
+#   RESOLVE_IP — pin the probe to this IP via curl --resolve <host>:<port>:<ip>
+#                (host/port derived from URL; SNI + Host header stay intact).
+#                Makes the probe hit this host's Traefik even if the public DNS
+#                name points elsewhere. Empty/unset = plain curl, no pinning.
 #   THRESHOLD  — seconds until the restart trigger (default 60)
 #   TIMEOUT    — curl --max-time (default 10)
 #   STACK_DIR  — docker compose path (default /opt/drayve/deploy/stack)
@@ -33,6 +37,7 @@ set -uo pipefail
 URL="${URL:-https://localhost/}"
 THRESHOLD="${THRESHOLD:-60}"
 TIMEOUT="${TIMEOUT:-10}"
+RESOLVE_IP="${RESOLVE_IP:-}"
 STACK_DIR="${STACK_DIR:-/opt/drayve/deploy/stack}"
 FAIL_FILE="${FAIL_FILE:-/var/run/drayve-bouncer-watchdog.fail}"
 LOGGER_BIN="${LOGGER_BIN:-logger}"
@@ -43,13 +48,32 @@ log() {
     "${LOGGER_BIN}" -t drayve-bouncer-watchdog "$1"
 }
 
+# 2xx/3xx, plus 401: the landing router carries auth@file (Basic-Auth), which
+# answers 401 to an unauthenticated probe. The bouncer plugin is a global
+# entrypoint middleware and runs before router middlewares, so a 401 proves
+# Traefik is up and the bouncer let the request through. 403 (bouncer
+# fail-closed) and timeouts stay unhealthy.
 is_healthy_status() {
     local code="$1"
-    [[ "${code}" =~ ^[23][0-9][0-9]$ ]]
+    [[ "${code}" =~ ^[23][0-9][0-9]$ || "${code}" == "401" ]]
 }
 
 probe() {
-    "${CURL_BIN}" -sk --max-time "${TIMEOUT}" -o /dev/null -w "%{http_code}" "${URL}" 2>/dev/null
+    local args=(-sk --max-time "${TIMEOUT}" -o /dev/null -w "%{http_code}")
+    if [[ -n "${RESOLVE_IP}" ]]; then
+        local scheme="${URL%%://*}" hostport="${URL#*://}" host port
+        hostport="${hostport%%/*}"
+        hostport="${hostport##*@}"
+        if [[ "${hostport}" =~ ^(.+):([0-9]+)$ ]]; then
+            host="${BASH_REMATCH[1]}"
+            port="${BASH_REMATCH[2]}"
+        else
+            host="${hostport}"
+            if [[ "${scheme}" == "http" ]]; then port=80; else port=443; fi
+        fi
+        args+=(--resolve "${host}:${port}:${RESOLVE_IP}")
+    fi
+    "${CURL_BIN}" "${args[@]}" "${URL}" 2>/dev/null
 }
 
 restart_traefik() {
