@@ -11,6 +11,13 @@
 # Traefik via `docker compose restart traefik` and deletes the marker. Success
 # deletes the marker.
 #
+# Warm-up guard: no restart while the Traefik container is not running yet
+# (created/restarting) or was started less than ${THRESHOLD}s ago. The failure
+# then predates this container (the timer starts before the stack exists, and a
+# deploy recreates Traefik); the marker is dropped and a new episode begins.
+# A restart that races `docker compose up --force-recreate traefik` leaves the
+# new container without a network (molecule integration idempotence flake).
+#
 # Idempotent — one restart per failure episode, not per tick.
 # Logs to syslog (tag drayve-bouncer-watchdog), always exits 0 (timer driver).
 #
@@ -76,6 +83,26 @@ probe() {
     "${CURL_BIN}" "${args[@]}" "${URL}" 2>/dev/null
 }
 
+# True when the Traefik container exists and is still in its warm-up: created or
+# restarting, or running for less than ${THRESHOLD}s. Unknown state, missing
+# container or exited/dead/paused: false (restart attempt as before).
+# Compares UTC timestamps as strings (YYYY-MM-DDTHH:MM:SS), no date parsing.
+traefik_in_warmup() {
+    local info state started cutoff epoch
+    info=$("${DOCKER_BIN}" inspect --format '{{.State.Status}} {{.State.StartedAt}}' traefik 2>/dev/null) || return 1
+    state="${info%% *}"
+    started="${info#* }"
+    started="${started:0:19}"
+    case "${state}" in
+        created | restarting) return 0 ;;
+        running) ;;
+        *) return 1 ;;
+    esac
+    epoch=$(( $(date +%s) - THRESHOLD ))
+    cutoff=$(date -u -d "@${epoch}" +%Y-%m-%dT%H:%M:%S 2>/dev/null || date -u -r "${epoch}" +%Y-%m-%dT%H:%M:%S 2>/dev/null) || return 1
+    [[ "${started}" > "${cutoff}" ]]
+}
+
 restart_traefik() {
     if ( cd "${STACK_DIR}" && "${DOCKER_BIN}" compose restart traefik >/dev/null 2>&1 ); then
         log "traefik restart issued"
@@ -111,6 +138,11 @@ main() {
     elapsed=$(( now - fail_since ))
 
     if (( elapsed >= THRESHOLD )); then
+        if traefik_in_warmup; then
+            log "fail >${THRESHOLD}s but traefik is created/started <${THRESHOLD}s ago — no restart, marker reset"
+            rm -f "${FAIL_FILE}"
+            return 0
+        fi
         log "fail >${THRESHOLD}s (elapsed=${elapsed}s status=${status} curl_exit=${curl_exit}) — restarting traefik"
         restart_traefik || true
         rm -f "${FAIL_FILE}"
