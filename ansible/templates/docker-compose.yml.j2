@@ -11,7 +11,7 @@ name: drayve
 {% set _grafana_authelia_oidc = auth_provider == 'authelia' and (monitoring_services.grafana | default(false) | bool) %}
 services:
   traefik:
-    image: {{ traefik_image | default('traefik:v3.6.25') }}
+    image: {{ traefik_image | default('traefik:v3.7.16') }}
     container_name: traefik
     restart: unless-stopped
     mem_limit: {{ mem_traefik }}
