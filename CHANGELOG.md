@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `/var/log/drayve-authelia-retention.log`. Installs the `sqlite3` package on `auth.provider: authelia` hosts.
   Authelia 4.39 has no retention option of its own.
 
+### Fixed
+- `.githooks/pre-push` no longer passes git's `GIT_DIR`/`GIT_INDEX_FILE`/... to `make test`; before, tests with throwaway repos failed in the hook and committed `init` into the pushed branch. The git helper in `tests/python/test_deploy_version_file.py` ignores them too.
+
 ### Changed
 - Traefik `v3.6.25` -> `v3.7.16`; CrowdSec bouncer plugin `v1.5.1` -> `v1.8.1`.
   **Upgrade notes (Traefik 3.7, upstream release notes):** `CONNECT` requests now get `501`;
