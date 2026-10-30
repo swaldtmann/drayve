@@ -156,6 +156,7 @@ count_rows() {
 }
 
 @test "DB readable but not writable: delete fails, exit 1, rows intact" {
+    [ "$(id -u)" -ne 0 ] || skip "root ignores file modes (CI container runs as root)"
     make_db
     add_row 30
     chmod 444 "${AUTHELIA_DB}"
