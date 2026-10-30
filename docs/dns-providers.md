@@ -92,8 +92,8 @@ Hetzner retired the legacy DNS API (`dns.hetzner.com/api/v1`) in favor of the
 Hetzner Cloud DNS API (`api.hetzner.cloud/v1/zones`, GA 2025-11-10). lego
 added support for the new API + `HETZNER_API_TOKEN` in
 [PR #2663](https://github.com/go-acme/lego/pull/2663), merged 2025-10-14,
-released in **lego v4.27**. Drayve pins `traefik_image: traefik:v3.6`, which
-bundles **lego v4.35.x** — well past v4.27 — and the `hetzner` env-var default
+released in **lego v4.27**. Drayve pins `traefik_image: traefik:v3.7.16`, which
+bundles **lego v5.5.2** — well past v4.27, still reads `HETZNER_API_TOKEN` — and the `hetzner` env-var default
 above is already `HETZNER_API_TOKEN` (not the deprecated `HETZNER_API_KEY`).
 **No fix needed here**; this was a live risk at ticket-creation time
 (2026-07-14) that upstream had already resolved by the time it was
