@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-10-30
+
 ### Added
 - Authelia: daily prune of the sign-in log. `/etc/cron.d/drayve-authelia-retention` runs
   `/usr/local/sbin/drayve-authelia-retention`, which deletes `authentication_logs` rows older than
