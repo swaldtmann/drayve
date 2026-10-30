@@ -133,3 +133,7 @@ The workflow in `.gitea/workflows/test.yml` runs `scripts/notify-ci-failure.sh`
 when a push to `main` is red. It needs the repo secret `SLACK_BOT_TOKEN` and the
 repo variable `SLACK_CHANNEL` (Slack channel ID). There is no built-in channel:
 without `SLACK_CHANNEL` the script exits non-zero with a message.
+
+## Self-hosted CI
+
+How the CI runner is built and what the workflows run: [ci-self-hosted.md](ci-self-hosted.md).
