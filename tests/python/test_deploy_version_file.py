@@ -229,6 +229,7 @@ def test_git_helpers_ignore_hook_environment(tmp_path, monkeypatch):
     """git exports GIT_DIR & co. into hooks; throwaway repos must not commit into that repo."""
     real = tmp_path / "real"
     before = _repo(real)
+    bare_before = _git(real, "config", "core.bare")
     monkeypatch.setenv("GIT_DIR", str(real / ".git"))
     monkeypatch.setenv("GIT_INDEX_FILE", str(real / ".git" / "index"))
     monkeypatch.setenv("GIT_WORK_TREE", str(real))
@@ -238,3 +239,4 @@ def test_git_helpers_ignore_hook_environment(tmp_path, monkeypatch):
     monkeypatch.delenv("GIT_WORK_TREE")
     assert _git(real, "rev-parse", "--short", "HEAD") == before
     assert _git(real, "rev-list", "--count", "HEAD") == "1"
+    assert _git(real, "config", "core.bare") == bare_before
