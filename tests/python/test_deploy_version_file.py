@@ -29,8 +29,9 @@ ISO = r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}"
 
 
 def _git(cwd: Path, *args: str) -> str:
+    local_vars = set(subprocess.run(["git", "rev-parse", "--local-env-vars"], capture_output=True, text=True, check=True).stdout.split())
     git_env = {
-        **os.environ,
+        **{k: v for k, v in os.environ.items() if k not in local_vars},
         "GIT_AUTHOR_NAME": "t",
         "GIT_AUTHOR_EMAIL": "t@t",
         "GIT_COMMITTER_NAME": "t",
@@ -222,3 +223,18 @@ def test_footer_follows_deploy_ref():
     assert tpl.render(deploy_ref="v0.9.0", drayve_version="0.1.0") == "drayve 0.9.0"
     assert tpl.render(drayve_version="0.1.0") == "drayve 0.1.0"
     assert tpl.render() == "drayve dev"
+
+
+def test_git_helpers_ignore_hook_environment(tmp_path, monkeypatch):
+    """git exports GIT_DIR & co. into hooks; throwaway repos must not commit into that repo."""
+    real = tmp_path / "real"
+    before = _repo(real)
+    monkeypatch.setenv("GIT_DIR", str(real / ".git"))
+    monkeypatch.setenv("GIT_INDEX_FILE", str(real / ".git" / "index"))
+    monkeypatch.setenv("GIT_WORK_TREE", str(real))
+    _repo(tmp_path / "scratch")
+    monkeypatch.delenv("GIT_DIR")
+    monkeypatch.delenv("GIT_INDEX_FILE")
+    monkeypatch.delenv("GIT_WORK_TREE")
+    assert _git(real, "rev-parse", "--short", "HEAD") == before
+    assert _git(real, "rev-list", "--count", "HEAD") == "1"

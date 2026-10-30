@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- `.githooks/pre-push` no longer passes git's `GIT_DIR`/`GIT_INDEX_FILE`/... to `make test`; before, tests with throwaway repos failed in the hook and committed `init` into the pushed branch. The git helper in `tests/python/test_deploy_version_file.py` ignores them too.
+
 ### Changed
 - Monitoring images raised (no config migration required per upstream release notes):
   Prometheus `v3.4.0` -> `v3.15.1`, Loki `3.3.2` -> `3.7.9`, node-exporter `v1.10.2` -> `v1.12.1`.

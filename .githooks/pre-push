@@ -3,6 +3,11 @@
 # Runs: make test (ansible-lint + validate-stack.py on examples)
 set -euo pipefail
 
+# git exports GIT_DIR, GIT_INDEX_FILE, ... into hooks. Tests that create throwaway
+# repos would otherwise operate on this repo (stray "init" commits, "dirty" flags).
+# shellcheck disable=SC2046 # word splitting of the variable-name list is intended
+unset $(git rev-parse --local-env-vars)
+
 echo "==> Pre-push: running make test..."
 make test
 echo "==> Pre-push: passed"
