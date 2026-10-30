@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- Authelia: daily prune of the sign-in log. `/etc/cron.d/drayve-authelia-retention` runs
+  `/usr/local/sbin/drayve-authelia-retention`, which deletes `authentication_logs` rows older than
+  `authelia_auth_log_retention_days` (default `14`) from `db.sqlite3` and logs the deleted count to
+  `/var/log/drayve-authelia-retention.log`. Installs the `sqlite3` package on `auth.provider: authelia` hosts.
+  Authelia 4.39 has no retention option of its own.
+
 ### Changed
 - Traefik `v3.6.25` -> `v3.7.16`; CrowdSec bouncer plugin `v1.5.1` -> `v1.8.1`.
   **Upgrade notes (Traefik 3.7, upstream release notes):** `CONNECT` requests now get `501`;

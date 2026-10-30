@@ -1,0 +1,7 @@
+# {{ ansible_managed }}
+# Generator: drayve role 'authelia', template roles/authelia/templates/authelia-retention-cron.j2.
+# Deletes authentication_logs rows older than {{ authelia_auth_log_retention_days }} days from the Authelia SQLite DB.
+MAILTO=""
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+{{ authelia_auth_log_retention_schedule }} root AUTHELIA_DB={{ authelia_data_dir }}/db.sqlite3 RETENTION_DAYS={{ authelia_auth_log_retention_days }} /usr/local/sbin/drayve-authelia-retention >> {{ authelia_auth_log_retention_log_file }} 2>&1
