@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- Authelia: daily prune of the sign-in log. `/etc/cron.d/drayve-authelia-retention` runs
+  `/usr/local/sbin/drayve-authelia-retention`, which deletes `authentication_logs` rows older than
+  `authelia_auth_log_retention_days` (default `14`) from `db.sqlite3` and logs the deleted count to
+  `/var/log/drayve-authelia-retention.log`. Installs the `sqlite3` package on `auth.provider: authelia` hosts.
+  Authelia 4.39 has no retention option of its own.
+
 ### Changed
 - Monitoring images raised (no config migration required per upstream release notes):
   Prometheus `v3.4.0` -> `v3.15.1`, Loki `3.3.2` -> `3.7.9`, node-exporter `v1.10.2` -> `v1.12.1`.

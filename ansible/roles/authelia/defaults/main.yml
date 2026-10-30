@@ -3,3 +3,9 @@ authelia_config_dir: "{{ drayve_deploy_dir }}/authelia"
 authelia_data_dir: "{{ drayve_deploy_dir }}/authelia/data"
 authelia_image: authelia/authelia:4.39.28
 authelia_reset_db_on_key_change: false
+# Daily prune of the sign-in log (`authentication_logs`) in db.sqlite3: rows older
+# than this many days are deleted. Authelia 4.39 has no retention option itself.
+# Integer >= 1; anything else makes the script fall back to 14.
+authelia_auth_log_retention_days: 14
+authelia_auth_log_retention_schedule: "17 3 * * *"
+authelia_auth_log_retention_log_file: /var/log/drayve-authelia-retention.log
