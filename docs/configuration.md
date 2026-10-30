@@ -376,11 +376,11 @@ Every container image drayve deploys is pinned to exact versions, not to floatin
 | Authentik Postgres | `postgres:16.15-alpine` | `authentik_pg_image` in `ansible/inventory/group_vars/all/vars.yml`; fallback in `ansible/templates/docker-compose.yml.j2`; `molecule/authentik*/molecule.yml` | `authentik` |
 | Authentik Redis | `redis:7.4.11-alpine` | `authentik_redis_image` in `ansible/inventory/group_vars/all/vars.yml`; fallback in `ansible/templates/docker-compose.yml.j2`; `molecule/authentik*/molecule.yml` | `authentik` |
 | Grafana | `grafana/grafana:12.4.12` | `grafana_image` in `ansible/inventory/group_vars/all/vars.yml` and every `molecule/*/molecule.yml` | `authelia` (login) |
-| Prometheus | `prom/prometheus:v3.4.0` | `prometheus_image` in `ansible/inventory/group_vars/all/vars.yml` and every `molecule/*/molecule.yml` | `basic` |
-| Loki | `grafana/loki:3.3.2` | `loki_image` in `ansible/inventory/group_vars/all/vars.yml` and every `molecule/*/molecule.yml` | `basic` |
-| Promtail | `grafana/promtail:3.3.2` | `promtail_image` in `ansible/inventory/group_vars/all/vars.yml` and every `molecule/*/molecule.yml` | `basic` |
-| node-exporter | `prom/node-exporter:v1.10.2` | `node_exporter_image` in `ansible/inventory/group_vars/all/vars.yml` and every `molecule/*/molecule.yml` | `basic` |
-| cAdvisor | `ghcr.io/google/cadvisor:0.56.2` | `cadvisor_image` in `ansible/inventory/group_vars/all/vars.yml` and every `molecule/*/molecule.yml` | `basic` |
+| Prometheus | `prom/prometheus:v3.15.1` | `prometheus_image` in `ansible/inventory/group_vars/all/vars.yml` and every `molecule/*/molecule.yml` | `basic` |
+| Loki | `grafana/loki:3.7.9` | `loki_image` in `ansible/inventory/group_vars/all/vars.yml` and every `molecule/*/molecule.yml` | `basic` |
+| Promtail | `grafana/promtail:3.6.11` | `promtail_image` in `ansible/inventory/group_vars/all/vars.yml` and every `molecule/*/molecule.yml` | `basic` |
+| node-exporter | `prom/node-exporter:v1.12.1` | `node_exporter_image` in `ansible/inventory/group_vars/all/vars.yml` and every `molecule/*/molecule.yml` | `basic` |
+| cAdvisor | `ghcr.io/google/cadvisor:0.60.6` | `cadvisor_image` in `ansible/inventory/group_vars/all/vars.yml` and every `molecule/*/molecule.yml` | `basic` |
 
 Postgres and Redis belong to Authentik: bump them only inside their major line (16.x, 7.x). A Postgres major change needs a data migration and is not a plain version bump.
 

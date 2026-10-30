@@ -70,12 +70,12 @@ provisioner:
         authentik_image: ghcr.io/goauthentik/server:2025.10.4
         authentik_pg_image: postgres:16.15-alpine
         authentik_redis_image: redis:7.4.11-alpine
-        node_exporter_image: prom/node-exporter:v1.10.2
-        cadvisor_image: ghcr.io/google/cadvisor:0.56.2
-        loki_image: grafana/loki:3.3.2
-        promtail_image: grafana/promtail:3.3.2
+        node_exporter_image: prom/node-exporter:v1.12.1
+        cadvisor_image: ghcr.io/google/cadvisor:0.60.6
+        loki_image: grafana/loki:3.7.9
+        promtail_image: grafana/promtail:3.6.11
         grafana_image: grafana/grafana:12.4.12
-        prometheus_image: prom/prometheus:v3.4.0
+        prometheus_image: prom/prometheus:v3.15.1
         # --- Memory limits ---
         mem_traefik: 256m
         mem_crowdsec: 512m

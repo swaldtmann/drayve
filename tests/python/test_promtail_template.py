@@ -164,7 +164,7 @@ def test_promtail_config_default_with_extra_scrape_configs_is_byte_identical_to_
 def test_compose_promtail_snippet_default_is_byte_identical_to_v082(compose_env):
     ctx = {
         "monitoring_services": {"promtail": True},
-        "promtail_image": "grafana/promtail:3.3.2",
+        "promtail_image": "grafana/promtail:3.6.11",
         "mem_promtail": "128m",
         "_deploy_promtail_basic_auth_user": "",
     }
@@ -177,7 +177,7 @@ def test_compose_promtail_snippet_undefined_user_is_byte_identical_to_v082(compo
     """`_deploy_promtail_basic_auth_user` entirely absent (e.g. old context) — `default('')` catches it."""
     ctx = {
         "monitoring_services": {"promtail": True},
-        "promtail_image": "grafana/promtail:3.3.2",
+        "promtail_image": "grafana/promtail:3.6.11",
         "mem_promtail": "128m",
     }
     old = _render_compose_snippet(compose_env, V082_PROMTAIL_COMPOSE_SNIPPET, **ctx)
@@ -212,7 +212,7 @@ def test_promtail_config_without_basic_auth_user_has_no_basic_auth_block(render_
 def test_compose_promtail_snippet_with_basic_auth_user_mounts_password_file(compose_env):
     ctx = {
         "monitoring_services": {"promtail": True},
-        "promtail_image": "grafana/promtail:3.3.2",
+        "promtail_image": "grafana/promtail:3.6.11",
         "mem_promtail": "128m",
         "_deploy_promtail_basic_auth_user": "buckbeak",
     }
@@ -226,7 +226,7 @@ def test_compose_promtail_snippet_with_basic_auth_user_mounts_password_file(comp
 def test_compose_promtail_snippet_without_basic_auth_user_has_no_password_mount(compose_env):
     ctx = {
         "monitoring_services": {"promtail": True},
-        "promtail_image": "grafana/promtail:3.3.2",
+        "promtail_image": "grafana/promtail:3.6.11",
         "mem_promtail": "128m",
         "_deploy_promtail_basic_auth_user": "",
     }

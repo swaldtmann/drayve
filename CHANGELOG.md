@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- Monitoring images raised (no config migration required per upstream release notes):
+  Prometheus `v3.4.0` -> `v3.15.1`, Loki `3.3.2` -> `3.7.9`, node-exporter `v1.10.2` -> `v1.12.1`.
+- Loki: the image has no shell since 3.5.8 (nothing in drayve execs into it or uses a shell healthcheck).
+- Promtail `3.3.2` -> `3.6.11`. **Promtail is EOL upstream (3.6 is the last line);** replacement (Alloy) is not part of this change.
+- cAdvisor `0.56.2` -> `0.60.6`. **Metric change since 0.57:** `container_start_time_seconds` semantics changed;
+  check dashboards/alerts using it (e.g. `config/grafana` `containers.json`).
+
 ## [0.9.2] - 2026-10-28
 
 ### Added

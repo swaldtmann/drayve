@@ -40,13 +40,13 @@ def _write(root: Path, rel: str, text: str) -> None:
 def mini_repo(tmp_path: Path) -> Path:
     _write(tmp_path, "ansible/inventory/group_vars/all/vars.yml",
            "grafana_image: grafana/grafana:12.3.6\n"
-           "cadvisor_image: ghcr.io/google/cadvisor:0.56.2\n"
+           "cadvisor_image: ghcr.io/google/cadvisor:0.60.6\n"
            "not_an_img: nope\n")
     _write(tmp_path, "ansible/roles/traefik/defaults/main.yml", "traefik_image: traefik:v3.6\n")
     _write(tmp_path, "molecule/basic/molecule.yml",
            "platforms:\n  - name: test-basic\n    image: ubuntu-24.04\n"
            "provisioner:\n  inventory:\n    group_vars:\n      all:\n"
-           "        loki_image: grafana/loki:3.3.2\n"
+           "        loki_image: grafana/loki:3.7.9\n"
            "        grafana_image: grafana/grafana:12.3.6\n")
     _write(tmp_path, "ansible/templates/docker-compose.yml.j2",
            "services:\n"
@@ -61,10 +61,10 @@ def test_collects_vars_scenario_overrides_template_defaults_and_literals(mini_re
     images = lci.collect_images(mini_repo)
     assert images == {
         "grafana/grafana:12.3.6",
-        "ghcr.io/google/cadvisor:0.56.2",
+        "ghcr.io/google/cadvisor:0.60.6",
         "traefik:v3.6",
         "traefik:v3.5",
-        "grafana/loki:3.3.2",
+        "grafana/loki:3.7.9",
         "nginx:alpine",
     }
 
@@ -79,9 +79,9 @@ def test_incus_platform_image_and_non_image_vars_are_not_listed(mini_repo):
     "ref, hub",
     [
         ("traefik:v3.6", True),
-        ("grafana/loki:3.3.2", True),
+        ("grafana/loki:3.7.9", True),
         ("docker.io/library/redis:7", True),
-        ("ghcr.io/google/cadvisor:0.56.2", False),
+        ("ghcr.io/google/cadvisor:0.60.6", False),
         ("quay.io/x/y:1", False),
         ("localhost:5000/x:1", False),
     ],
@@ -106,24 +106,24 @@ def test_cli_default_prints_only_hub_images_sorted(mini_repo):
     r = _run(root=mini_repo)
     assert r.returncode == 0
     assert r.stdout.splitlines() == [
-        "grafana/grafana:12.3.6", "grafana/loki:3.3.2", "nginx:alpine", "traefik:v3.5", "traefik:v3.6",
+        "grafana/grafana:12.3.6", "grafana/loki:3.7.9", "nginx:alpine", "traefik:v3.5", "traefik:v3.6",
     ]
 
 
 def test_cli_other_prints_non_hub_images(mini_repo):
     r = _run("--other", root=mini_repo)
-    assert r.stdout.splitlines() == ["ghcr.io/google/cadvisor:0.56.2"]
+    assert r.stdout.splitlines() == ["ghcr.io/google/cadvisor:0.60.6"]
 
 
 def test_cli_all_prints_both(mini_repo):
     r = _run("--all", root=mini_repo)
-    assert "ghcr.io/google/cadvisor:0.56.2" in r.stdout.splitlines()
+    assert "ghcr.io/google/cadvisor:0.60.6" in r.stdout.splitlines()
     assert "nginx:alpine" in r.stdout.splitlines()
 
 
 def test_real_repo_contains_known_scenario_images():
     images = lci.collect_images(REPO_ROOT)
-    for ref in ("traefik:v3.6.25", "grafana/loki:3.3.2", "postgres:16.15-alpine", "nginx:1.31.6-alpine",
+    for ref in ("traefik:v3.6.25", "grafana/loki:3.7.9", "postgres:16.15-alpine", "nginx:1.31.6-alpine",
                 "authelia/authelia:4.39.28", "ghcr.io/goauthentik/server:2025.10.4",
                 "redis:7.4.11-alpine", "crowdsecurity/crowdsec:v1.8.1"):
         assert ref in images
