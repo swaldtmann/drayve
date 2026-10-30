@@ -367,7 +367,7 @@ Every container image drayve deploys is pinned to exact versions, not to floatin
 
 | Image | Pinned to | Where the version lives | Scenario to run when bumping |
 |-------|-----------|-------------------------|------------------------------|
-| Traefik | `traefik:v3.6.25` | `traefik_image` in `ansible/roles/traefik/defaults/main.yml`; fallback in `ansible/templates/docker-compose.yml.j2` | `basic` |
+| Traefik | `traefik:v3.7.16` | `traefik_image` in `ansible/roles/traefik/defaults/main.yml`; fallback in `ansible/templates/docker-compose.yml.j2` | `basic` |
 | CrowdSec | `crowdsecurity/crowdsec:v1.8.1` | `crowdsec_image` in `ansible/inventory/group_vars/all/vars.yml`; fallback in `ansible/templates/docker-compose.yml.j2` | `basic` |
 | Landing page (nginx) | `nginx:1.31.6-alpine` | `landing_image` in `ansible/inventory/group_vars/all/vars.yml`; fallback in `ansible/templates/docker-compose.yml.j2` | `basic` |
 | Authelia | `authelia/authelia:4.39.28` | `authelia_image` in `ansible/roles/auth/defaults/main.yml` and `ansible/roles/authelia/defaults/main.yml`; fallback in `ansible/templates/docker-compose.yml.j2` | `authelia` |

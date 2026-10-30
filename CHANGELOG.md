@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Changed
+- Traefik `v3.6.25` -> `v3.7.16`; CrowdSec bouncer plugin `v1.5.1` -> `v1.8.1`.
+  **Upgrade notes (Traefik 3.7, upstream release notes):** `CONNECT` requests now get `501`;
+  rootless targets get `400`; no h2c upgrade to the backend any more. No config migration is
+  required for the Docker/file providers drayve uses. Plugin: only `BanHTMLFilePath`/`CaptchaHTMLFilePath`
+  were deprecated (renamed `BanFilePath`/`CaptchaFilePath`), drayve uses neither; the plugin's own CI
+  runs against `traefik:v3.7.13`. The plugin is downloaded at Traefik start (needs outbound access to plugins.traefik.io).
 - Monitoring images raised (no config migration required per upstream release notes):
   Prometheus `v3.4.0` -> `v3.15.1`, Loki `3.3.2` -> `3.7.9`, node-exporter `v1.10.2` -> `v1.12.1`.
 - Loki: the image has no shell since 3.5.8 (nothing in drayve execs into it or uses a shell healthcheck).
