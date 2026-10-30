@@ -104,6 +104,13 @@ make that bearable:
   under the alias `u24c` (`DRAYVE_MOLECULE_INCUS_IMAGE=u24c`), and images in which a job itself runs
   are pulled into the VM's Docker image store before the snapshot. Freshness equals snapshot age;
   moving tags are only renewed when the snapshot is refreshed.
+- **Base image `u24c-base`** (same snapshot): `u24c` plus the result of the roles `common` and
+  `docker`, applied once at snapshot refresh (the packages cost about 860 s per gate job when
+  installed in every test VM). The release gate runs every scenario except `basic` on it; `basic`
+  stays on the stock image `u24c`, so the real installation of both roles is still tested on every
+  gate. On the base image those two roles only report `ok`. It is rebuilt from the roles of a
+  drayve checkout when the snapshot is refreshed (`RUNNER_BASE_IMAGE_SRC`, see the drayve-buckbeak
+  repository, `deploy/buckbeak/ci-runner/README.md`), so it ages like the snapshot.
 
 ## 4. What runs when
 
