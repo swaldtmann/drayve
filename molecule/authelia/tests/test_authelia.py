@@ -158,3 +158,24 @@ def test_grafana_running(host):
     """Grafana should be running (full profile)."""
     cmd = host.run("docker ps --filter name=grafana --format '{{.Status}}'")
     assert "Up" in cmd.stdout
+
+
+# === Authelia log retention ===
+
+def test_authelia_retention_cron_file(host):
+    """Daily authentication_logs prune is installed as /etc/cron.d file."""
+    f = host.file("/etc/cron.d/drayve-authelia-retention")
+    assert f.exists
+    assert f.mode == 0o644
+    assert f.user == "root"
+    assert f.contains("drayve-authelia-retention")
+
+
+def test_authelia_retention_run_by_hand(host):
+    """A manual run of the prune script exits 0 against the live DB."""
+    cmd = host.run(
+        "AUTHELIA_DB=/opt/drayve/deploy/stack/authelia/data/db.sqlite3 "
+        "RETENTION_DAYS=14 /usr/local/sbin/drayve-authelia-retention"
+    )
+    assert cmd.rc == 0, cmd.stdout + cmd.stderr
+    assert "drayve-authelia-retention" in cmd.stdout

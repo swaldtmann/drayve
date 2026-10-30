@@ -360,6 +360,7 @@ Beyond `stack.yaml`, Ansible role defaults can be overridden in `ansible/invento
 | `ssh_root_login` | `prohibit-password` | SSH root login policy |
 | `mem_*` | varies | Memory limits per container (e.g. `mem_grafana: 256m`; `mem_loki` is `1g`) |
 | `authelia_reset_db_on_key_change` | `false` | Authelia: a config change never deletes `db.sqlite3` (2FA registrations, sessions). A changed `storage_encryption_key` is detected via `.storage_encryption_key.sha256` next to the DB and aborts the deploy. Set to `true` to delete the DB instead (all users must re-register their second factor) |
+| `authelia_auth_log_retention_days` | `14` | Authelia (`auth.provider: authelia`): a daily `/etc/cron.d/drayve-authelia-retention` job deletes `authentication_logs` rows (username, remote IP, request URI of every sign-in attempt) older than this many days from `authelia/data/db.sqlite3`. Integer ≥ 1; any other value (`0`, text) makes the script use `14`, never "delete everything". Needs the `sqlite3` package (installed by the role). One line per run in `authelia_auth_log_retention_log_file` (default `/var/log/drayve-authelia-retention.log`); schedule via `authelia_auth_log_retention_schedule` (default `17 3 * * *`). The file is not vacuumed: freed pages are reused, the DB stops growing. Authelia 4.39 has no retention option of its own |
 
 ## Pinned images and how to bump them
 
@@ -367,7 +368,7 @@ Every container image drayve deploys is pinned to exact versions, not to floatin
 
 | Image | Pinned to | Where the version lives | Scenario to run when bumping |
 |-------|-----------|-------------------------|------------------------------|
-| Traefik | `traefik:v3.6.25` | `traefik_image` in `ansible/roles/traefik/defaults/main.yml`; fallback in `ansible/templates/docker-compose.yml.j2` | `basic` |
+| Traefik | `traefik:v3.7.16` | `traefik_image` in `ansible/roles/traefik/defaults/main.yml`; fallback in `ansible/templates/docker-compose.yml.j2` | `basic` |
 | CrowdSec | `crowdsecurity/crowdsec:v1.8.1` | `crowdsec_image` in `ansible/inventory/group_vars/all/vars.yml`; fallback in `ansible/templates/docker-compose.yml.j2` | `basic` |
 | Landing page (nginx) | `nginx:1.31.6-alpine` | `landing_image` in `ansible/inventory/group_vars/all/vars.yml`; fallback in `ansible/templates/docker-compose.yml.j2` | `basic` |
 | Authelia | `authelia/authelia:4.39.28` | `authelia_image` in `ansible/roles/auth/defaults/main.yml` and `ansible/roles/authelia/defaults/main.yml`; fallback in `ansible/templates/docker-compose.yml.j2` | `authelia` |

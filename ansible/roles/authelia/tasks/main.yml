@@ -415,3 +415,33 @@
     - (not _authelia_db_stat.stat.exists) or (not _authelia_key_marker_stat.stat.exists) or (_authelia_key_changed | bool)
   no_log: true
   tags: [authelia]
+
+# === Sign-in log retention ===
+# Daily /etc/cron.d job (not the cron module / root crontab, same convention as
+# roles/backup) that prunes authentication_logs in db.sqlite3. The host needs the
+# sqlite3 CLI: the Authelia image does not ship it (only the authelia binary), and
+# a throw-away container would need its own pinned image for one DELETE.
+- name: Install sqlite3 CLI (Authelia log retention)
+  ansible.builtin.apt:
+    name: sqlite3
+    state: present
+    cache_valid_time: 3600
+  tags: [authelia]
+
+- name: Deploy Authelia log retention script
+  ansible.builtin.copy:
+    src: drayve-authelia-retention.sh
+    dest: /usr/local/sbin/drayve-authelia-retention
+    owner: root
+    group: root
+    mode: "0755"
+  tags: [authelia]
+
+- name: Deploy Authelia log retention cron file
+  ansible.builtin.template:
+    src: authelia-retention-cron.j2
+    dest: /etc/cron.d/drayve-authelia-retention
+    owner: root
+    group: root
+    mode: "0644"
+  tags: [authelia]

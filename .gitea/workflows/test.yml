@@ -70,9 +70,9 @@ jobs:
       - name: Pytest unit tests (template + role contracts)
         run: cd $WORKDIR && python3 -m pytest tests/python/ -v
 
-      - name: Bats unit tests (consumer.mk, watchdog)
+      - name: Bats unit tests (consumer.mk, watchdog, authelia retention)
         run: |
-          apt-get update -qq && apt-get install -y -qq bats > /dev/null
+          apt-get update -qq && apt-get install -y -qq bats sqlite3 > /dev/null
           cd $WORKDIR && bats tests/bats/
 
       # A red main run sends ONE chat message to the maintainer. Gate: only when
