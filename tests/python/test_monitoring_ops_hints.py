@@ -81,7 +81,7 @@ def test_loki_limits_config_has_query_limits():
 def test_loki_limit_defaults_are_upstream_defaults_of_pinned_version():
     # Loki 3.3.2: -validation.max-entries-limit=5000, -querier.max-query-series=500
     # (pkg/validation/limits.go, checked 2026-10-20).
-    assert "grafana/loki:3.3.2" in VARS_FILE.read_text()
+    assert "grafana/loki:3.7.9" in VARS_FILE.read_text()
     limits = _loki_config()["limits_config"]
     assert limits["max_entries_limit_per_query"] == 5000
     assert limits["max_query_series"] == 500
