@@ -90,7 +90,7 @@ prometheus_image: prom/prometheus:v3.15.1
 lldap_image: lldap/lldap:v0.6.3
 
 # === Authentik (pinned) ===
-authentik_image: ghcr.io/goauthentik/server:2025.10.4
+authentik_image: ghcr.io/goauthentik/server:2026.8.5
 # Postgres and Redis belong to Authentik: stay inside the major line (16.x, 7.x).
 # A Postgres major change needs a data migration, it is not a plain bump.
 # Both = what `postgres:16-alpine` / `redis:7-alpine` pointed to on 2026-10-12

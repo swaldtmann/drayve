@@ -167,3 +167,16 @@ def test_all_present_means_one_lookup_each_and_no_sleep(bootstrap, clock):
     assert (auth, inval) == (f"pk-{IMPLICIT}", f"pk-{INVALIDATION}")
     assert api.calls == {IMPLICIT: 1, INVALIDATION: 1}
     assert clock.sleeps == []
+
+
+def test_oauth2_provider_post_sets_grant_types(bootstrap):
+    """authentik >= 2026.2 has no default grant types for new OAuth2 providers.
+
+    Without an explicit ``grant_types`` the Grafana login fails with
+    ``invalid_request``. The provider POST must set authorization_code.
+    """
+    source = Path(bootstrap.__file__).read_text()
+    start = source.index('"/providers/oauth2/"')
+    body = source[start:source.index("})", start)]
+    assert '"grant_types"' in body, "grant_types missing in POST /providers/oauth2/"
+    assert '"authorization_code"' in body

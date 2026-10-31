@@ -192,11 +192,14 @@ services:
       retries: 5
 
   authentik-server:
-    image: {{ authentik_image | default('ghcr.io/goauthentik/server:2025.10.4') }}
+    image: {{ authentik_image | default('ghcr.io/goauthentik/server:2026.8.5') }}
     container_name: authentik-server
     restart: unless-stopped
     mem_limit: {{ mem_authentik_server }}
     command: server
+    shm_size: 512mb
+    volumes:
+      - authentik_data:/data
     environment:
       - AUTHENTIK_SECRET_KEY=${AUTHENTIK_SECRET_KEY}
       - AUTHENTIK_POSTGRESQL__HOST=authentik-db
@@ -226,11 +229,14 @@ services:
       - "traefik.http.services.authentik-outpost.loadbalancer.server.port=9000"
 
   authentik-worker:
-    image: {{ authentik_image | default('ghcr.io/goauthentik/server:2025.10.4') }}
+    image: {{ authentik_image | default('ghcr.io/goauthentik/server:2026.8.5') }}
     container_name: authentik-worker
     restart: unless-stopped
     mem_limit: {{ mem_authentik_worker }}
     command: worker
+    shm_size: 512mb
+    volumes:
+      - authentik_data:/data
     environment:
       - AUTHENTIK_SECRET_KEY=${AUTHENTIK_SECRET_KEY}
       - AUTHENTIK_POSTGRESQL__HOST=authentik-db
@@ -461,6 +467,7 @@ volumes:
 {% endif %}
 {% if auth_provider == 'authentik' %}
   authentik_pg_data: {}
+  authentik_data: {}
   authentik_redis_data: {}
 {% endif %}
 {% if monitoring_services.prometheus | default(false) | bool %}
