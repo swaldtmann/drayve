@@ -178,7 +178,7 @@ def test_grafana_authorize_request_not_invalid(host):
         "curl -s -o /dev/null -D - --max-time 30 "
         "'http://%s:9000/application/o/authorize/?client_id=grafana"
         "&response_type=code&scope=openid"
-        "&redirect_uri=https%%3A%%2F%%2Fgrafana.example.test%%2Flogin%%2Fgeneric_oauth'" % ip
+        "&redirect_uri=https%%3A%%2F%%2Fgrafana.test.drayve.local%%2Flogin%%2Fgeneric_oauth'" % ip
     )
     out = cmd.stdout.lower()
     assert "invalid_request" not in out
