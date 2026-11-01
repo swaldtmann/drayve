@@ -4,7 +4,7 @@ authentik creates its built-in LDAP property mappings asynchronously via
 blueprints. A single lookup right after ``/-/health/ready/`` can race them;
 ``POST /sources/ldap/`` with ``sync_users`` and an empty mapping list then
 fails with HTTP 400 (release gate authentik-ldap). ``ensure_ldap_source`` must
-wait for user AND group mappings and never send an empty list.
+wait for the user mappings (the group list may stay empty) and never send an empty user list.
 
 Same approach as ``test_authentik_bootstrap_flows.py``: template rendered with
 dummy values, HTTP and ``time`` stubbed.
@@ -130,12 +130,26 @@ def test_never_ready_raises_and_sends_nothing(bootstrap, clock):
     assert api.patches == []
 
 
-def test_missing_group_mappings_named_in_error(bootstrap, clock):
+def test_empty_group_mappings_still_creates_source(bootstrap, clock, capsys):
+    # authentik 2026.8.5 ships no mapping classified as "group": only the
+    # user list is mandatory, an empty group list must not abort the bootstrap.
     api = FakeAPI(ready_from=1, only=("user",))
+    slug = bootstrap.ensure_ldap_source(api, "pw")
+    assert slug == "drayve-ldap"
+    assert clock.sleeps == []
+    (path, data), = api.posts
+    assert path == "/sources/ldap/"
+    assert data["user_property_mappings"] == ["u1"]
+    assert data["group_property_mappings"] == []
+    assert "WARNING: No built-in LDAP group property mappings found" in capsys.readouterr().err
+
+
+def test_missing_user_mappings_named_in_error(bootstrap, clock):
+    api = FakeAPI(ready_from=None)
     with pytest.raises(RuntimeError) as exc:
         bootstrap.wait_for_ldap_property_mappings(api, timeout=30, interval=5)
-    assert "group" in str(exc.value)
-    assert "user" not in str(exc.value).replace("users", "")
+    assert "user" in str(exc.value)
+    assert "group" not in str(exc.value)
 
 
 def test_all_present_means_one_lookup_and_no_sleep(bootstrap, clock):

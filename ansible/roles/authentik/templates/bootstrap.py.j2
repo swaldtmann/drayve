@@ -342,26 +342,23 @@ def get_ldap_property_mappings(api):
 
 
 def wait_for_ldap_property_mappings(api, timeout=300, interval=5):
-    """Wait until built-in LDAP user and group mappings exist; return (user_pks, group_pks).
+    """Wait until built-in LDAP user mappings exist; return (user_pks, group_pks).
 
     authentik creates them asynchronously via blueprints after /-/health/ready/;
     POST /sources/ldap/ with sync_users and an empty list fails with HTTP 400.
+    Only the user list is mandatory; group_pks may be empty (authentik 2026.8.5
+    ships no mapping that get_ldap_property_mappings classifies as group).
     """
     deadline = time.time() + timeout
     while True:
         user_mappings, group_mappings = get_ldap_property_mappings(api)
-        if user_mappings and group_mappings:
+        if user_mappings:
             return user_mappings, group_mappings
         if time.time() >= deadline:
             break
         time.sleep(interval)
-    missing = []
-    if not user_mappings:
-        missing.append("user")
-    if not group_mappings:
-        missing.append("group")
     raise RuntimeError(
-        f"Authentik LDAP property mappings missing after {timeout}s: {', '.join(missing)}"
+        f"Authentik LDAP property mappings missing after {timeout}s: user"
     )
 
 
@@ -381,6 +378,8 @@ def ensure_ldap_source(api, bind_password):
 
     # Get property mappings
     user_mappings, group_mappings = wait_for_ldap_property_mappings(api)
+    if not group_mappings:
+        log("WARNING: No built-in LDAP group property mappings found")
 
     source_data = {
         "name": name,

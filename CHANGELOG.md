@@ -10,10 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Fixed
-- authentik bootstrap: wait (up to 300 s) for the built-in LDAP user and group property mappings before creating the
+- authentik bootstrap: wait (up to 300 s) for the built-in LDAP user property mappings before creating the
   LDAP source. authentik creates them asynchronously via blueprints, so a fresh install could hit HTTP 400
   (`'users property mappings' cannot be empty`) on `POST /sources/ldap/`. After the timeout the bootstrap now fails with
-  a clear error instead of sending an empty mapping list.
+  a clear error instead of sending an empty user mapping list. An empty group mapping list is accepted (warning only).
 
 ## [0.10.0] - 2026-11-01
 
