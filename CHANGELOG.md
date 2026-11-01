@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- **BREAKING:** authentik is raised from `2025.10.4` to `2026.8.5` in one step (`authentik_image`, compose
+  fallbacks, Molecule scenarios). Fresh installs jump directly. **Existing installations must not jump:**
+  upgrade one stage at a time, `2025.12.6` -> `2026.2.7` -> `2026.5.8` -> `2026.8.5`, starting each stage until
+  all migrations have finished, with a database backup beforehand. Avoid `2026.8.0` to `2026.8.2`.
+- authentik server and worker now mount a new volume `authentik_data` at `/data` and set `shm_size: 512mb`.
+- The bootstrap creates the Grafana OAuth2 provider with explicit `grant_types`
+  (`authorization_code`, `refresh_token`); without them authentik 2026.x answers the login with
+  `invalid_request`. Existing providers stay open for all grant types through the upstream migration.
+
 ## [0.9.3] - 2026-10-30
 
 ### Added

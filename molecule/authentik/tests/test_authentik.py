@@ -165,6 +165,28 @@ def test_bootstrap_grafana_oidc_provider(host):
     assert '"client_id":"grafana"' in cmd.stdout.replace(" ", "")
 
 
+def test_grafana_authorize_request_not_invalid(host):
+    """Authorize request against the Grafana provider must reach login, not invalid_request.
+
+    authentik >= 2026.2 rejects providers created without grant_types.
+    """
+    ip = host.run(
+        "docker inspect -f '{{.NetworkSettings.Networks.drayve_default.IPAddress}}' "
+        "authentik-server"
+    ).stdout.strip()
+    cmd = host.run(
+        "curl -s -o /dev/null -D - --max-time 30 "
+        "'http://%s:9000/application/o/authorize/?client_id=grafana"
+        "&response_type=code&scope=openid"
+        "&redirect_uri=https%%3A%%2F%%2Fgrafana.test.drayve.local%%2Flogin%%2Fgeneric_oauth'" % ip
+    )
+    out = cmd.stdout.lower()
+    assert "invalid_request" not in out
+    # login redirect to the flow executor (or the flow page itself)
+    status_line = out.split("\n")[0]
+    assert ("location:" in out and "/if/flow/" in out) or " 200 " in status_line
+
+
 def test_bootstrap_proxy_providers(host):
     """Bootstrap should have created proxy providers (whoami, landing, traefik)."""
     ip = host.run(

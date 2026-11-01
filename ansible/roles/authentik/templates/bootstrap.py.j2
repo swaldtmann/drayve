@@ -240,6 +240,7 @@ def ensure_oauth2_provider(api, name, client_id, client_secret, redirect_url,
             "client_id": client_id,
             "client_secret": client_secret,
             "redirect_uris": [{"matching_mode": "strict", "url": redirect_url}],
+            "grant_types": ["authorization_code", "refresh_token"],
             "property_mappings": [],
             "signing_key": None,
         })

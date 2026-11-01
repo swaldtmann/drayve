@@ -373,7 +373,7 @@ Every container image drayve deploys is pinned to exact versions, not to floatin
 | Landing page (nginx) | `nginx:1.31.6-alpine` | `landing_image` in `ansible/inventory/group_vars/all/vars.yml`; fallback in `ansible/templates/docker-compose.yml.j2` | `basic` |
 | Authelia | `authelia/authelia:4.39.28` | `authelia_image` in `ansible/roles/auth/defaults/main.yml` and `ansible/roles/authelia/defaults/main.yml`; fallback in `ansible/templates/docker-compose.yml.j2` | `authelia` |
 | lldap | `lldap/lldap:v0.6.3` | `lldap_image` in `ansible/inventory/group_vars/all/vars.yml`; fallback in `ansible/templates/docker-compose.yml.j2`; `molecule/authentik-ldap/molecule.yml` | `authentik-ldap` |
-| Authentik | `ghcr.io/goauthentik/server:2025.10.4` | `authentik_image` in `ansible/inventory/group_vars/all/vars.yml`; fallback in `ansible/templates/docker-compose.yml.j2`; `molecule/authentik*/molecule.yml` | `authentik` |
+| Authentik | `ghcr.io/goauthentik/server:2026.8.5` | `authentik_image` in `ansible/inventory/group_vars/all/vars.yml`; fallback in `ansible/templates/docker-compose.yml.j2`; `molecule/authentik*/molecule.yml` | `authentik` |
 | Authentik Postgres | `postgres:16.15-alpine` | `authentik_pg_image` in `ansible/inventory/group_vars/all/vars.yml`; fallback in `ansible/templates/docker-compose.yml.j2`; `molecule/authentik*/molecule.yml` | `authentik` |
 | Authentik Redis | `redis:7.4.11-alpine` | `authentik_redis_image` in `ansible/inventory/group_vars/all/vars.yml`; fallback in `ansible/templates/docker-compose.yml.j2`; `molecule/authentik*/molecule.yml` | `authentik` |
 | Grafana | `grafana/grafana:12.4.12` | `grafana_image` in `ansible/inventory/group_vars/all/vars.yml` and every `molecule/*/molecule.yml` | `authelia` (login) |
