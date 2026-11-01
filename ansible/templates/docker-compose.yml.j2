@@ -440,19 +440,20 @@ services:
       - loki_data:/loki
 {% endif %}
 
-{% if monitoring_services.promtail | default(false) | bool %}
-  promtail:
-    image: {{ promtail_image }}
-    container_name: promtail
+{% if monitoring_services.alloy | default(false) | bool %}
+  alloy:
+    image: {{ alloy_image }}
+    container_name: alloy
     restart: unless-stopped
-    mem_limit: {{ mem_promtail }}
-    command: -config.file=/etc/promtail/promtail-config.yml
+    mem_limit: {{ mem_alloy }}
+    command: run --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
     volumes:
-      - ./monitoring/promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      - ./monitoring/alloy/config.alloy:/etc/alloy/config.alloy:ro
       - /var/log:/var/log:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-{% if _deploy_promtail_basic_auth_user | default('') %}
-      - ./monitoring/promtail/loki-basic-auth-password:/etc/promtail/loki-basic-auth-password:ro
+      - alloy_data:/var/lib/alloy/data
+{% if _deploy_alloy_basic_auth_user | default('') %}
+      - ./monitoring/alloy/loki-basic-auth-password:/etc/alloy/loki-basic-auth-password:ro
 {% endif %}
 {% endif %}
 
@@ -479,4 +480,7 @@ volumes:
 {% endif %}
 {% if monitoring_services.loki | default(false) | bool %}
   loki_data: {}
+{% endif %}
+{% if monitoring_services.alloy | default(false) | bool %}
+  alloy_data: {}
 {% endif %}

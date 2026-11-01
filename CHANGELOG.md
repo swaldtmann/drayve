@@ -10,6 +10,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Changed
+- **BREAKING:** The log collector Promtail (deprecated upstream, no more fixes) is replaced by Grafana Alloy
+  `grafana/alloy:v1.21.3`. Container name and compose service are now `alloy`; image variables `alloy_image` and
+  `mem_alloy` replace `promtail_image` and `mem_promtail`; the monitoring flag `monitoring_promtail` is now
+  `monitoring_alloy`. Loki labels stay exactly as they were (`container`, `service`, `host` if set), so Grafana queries
+  and dashboards need no change.
+  **Upgrade notes:**
+  - Site key: `monitoring_promtail_extra_scrape_configs` (raw Promtail scrape configs) is gone and **stops the deploy**
+    with an assert while it is still set. Replace it with `monitoring_extra_log_files`, a list of
+    `{job: <name>, path: <absolute path below /var/log>}`; `job` becomes the Loki label `job`. Example:
+    `- job: kedge` / `path: /var/log/kedge.log` replaces the former `kedge` scrape config.
+  - Alloy keeps its read positions in the new named volume `alloy_data` (`/var/lib/alloy/data`). The first start
+    has no positions: right after the upgrade a short gap or a few duplicate lines are possible, once.
+  - The old `promtail` container is removed by the deploy (`docker compose up -d --remove-orphans`); the old config
+    directory `monitoring/promtail/` on the host stays as an unused leftover and can be deleted by hand.
 - **BREAKING:** authentik is raised from `2025.10.4` to `2026.8.5` in one step (`authentik_image`, compose
   fallbacks, Molecule scenarios). Fresh installs jump directly. **Existing installations must not jump:**
   upgrade one stage at a time, `2025.12.6` -> `2026.2.7` -> `2026.5.8` -> `2026.8.5`, starting each stage until

@@ -247,7 +247,7 @@ For Hetzner: backs up `acme.json` from the server to `/tmp/<name>-acme.json`, de
 | CrowdSec | Intrusion detection + Traefik bouncer |
 | Grafana | Dashboards (7 included: stack, host, containers, traefik, logs, crowdsec, backup) |
 | Prometheus | Metrics collection |
-| Loki + Promtail | Log aggregation |
+| Loki + Alloy | Log aggregation |
 | cAdvisor | Container metrics |
 | node_exporter | Host metrics |
 | Basic Auth / Authelia | Authentication layer |

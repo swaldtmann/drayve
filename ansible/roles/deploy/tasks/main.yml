@@ -18,7 +18,7 @@
       grafana: "{{ _deploy_mon_profile == 'full' }}"
       prometheus: "{{ _deploy_mon_profile == 'full' }}"
       loki: "{{ _deploy_mon_profile == 'full' }}"
-      promtail: "{{ _deploy_mon_profile in ['full', 'light'] }}"
+      alloy: "{{ _deploy_mon_profile in ['full', 'light'] }}"
       cadvisor: "{{ _deploy_mon_profile == 'full' }}"
       node_exporter: "{{ _deploy_mon_profile in ['full', 'light'] }}"
   when: monitoring_services is not defined
@@ -26,14 +26,14 @@
 
 # Resolve nested stack.yaml values to flat vars
 
-# Independent of the monitoring role's own `_promtail_loki_basic_auth_user`
+# Independent of the monitoring role's own `_alloy_loki_basic_auth_user`
 # fact (roles/monitoring/tasks/main.yml) — needed here too so a tag-scoped
-# `--tags deploy` run (monitoring role skipped) still renders the Promtail
+# `--tags deploy` run (monitoring role skipped) still renders the Alloy
 # password-file mount in docker-compose.yml.j2 correctly, same idiom as
 # monitoring_services above.
-- name: Resolve Promtail Basic-Auth user for compose template
+- name: Resolve Alloy Basic-Auth user for compose template
   ansible.builtin.set_fact:
-    _deploy_promtail_basic_auth_user: "{{ monitoring.loki_basic_auth_user | default(monitoring_loki_basic_auth_user) | default('') }}"
+    _deploy_alloy_basic_auth_user: "{{ monitoring.loki_basic_auth_user | default(monitoring_loki_basic_auth_user) | default('') }}"
   tags: [deploy]
 
 - name: Resolve auth_provider from stack.yaml

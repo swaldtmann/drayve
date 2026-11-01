@@ -235,8 +235,8 @@ properties:
         type: string
         description: >
           Monitoring stack profile.
-          "full" (~800MB): Prometheus, Grafana, Loki, Promtail, cAdvisor, node_exporter.
-          "light" (~50MB): node_exporter, Promtail (push to remote Grafana).
+          "full" (~800MB): Prometheus, Grafana, Loki, Alloy, cAdvisor, node_exporter.
+          "light" (~50MB): node_exporter, Alloy (push to remote Grafana).
           "none": No monitoring containers.
         enum:
           - full
@@ -259,6 +259,28 @@ properties:
       node_exporter:
         type: boolean
         description: Override node_exporter on/off.
+
+  monitoring_extra_log_files:
+    type: array
+    description: >
+      Extra host log files that Alloy ships to Loki. Each entry becomes a
+      stream with the Loki label "job". The path must be absolute and below
+      /var/log (mounted read-only into the alloy container). Replaces the
+      removed raw scrape-config key of the former log collector.
+    items:
+      type: object
+      required:
+        - job
+        - path
+      additionalProperties: false
+      properties:
+        job:
+          type: string
+          description: Value of the Loki label "job".
+        path:
+          type: string
+          description: Absolute file path or glob below /var/log, e.g. /var/log/kedge.log.
+          pattern: "^/var/log/"
 
   security:
     type: object

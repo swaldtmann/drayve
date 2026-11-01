@@ -56,9 +56,9 @@ def test_loki_running(host):
     assert "Up" in cmd.stdout
 
 
-def test_promtail_running(host):
-    """Promtail container should be running."""
-    cmd = host.run("docker ps --filter name=promtail --format '{{.Status}}'")
+def test_alloy_running(host):
+    """Alloy container should be running."""
+    cmd = host.run("docker ps --filter name=alloy --format '{{.Status}}'")
     assert "Up" in cmd.stdout
 
 
@@ -101,9 +101,9 @@ def test_prometheus_config(host):
     assert f.exists
 
 
-def test_promtail_config(host):
-    """Promtail config should exist."""
-    f = host.file("/opt/drayve/deploy/stack/monitoring/promtail/promtail-config.yml")
+def test_alloy_config(host):
+    """Alloy config should exist."""
+    f = host.file("/opt/drayve/deploy/stack/monitoring/alloy/config.alloy")
     assert f.exists
 
 

@@ -1,5 +1,8 @@
 """Test: basic auth + full monitoring — no Authelia/LLDAP."""
 
+import json
+import time
+
 
 # === Auth: basic ===
 
@@ -54,10 +57,51 @@ def test_cadvisor_running(host):
     assert "Up" in cmd.stdout
 
 
-def test_promtail_running(host):
-    """Promtail should be running."""
-    cmd = host.run("docker ps --filter name=promtail --format '{{.Status}}'")
+def test_alloy_running(host):
+    """Alloy should be running."""
+    cmd = host.run("docker ps --filter name=alloy --format '{{.Status}}'")
     assert "Up" in cmd.stdout
+
+
+def _loki_label_values(host, label):
+    """Values of a Loki label. The loki image has no shell/wget/curl and no host
+    port, so ask the container's bridge IP from the VM host."""
+    ip = host.run(
+        "docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' loki"
+    ).stdout.split()
+    if not ip:
+        return []
+    cmd = host.run(f"curl -fsS http://{ip[0]}:3100/loki/api/v1/label/{label}/values")
+    if cmd.rc != 0:
+        return []
+    try:
+        return json.loads(cmd.stdout).get("data") or []
+    except ValueError:
+        return []
+
+
+def _wait_for_label_value(host, label, value, timeout=90):
+    """Logs take a few seconds to arrive; poll the Loki API until value shows up."""
+    deadline = time.time() + timeout
+    values = []
+    while time.time() < deadline:
+        values = _loki_label_values(host, label)
+        if value in values:
+            return values
+        time.sleep(5)
+    return values
+
+
+def test_alloy_ships_container_logs_with_container_label(host):
+    """Container logs reach Loki with the label `container` (unchanged label name)."""
+    values = _wait_for_label_value(host, "container", "traefik")
+    assert "traefik" in values, f"label container values: {values}"
+
+
+def test_alloy_ships_container_logs_with_service_label(host):
+    """Container logs reach Loki with the label `service` (unchanged label name)."""
+    values = _wait_for_label_value(host, "service", "traefik")
+    assert "traefik" in values, f"label service values: {values}"
 
 
 # === Infrastructure ===

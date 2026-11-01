@@ -63,7 +63,7 @@ backup:
 | **CrowdSec** | Intrusion detection + Traefik bouncer plugin |
 | **Grafana** | 7 dashboards: stack, host, containers, traefik, logs, crowdsec, backup |
 | **Prometheus** | Metrics collection |
-| **Loki + Promtail** | Log aggregation |
+| **Loki + Alloy** | Log aggregation |
 | **Basic Auth / Authelia** | Authentication layer (with optional LLDAP backend) |
 | **Landing Page** | Service overview, auto-generated from Docker labels at deploy time |
 
