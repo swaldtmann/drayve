@@ -194,15 +194,25 @@ reachable on its own needs its own Authelia.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `profile` | string | `full` | `full` (~800MB) — Grafana, Prometheus, Loki, Promtail, cAdvisor, node_exporter. `light` (~50MB) — node_exporter + Promtail only. `none` — no monitoring |
-| `loki_url` | string | `http://loki:3100/...` | Loki push URL for Promtail. **Required** for `light` profile (no local Loki). Defaults to local Loki for `full` profile |
-| `loki_basic_auth_user` | string | — | HTTP Basic-Auth username for the Promtail Loki client (e.g. an external Loki behind Basic-Auth). Password goes in `secrets.yml` as `monitoring_loki_basic_auth_password`, never here. Empty (default) — no Basic-Auth block rendered |
+| `profile` | string | `full` | `full` (~800MB) — Grafana, Prometheus, Loki, Alloy, cAdvisor, node_exporter. `light` (~50MB) — node_exporter + Alloy only. `none` — no monitoring |
+| `loki_url` | string | `http://loki:3100/...` | Loki push URL for Alloy. **Required** for `light` profile (no local Loki). Defaults to local Loki for `full` profile |
+| `loki_basic_auth_user` | string | — | HTTP Basic-Auth username for the Alloy Loki client (e.g. an external Loki behind Basic-Auth). Password goes in `secrets.yml` as `monitoring_loki_basic_auth_password`, never here. Empty (default) — no Basic-Auth block rendered |
 | `loki_host_label` | string | — | `external_labels.host` value sent with every log line to Loki — use when several hosts push into the same external Loki. Empty (default) — no label rendered |
 | `grafana` | bool | — | Override Grafana on/off regardless of profile |
 | `prometheus` | bool | — | Override Prometheus on/off |
 | `loki` | bool | — | Override Loki on/off |
 | `cadvisor` | bool | — | Override cAdvisor on/off |
 | `node_exporter` | bool | — | Override node_exporter on/off |
+
+**Extra log files (`monitoring_extra_log_files`, top level in `stack.yaml`):** list of `{job, path}`. Alloy ships each file to Loki with the label `job: <job>` next to the Docker container logs (labels `container`, `service`, optional `host`). `path` is absolute and below `/var/log` (mounted read-only into the `alloy` container); globs are allowed.
+
+```yaml
+monitoring_extra_log_files:
+  - job: kedge
+    path: /var/log/kedge.log
+```
+
+The former key `monitoring_promtail_extra_scrape_configs` (raw scrape configs of the replaced log collector) is no longer read; a deploy that still sets it stops with a message naming the replacement.
 
 #### Grafana alert delivery (Ansible variables)
 
@@ -379,7 +389,7 @@ Every container image drayve deploys is pinned to exact versions, not to floatin
 | Grafana | `grafana/grafana:12.4.12` | `grafana_image` in `ansible/inventory/group_vars/all/vars.yml` and every `molecule/*/molecule.yml` | `authelia` (login) |
 | Prometheus | `prom/prometheus:v3.15.1` | `prometheus_image` in `ansible/inventory/group_vars/all/vars.yml` and every `molecule/*/molecule.yml` | `basic` |
 | Loki | `grafana/loki:3.7.9` | `loki_image` in `ansible/inventory/group_vars/all/vars.yml` and every `molecule/*/molecule.yml` | `basic` |
-| Promtail | `grafana/promtail:3.6.11` | `promtail_image` in `ansible/inventory/group_vars/all/vars.yml` and every `molecule/*/molecule.yml` | `basic` |
+| Alloy | `grafana/alloy:v1.21.3` | `alloy_image` in `ansible/inventory/group_vars/all/vars.yml` and every `molecule/*/molecule.yml` | `basic` |
 | node-exporter | `prom/node-exporter:v1.12.1` | `node_exporter_image` in `ansible/inventory/group_vars/all/vars.yml` and every `molecule/*/molecule.yml` | `basic` |
 | cAdvisor | `ghcr.io/google/cadvisor:0.60.6` | `cadvisor_image` in `ansible/inventory/group_vars/all/vars.yml` and every `molecule/*/molecule.yml` | `basic` |
 

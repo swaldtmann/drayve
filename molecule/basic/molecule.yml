@@ -62,7 +62,7 @@ provisioner:
         node_exporter_image: prom/node-exporter:v1.12.1
         cadvisor_image: ghcr.io/google/cadvisor:0.60.6
         loki_image: grafana/loki:3.7.9
-        promtail_image: grafana/promtail:3.6.11
+        alloy_image: grafana/alloy:v1.21.3
         grafana_image: grafana/grafana:12.4.12
         prometheus_image: prom/prometheus:v3.15.1
         # Memory limits
@@ -73,6 +73,6 @@ provisioner:
         mem_node_exporter: 32m
         mem_cadvisor: 64m
         mem_loki: 512m
-        mem_promtail: 64m
+        mem_alloy: 128m
 verifier:
   name: testinfra

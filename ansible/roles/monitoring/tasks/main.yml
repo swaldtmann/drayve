@@ -2,8 +2,8 @@
 # Monitoring role — profile-based with a-la-carte overrides.
 #
 # Profiles:
-#   full (~800MB)  — Prometheus, Grafana, Loki, Promtail, cAdvisor, node_exporter
-#   light (~50MB)  — node_exporter, Promtail (push to remote Grafana)
+#   full (~800MB)  — Prometheus, Grafana, Loki, Alloy, cAdvisor, node_exporter
+#   light (~50MB)  — node_exporter, Alloy (push to remote Grafana)
 #   none           — no monitoring containers
 
 # === Resolve profile from stack.yaml or flat var ===
@@ -18,7 +18,7 @@
     _mon_grafana: "{{ monitoring_grafana | default(_monitoring_profile == 'full') | bool }}"
     _mon_prometheus: "{{ monitoring_prometheus | default(_monitoring_profile == 'full') | bool }}"
     _mon_loki: "{{ monitoring_loki | default(_monitoring_profile == 'full') | bool }}"
-    _mon_promtail: "{{ monitoring_promtail | default(_monitoring_profile in ['full', 'light']) | bool }}"
+    _mon_alloy: "{{ monitoring_alloy | default(_monitoring_profile in ['full', 'light']) | bool }}"
     _mon_cadvisor: "{{ monitoring_cadvisor | default(_monitoring_profile == 'full') | bool }}"
     _mon_node_exporter: "{{ monitoring_node_exporter | default(_monitoring_profile in ['full', 'light']) | bool }}"
   tags: [monitoring]
@@ -26,7 +26,7 @@
 - name: Skip monitoring (profile=none, no overrides)
   ansible.builtin.debug:
     msg: "Monitoring profile: none — skipping"
-  when: _monitoring_profile == "none" and not (_mon_grafana or _mon_prometheus or _mon_loki or _mon_promtail or _mon_cadvisor or _mon_node_exporter)
+  when: _monitoring_profile == "none" and not (_mon_grafana or _mon_prometheus or _mon_loki or _mon_alloy or _mon_cadvisor or _mon_node_exporter)
   tags: [monitoring]
 
 # === Directories ===
@@ -149,77 +149,92 @@
   register: _loki_config
   tags: [monitoring]
 
-# === Promtail config ===
-- name: Resolve Promtail Loki URL
-  ansible.builtin.set_fact:
-    _promtail_loki_url: "{{ monitoring.loki_url | default(monitoring_loki_url) | default('http://loki:3100/loki/api/v1/push') }}"
-  when: _mon_promtail
+# === Migration guard: Promtail scrape configs are gone ===
+# The old raw Promtail key cannot be translated automatically; fail early with
+# the replacement instead of silently dropping the extra log files.
+- name: Assert the old monitoring_promtail_extra_scrape_configs key is gone
+  ansible.builtin.assert:
+    that:
+      - monitoring_promtail_extra_scrape_configs is not defined
+    fail_msg: >-
+      monitoring_promtail_extra_scrape_configs is no longer supported: the log collector
+      Promtail was replaced by Grafana Alloy. Remove the key from stack.yaml and list the
+      files instead as monitoring_extra_log_files, e.g.
+      [{job: kedge, path: /var/log/kedge.log}] (job becomes the Loki label "job",
+      path must be absolute and below /var/log).
   tags: [monitoring]
 
-# Optional HTTP Basic-Auth for the Promtail Loki client, e.g. an external
+# === Alloy config ===
+- name: Resolve Alloy Loki URL
+  ansible.builtin.set_fact:
+    _alloy_loki_url: "{{ monitoring.loki_url | default(monitoring_loki_url) | default('http://loki:3100/loki/api/v1/push') }}"
+  when: _mon_alloy
+  tags: [monitoring]
+
+# Optional HTTP Basic-Auth for the Alloy Loki client, e.g. an external
 # Loki behind nginx Basic-Auth (monitoring.loki_url). Username lives in
 # stack.yaml, password in secrets.yml (monitoring_loki_basic_auth_password,
-# roles/secrets) — empty user (default) keeps promtail-config.yml.j2
+# roles/secrets) — empty user (default) keeps alloy-config.alloy.j2
 # byte-identical to v0.8.2.
-- name: Resolve Promtail Loki Basic-Auth user
+- name: Resolve Alloy Loki Basic-Auth user
   ansible.builtin.set_fact:
-    _promtail_loki_basic_auth_user: "{{ monitoring.loki_basic_auth_user | default(monitoring_loki_basic_auth_user) | default('') }}"
-  when: _mon_promtail
+    _alloy_loki_basic_auth_user: "{{ monitoring.loki_basic_auth_user | default(monitoring_loki_basic_auth_user) | default('') }}"
+  when: _mon_alloy
   tags: [monitoring]
 
-# Optional external_labels.host for the Promtail Loki client — useful when
+# Optional external_labels.host for the Alloy Loki client — useful when
 # several hosts push into the same external Loki. Empty (default) keeps
-# promtail-config.yml.j2 byte-identical to v0.8.2.
-- name: Resolve Promtail external host label
+# alloy-config.alloy.j2 without external labels.
+- name: Resolve Alloy external host label
   ansible.builtin.set_fact:
-    _promtail_host_label: "{{ monitoring.loki_host_label | default(monitoring_loki_host_label) | default('') }}"
-  when: _mon_promtail
+    _alloy_host_label: "{{ monitoring.loki_host_label | default(monitoring_loki_host_label) | default('') }}"
+  when: _mon_alloy
   tags: [monitoring]
 
-- name: Warn — Promtail without local Loki and no loki_url configured
+- name: Warn — Alloy without local Loki and no loki_url configured
   ansible.builtin.debug:
     msg: >-
-      WARNING: Promtail is enabled but no local Loki is running (profile={{ _monitoring_profile }})
-      and no monitoring.loki_url is set. Promtail will try http://loki:3100 which will fail.
+      WARNING: Alloy is enabled but no local Loki is running (profile={{ _monitoring_profile }})
+      and no monitoring.loki_url is set. Alloy will try http://loki:3100 which will fail.
       Set monitoring.loki_url in stack.yaml to point to a remote Loki instance.
   when:
-    - _mon_promtail
+    - _mon_alloy
     - not (_mon_loki | bool)
-    - _promtail_loki_url == "http://loki:3100/loki/api/v1/push"
+    - _alloy_loki_url == "http://loki:3100/loki/api/v1/push"
   tags: [monitoring]
 
-- name: Create Promtail directory
+- name: Create Alloy directory
   ansible.builtin.file:
-    path: "{{ drayve_deploy_dir }}/monitoring/promtail"
+    path: "{{ drayve_deploy_dir }}/monitoring/alloy"
     state: directory
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
     mode: "0755"
-  when: _mon_promtail
+  when: _mon_alloy
   tags: [monitoring]
 
-- name: Write Promtail Loki Basic-Auth password file
+- name: Write Alloy Loki Basic-Auth password file
   ansible.builtin.copy:
     content: "{{ monitoring_loki_basic_auth_password | default('') }}"
-    dest: "{{ drayve_deploy_dir }}/monitoring/promtail/loki-basic-auth-password"
+    dest: "{{ drayve_deploy_dir }}/monitoring/alloy/loki-basic-auth-password"
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
     mode: "0600"
   when:
-    - _mon_promtail
-    - _promtail_loki_basic_auth_user | length > 0
+    - _mon_alloy
+    - _alloy_loki_basic_auth_user | length > 0
   no_log: true
   tags: [monitoring]
 
-- name: Deploy Promtail config
+- name: Deploy Alloy config
   ansible.builtin.template:
-    src: promtail-config.yml.j2
-    dest: "{{ drayve_deploy_dir }}/monitoring/promtail/promtail-config.yml"
+    src: alloy-config.alloy.j2
+    dest: "{{ drayve_deploy_dir }}/monitoring/alloy/config.alloy"
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
     mode: "0644"
-  when: _mon_promtail
-  register: _promtail_config
+  when: _mon_alloy
+  register: _alloy_config
   tags: [monitoring]
 
 # === Grafana provisioning (dashboards + datasources) ===
@@ -622,15 +637,15 @@
     (_loki_config.changed | default(false))
   tags: [monitoring]
 
-- name: Force-recreate Promtail on config change
+- name: Force-recreate Alloy on config change
   ansible.builtin.command:
-    cmd: docker compose up -d --force-recreate promtail
+    cmd: docker compose up -d --force-recreate alloy
     chdir: "{{ drayve_deploy_dir }}"
   become: true
   become_user: "{{ drayve_user }}"
   when: >-
-    _compose_file.stat.exists and _mon_promtail and
-    (_promtail_config.changed | default(false))
+    _compose_file.stat.exists and _mon_alloy and
+    (_alloy_config.changed | default(false))
   tags: [monitoring]
 
 # === Set facts for compose template ===
@@ -640,7 +655,7 @@
       grafana: "{{ _mon_grafana }}"
       prometheus: "{{ _mon_prometheus }}"
       loki: "{{ _mon_loki }}"
-      promtail: "{{ _mon_promtail }}"
+      alloy: "{{ _mon_alloy }}"
       cadvisor: "{{ _mon_cadvisor }}"
       node_exporter: "{{ _mon_node_exporter }}"
   tags: [monitoring]

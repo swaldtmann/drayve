@@ -36,7 +36,7 @@ REPOS = {
     "node_exporter_image": "prom/node-exporter",
     "cadvisor_image": "ghcr.io/google/cadvisor",
     "loki_image": "grafana/loki",
-    "promtail_image": "grafana/promtail",
+    "alloy_image": "grafana/alloy",
     "grafana_image": "grafana/grafana",
     "prometheus_image": "prom/prometheus",
 }

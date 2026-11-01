@@ -17,7 +17,7 @@ Drayve manages a single Docker Compose stack on a single server. All services sh
   +---------+ +--------+ +-----------+      |
                                             |
   +----------+ +----------+ +----------+    |
-  | Promtail | | cAdvisor | | node_exp |    |
+  | Alloy | | cAdvisor | | node_exp |    |
   +----------+ +----------+ +----------+    |
                                             |
   +----------+ +-------+                    |
@@ -122,7 +122,7 @@ All scanning happens at **deploy time** (from compose files), not at runtime (fr
 |   |   +-- dashboards/
 |   |-- prometheus/
 |   |-- loki/
-|   |-- promtail/
+|   |-- alloy/
 |   |-- crowdsec/
 |   |-- authelia/               (if auth.provider: authelia; authelia_remote runs none —
 |   |                            its Traefik forwards auth@file to another host's Authelia)
@@ -195,10 +195,10 @@ make burn NAME=client-xyz         # asks for confirmation
 
 The stack uses two log collection strategies by design:
 
-- **Promtail** uses Docker service discovery to collect all container logs automatically. No per-service config needed.
+- **Grafana Alloy** uses Docker service discovery to collect all container logs automatically. No per-service config needed.
 - **CrowdSec** reads Traefik access logs from a shared volume (`traefik_logs`). It needs structured file-based logs for its parser engine — Docker-SD is not an option here.
 
-Both strategies coexist. When adding new services, container logs are picked up by Promtail automatically. CrowdSec only watches Traefik.
+Both strategies coexist. When adding new services, container logs are picked up by Alloy automatically. CrowdSec only watches Traefik.
 
 ### Log retention (14 days)
 
@@ -210,8 +210,8 @@ Both strategies coexist. When adding new services, container logs are picked up 
 
 | Profile | Containers | RAM | Use case |
 |---------|-----------|-----|----------|
-| `full` | Grafana, Prometheus, Loki, Promtail, cAdvisor, node_exporter | ~800MB | Self-contained monitoring |
-| `light` | node_exporter, Promtail | ~50MB | Push metrics to remote Grafana |
+| `full` | Grafana, Prometheus, Loki, Alloy, cAdvisor, node_exporter | ~800MB | Self-contained monitoring |
+| `light` | node_exporter, Alloy | ~50MB | Push metrics to remote Grafana |
 | `none` | -- | 0 | No monitoring |
 
 ## Authentication

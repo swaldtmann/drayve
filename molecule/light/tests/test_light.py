@@ -55,9 +55,9 @@ def test_node_exporter_running(host):
     assert "Up" in cmd.stdout
 
 
-def test_promtail_running(host):
-    """Promtail should be running (included in light)."""
-    cmd = host.run("docker ps --filter name=promtail --format '{{.Status}}'")
+def test_alloy_running(host):
+    """Alloy should be running (included in light)."""
+    cmd = host.run("docker ps --filter name=alloy --format '{{.Status}}'")
     assert "Up" in cmd.stdout
 
 

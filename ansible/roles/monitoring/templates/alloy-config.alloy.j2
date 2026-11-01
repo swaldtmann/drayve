@@ -1,0 +1,61 @@
+// Grafana Alloy: ship Docker container logs (and optional host log files) to Loki.
+// Label names are the same ones the Grafana queries have always used:
+// container, service, host (optional), job (extra log files only).
+
+discovery.docker "containers" {
+  host             = "unix:///var/run/docker.sock"
+  refresh_interval = "5s"
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "service"
+  }
+}
+
+loki.source.docker "containers" {
+  host             = "unix:///var/run/docker.sock"
+  targets          = discovery.relabel.containers.output
+  refresh_interval = "5s"
+  forward_to       = [loki.write.default.receiver]
+}
+{% for item in monitoring_extra_log_files %}
+
+local.file_match "extra_{{ loop.index }}" {
+  path_targets = [{"__path__" = {{ item.path | to_json }}, "job" = {{ item.job | to_json }}}]
+}
+
+loki.source.file "extra_{{ loop.index }}" {
+  targets    = local.file_match.extra_{{ loop.index }}.targets
+  forward_to = [loki.write.default.receiver]
+}
+{% endfor %}
+
+loki.write "default" {
+  endpoint {
+    url = "{{ _alloy_loki_url }}"
+{% if _alloy_loki_basic_auth_user %}
+
+    basic_auth {
+      username      = "{{ _alloy_loki_basic_auth_user }}"
+      password_file = "/etc/alloy/loki-basic-auth-password"
+    }
+{% endif %}
+  }
+{% if _alloy_host_label %}
+
+  external_labels = {
+    host = "{{ _alloy_host_label }}",
+  }
+{% endif %}
+}
