@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-01
+
 ### Changed
 - **BREAKING:** The log collector Promtail (deprecated upstream, no more fixes) is replaced by Grafana Alloy
   `grafana/alloy:v1.21.3`. Container name and compose service are now `alloy`; image variables `alloy_image` and
