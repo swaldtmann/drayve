@@ -341,6 +341,30 @@ def get_ldap_property_mappings(api):
     return user_mappings, group_mappings
 
 
+def wait_for_ldap_property_mappings(api, timeout=300, interval=5):
+    """Wait until built-in LDAP user and group mappings exist; return (user_pks, group_pks).
+
+    authentik creates them asynchronously via blueprints after /-/health/ready/;
+    POST /sources/ldap/ with sync_users and an empty list fails with HTTP 400.
+    """
+    deadline = time.time() + timeout
+    while True:
+        user_mappings, group_mappings = get_ldap_property_mappings(api)
+        if user_mappings and group_mappings:
+            return user_mappings, group_mappings
+        if time.time() >= deadline:
+            break
+        time.sleep(interval)
+    missing = []
+    if not user_mappings:
+        missing.append("user")
+    if not group_mappings:
+        missing.append("group")
+    raise RuntimeError(
+        f"Authentik LDAP property mappings missing after {timeout}s: {', '.join(missing)}"
+    )
+
+
 def ensure_ldap_source(api, bind_password):
     """Create or update LDAP source for DS389. Returns source slug."""
     slug = "drayve-ldap"
@@ -356,11 +380,7 @@ def ensure_ldap_source(api, bind_password):
     server_uri = f"{protocol}://{LDAP_HOST}:{LDAP_PORT}"
 
     # Get property mappings
-    user_mappings, group_mappings = get_ldap_property_mappings(api)
-    if not user_mappings:
-        log("WARNING: No built-in LDAP user property mappings found")
-    if not group_mappings:
-        log("WARNING: No built-in LDAP group property mappings found")
+    user_mappings, group_mappings = wait_for_ldap_property_mappings(api)
 
     source_data = {
         "name": name,
