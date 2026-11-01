@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-11-01
+
 ### Fixed
 - authentik bootstrap: wait (up to 300 s) for the built-in LDAP user property mappings before creating the
   LDAP source. authentik creates them asynchronously via blueprints, so a fresh install could hit HTTP 400
