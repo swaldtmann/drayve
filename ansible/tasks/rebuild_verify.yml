@@ -1,0 +1,71 @@
+---
+# Basic verify for playbooks/rebuild.yml (runs on the rebuilt host).
+#
+# Checks: no container restarting/unhealthy/exited-nonzero, Traefik answers on
+# 443 for the stack domain, DOCKER-USER ends in the default DROP. Then the
+# optional site hook runs.
+#
+# Hook: set `rebuild_verify_tasks` to the path of a tasks file (on the
+# controller). It is included last, runs on the rebuilt host with all play
+# variables in scope (drayve_deploy_dir, drayve_domain, ...) and fails the
+# rebuild by failing a task. Use it for data comparison, e.g. mockforge
+# checksums/counts against a manifest.
+- name: Wait until no container is restarting or unhealthy
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      bad="$(docker ps -a --filter status=restarting --format '{% raw %}{{.Names}} restarting{% endraw %}'; \
+             docker ps -a --filter health=unhealthy --format '{% raw %}{{.Names}} unhealthy{% endraw %}')"
+      dead="$(docker ps -a --filter status=exited --format '{% raw %}{{.Names}} {{.Status}}{% endraw %}' | grep -v 'Exited (0)' || true)"
+      echo "$bad$dead"
+      [ -z "$bad$dead" ]
+    executable: /bin/bash
+  register: rebuild_verify_containers
+  until: rebuild_verify_containers.rc == 0
+  retries: "{{ rebuild_verify_retries | default(30) }}"
+  delay: 10
+  changed_when: false
+  tags: [verify]
+
+- name: Traefik answers on 443 for the stack domain
+  ansible.builtin.uri:
+    url: "https://127.0.0.1/"
+    headers:
+      Host: "{{ drayve_domain }}"
+    validate_certs: false
+    follow_redirects: none
+    status_code: "{{ rebuild_verify_http_codes | default([200, 301, 302, 303, 307, 308, 401, 403, 404]) }}"
+  register: rebuild_verify_https
+  until: rebuild_verify_https.status is defined and rebuild_verify_https.status > 0
+  retries: 12
+  delay: 10
+  tags: [verify]
+
+- name: Read DOCKER-USER chain
+  ansible.builtin.command:
+    cmd: iptables -S DOCKER-USER
+  register: rebuild_verify_fw
+  changed_when: false
+  when: docker_firewall_enabled | default(true) | bool
+  tags: [verify]
+
+- name: DOCKER-USER ends in default DROP
+  ansible.builtin.assert:
+    that:
+      - (rebuild_verify_fw.stdout_lines | last) == '-A DOCKER-USER -j DROP'
+    fail_msg: "DOCKER-USER does not end in the default DROP: {{ rebuild_verify_fw.stdout_lines | default([]) }}"
+  when: docker_firewall_enabled | default(true) | bool
+  tags: [verify]
+
+# Optional site hook — last, so it only runs on a basically healthy stack.
+- name: Run site verify hook
+  ansible.builtin.include_tasks: "{{ rebuild_verify_tasks }}"
+  when: (rebuild_verify_tasks | default('') | length > 0)
+  tags: [verify]
+
+- name: Rebuild verify passed
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }}: containers healthy, HTTPS {{ rebuild_verify_https.status }},
+      DOCKER-USER default DROP{{ ', site hook ' ~ rebuild_verify_tasks if (rebuild_verify_tasks | default('') | length > 0) else '' }}
+  tags: [verify]

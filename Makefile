@@ -62,7 +62,7 @@ _host_domain = $(call _stack_val,c.get('stack',{}).get('domain',''))
 
 # --- Targets ---
 
-.PHONY: help init validate lint provision deploy deploy-prod burn status secrets-init secrets-template backup list test test-role test-integration setup hooks unban bans auth-sync dashboards
+.PHONY: help init validate lint provision rebuild deploy deploy-prod burn status secrets-init secrets-template backup list test test-role test-integration setup hooks unban bans auth-sync dashboards
 
 help:  ## Show available targets
 	@grep -E '^[a-z][a-z0-9_-]+:.*##' $(MAKEFILE_LIST) | sort | awk -F ':.*##' '{printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -165,6 +165,10 @@ secrets-init:  ## Scaffold AGE key + .sops.yaml (one-time setup)
 
 secrets-template: _require-name  ## Scaffold SOPS secrets file for a host (NAME=)
 	@scripts/secrets-template.sh $(NAME)
+
+rebuild: _require-name _require-stack _require-inventory validate  ## Rebuild a host from a kedge backup: provision, restore, verify (NAME= [CONFIRM=y] [REBUILD_ARGS="-e ..."])
+	@[ "$(CONFIRM)" = "y" ] || { printf "REBUILD $(NAME): provision a FRESH box, stop its stack and overwrite it from the kedge backup? Never the live host. [y/N] "; read ans; [ "$$ans" = "y" ] || exit 1; }
+	$(ANSIBLE) playbooks/rebuild.yml -e drayve_name=$(NAME) -e domain=$(_host_domain) -e @../$(STACK_CONFIG) $(REBUILD_ARGS)
 
 backup: _require-name _require-stack _require-inventory  ## Deploy/update backup config (NAME=)
 	$(ANSIBLE) playbooks/backup.yml -l $(NAME) -e @../$(STACK_CONFIG)
@@ -271,7 +275,7 @@ test-unit: test-syntax  ## Run python (pytest) + bash (bats) unit tests + ansibl
 		bats tests/bats/; \
 	fi
 
-test-syntax: test-syntax-core test-syntax-provision  ## Ansible syntax-check on all playbooks
+test-syntax: test-syntax-core test-syntax-provision test-syntax-rebuild  ## Ansible syntax-check on all playbooks
 
 test-syntax-core:  ## Ansible syntax-check on deploy/backup/burn/validate playbooks
 	@echo "==> Ansible syntax-check (deploy/backup/burn/validate)..."
@@ -294,3 +298,12 @@ test-syntax-provision:  ## Ansible syntax-check on provision.yml (separate vars)
 		ansible/playbooks/provision.yml 2>&1 \
 		| (grep -vE '^(\[WARNING\]|playbook:|^$$)' || true)
 	@echo "==> Provision syntax OK"
+
+test-syntax-rebuild:  ## Ansible syntax-check on rebuild.yml (separate vars)
+	@echo "==> Ansible syntax-check (rebuild)..."
+	@set -o pipefail && ANSIBLE_ROLES_PATH=$(CURDIR)/ansible/roles ansible-playbook --syntax-check \
+		-i localhost, \
+		-e drayve_name=stub -e domain=stub.example.com -e provider_type=manual \
+		ansible/playbooks/rebuild.yml 2>&1 \
+		| (grep -vE '^(\[WARNING\]|playbook:|^$$)' || true)
+	@echo "==> Rebuild syntax OK"

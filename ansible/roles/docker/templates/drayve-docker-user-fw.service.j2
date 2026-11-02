@@ -1,0 +1,14 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Drayve DOCKER-USER firewall baseline (default DROP)
+After=docker.service
+Requires=docker.service
+PartOf=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/drayve-docker-user-fw
+
+[Install]
+WantedBy=multi-user.target docker.service

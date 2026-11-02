@@ -1,0 +1,98 @@
+---
+# Included by playbooks/rebuild.yml via
+# `include_role: name=backup tasks_from=kedge_restore_setup`.
+#
+# Prepares a fresh host to run `kedge restore` against an existing backup
+# repository: kedge checkout (same pin as the backup role), a read-only restore
+# environment file, and the SFTP identity for a Storage Box repository.
+# Deliberately NO cron file and NO backup environment: a rebuilt box must not
+# start writing into the repository it was restored from. Run backup.yml
+# afterwards, once the new box is accepted.
+#
+# Inputs: rebuild_restic_repository, rebuild_restic_password (both asserted by
+# rebuild.yml), optional rebuild_restic_sftp_key (private key file on the
+# controller), rebuild_restic_sftp_port (default 23, Hetzner Storage Box).
+- name: Install kedge restore dependencies
+  ansible.builtin.apt:
+    name:
+      - restic
+      - jq
+      - rsync
+      - git
+    state: present
+    cache_valid_time: 3600
+  tags: [backup]
+
+- name: Clone kedge repository
+  ansible.builtin.git:
+    repo: "{{ backup_kedge_repo }}"
+    dest: "{{ backup_kedge_install_dir }}"
+    version: "{{ rebuild_kedge_version | default(backup_kedge_version) }}"
+    force: false
+    update: true
+  environment:
+    GIT_TERMINAL_PROMPT: "0"
+  tags: [backup]
+
+- name: Symlink kedge CLI to /usr/local/bin
+  ansible.builtin.file:
+    src: "{{ backup_kedge_install_dir }}/backup.sh"
+    dest: /usr/local/bin/kedge
+    state: link
+    force: true
+  tags: [backup]
+
+- name: Deploy kedge restore environment file
+  ansible.builtin.copy:
+    dest: /root/.kedge-restore.env
+    owner: root
+    group: root
+    mode: "0600"
+    content: |
+      # {{ ansible_managed }}
+      # Restore-only environment for `kedge restore` (drayve rebuild.yml).
+      RESTIC_REPOSITORY={{ rebuild_restic_repository }}
+      RESTIC_PASSWORD={{ rebuild_restic_password }}
+      RESTIC_NO_LOCK=1
+      RESTORE_TARGET={{ drayve_deploy_dir }}
+  no_log: true
+  tags: [backup]
+
+- name: Install SFTP identity for the restore repository
+  when:
+    - rebuild_restic_repository.startswith('sftp:')
+    - (rebuild_restic_sftp_key | default('')) | length > 0
+  tags: [backup]
+  block:
+    - name: Ensure /root/.ssh exists
+      ansible.builtin.file:
+        path: /root/.ssh
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Copy SFTP private key
+      ansible.builtin.copy:
+        src: "{{ rebuild_restic_sftp_key }}"
+        dest: /root/.ssh/id_rebuild_sftp
+        owner: root
+        group: root
+        mode: "0600"
+      no_log: true
+
+    # sftp:user@host:path -> host
+    - name: Pin the SFTP identity to the repository host
+      ansible.builtin.blockinfile:
+        path: /root/.ssh/config
+        create: true
+        owner: root
+        group: root
+        mode: "0600"
+        marker: "# {mark} drayve rebuild restore repository"
+        block: |
+          Host {{ (rebuild_restic_repository | regex_replace('^sftp:', '')).split(':')[0].split('@')[-1] }}
+              Port {{ rebuild_restic_sftp_port | default(23) }}
+              IdentityFile /root/.ssh/id_rebuild_sftp
+              IdentitiesOnly yes
+              StrictHostKeyChecking accept-new
