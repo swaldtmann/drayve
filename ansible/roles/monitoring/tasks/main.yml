@@ -637,6 +637,17 @@
     (_loki_config.changed | default(false))
   tags: [monitoring]
 
+# Upgrade from <= v0.9.3 (Promtail): the existing compose file has no alloy
+# service yet (the deploy role re-renders it later), so a recreate would fail
+# with "no such service: alloy". Only recreate if the file already defines it;
+# otherwise the deploy role's full `up -d` creates alloy anyway.
+- name: Check whether compose file defines the alloy service
+  ansible.builtin.slurp:
+    src: "{{ drayve_deploy_dir }}/docker-compose.yml"
+  register: _compose_content
+  when: _compose_file.stat.exists and _mon_alloy
+  tags: [monitoring]
+
 - name: Force-recreate Alloy on config change
   ansible.builtin.command:
     cmd: docker compose up -d --force-recreate alloy
@@ -645,7 +656,9 @@
   become_user: "{{ drayve_user }}"
   when: >-
     _compose_file.stat.exists and _mon_alloy and
-    (_alloy_config.changed | default(false))
+    (_alloy_config.changed | default(false)) and
+    (_compose_content.content | default('') | b64decode
+     is regex('(?m)^  alloy:'))
   tags: [monitoring]
 
 # === Set facts for compose template ===
