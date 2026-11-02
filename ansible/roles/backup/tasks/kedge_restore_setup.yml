@@ -49,7 +49,7 @@
     group: root
     mode: "0600"
     content: |
-      # {{ ansible_managed }}
+      # Managed by drayve (playbooks/rebuild.yml)
       # Restore-only environment for `kedge restore` (drayve rebuild.yml).
       RESTIC_REPOSITORY={{ rebuild_restic_repository }}
       RESTIC_PASSWORD={{ rebuild_restic_password }}

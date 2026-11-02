@@ -1,0 +1,103 @@
+---
+# Site hook for playbooks/rebuild.yml: compare a restored volume against the
+# synthetic mockforge tree it was seeded with (rebuild probe on throwaway boxes,
+# no real data). Use via `-e rebuild_verify_tasks=<abs path to this file>`.
+#
+# Regenerates `mockforge nextcloud --files N --seed S` in a scratch directory on
+# the rebuilt host and compares it by relative path + sha256 against the
+# restored docker volume. Fails the rebuild on any mismatch or a wrong count.
+#
+# Variables:
+#   rebuild_mockforge_src      mockforge checkout on the controller (required)
+#   rebuild_mockforge_volume   full docker volume name on the rebuilt host,
+#                              e.g. drayve_nextcloud_data (required)
+#   rebuild_mockforge_files    --files used for the backup (default 300)
+#   rebuild_mockforge_seed     --seed used for the backup (default 1)
+#   rebuild_mockforge_dir      install dir on the host (default /opt/mockforge)
+- name: Require hook inputs
+  ansible.builtin.assert:
+    that:
+      - rebuild_mockforge_src is defined
+      - rebuild_mockforge_volume is defined
+    fail_msg: "rebuild_mockforge_src (controller path) and rebuild_mockforge_volume (docker volume name) are required."
+  tags: [verify]
+
+- name: Pack mockforge on the controller
+  ansible.builtin.command:
+    cmd: >-
+      tar -C {{ rebuild_mockforge_src | quote }} -czf /tmp/rebuild-mockforge-src.tgz
+      --exclude=.venv --exclude=.git --exclude=__pycache__ .
+  environment:
+    COPYFILE_DISABLE: "1"  # macOS bsdtar: no AppleDouble/xattr headers in the archive
+  delegate_to: localhost
+  become: false
+  changed_when: true
+  tags: [verify]
+
+- name: Install venv support
+  ansible.builtin.apt:
+    name: python3-venv
+    state: present
+    cache_valid_time: 3600
+  tags: [verify]
+
+- name: Create the install directory
+  ansible.builtin.file:
+    path: "{{ rebuild_mockforge_dir | default('/opt/mockforge') }}"
+    state: directory
+    mode: "0755"
+  tags: [verify]
+
+- name: Unpack mockforge on the host
+  ansible.builtin.unarchive:
+    src: /tmp/rebuild-mockforge-src.tgz
+    dest: "{{ rebuild_mockforge_dir | default('/opt/mockforge') }}"
+    creates: "{{ rebuild_mockforge_dir | default('/opt/mockforge') }}/pyproject.toml"
+  tags: [verify]
+
+- name: Install mockforge into a venv
+  ansible.builtin.shell:
+    cmd: |
+      set -e
+      cd {{ rebuild_mockforge_dir | default('/opt/mockforge') }}
+      python3 -m venv .venv
+      .venv/bin/pip install -q -e .
+    creates: "{{ rebuild_mockforge_dir | default('/opt/mockforge') }}/.venv/bin/mockforge"
+    executable: /bin/bash
+  tags: [verify]
+
+- name: Regenerate the reference tree (same seed as the backup)
+  ansible.builtin.shell:
+    cmd: |
+      set -e
+      rm -rf /var/tmp/rebuild-mockforge-ref
+      {{ rebuild_mockforge_dir | default('/opt/mockforge') }}/.venv/bin/mockforge nextcloud \
+        --out /var/tmp/rebuild-mockforge-ref \
+        --files {{ rebuild_mockforge_files | default(300) | int }} \
+        --seed {{ rebuild_mockforge_seed | default(1) | int }}
+    executable: /bin/bash
+  changed_when: true
+  tags: [verify]
+
+- name: Resolve the restored volume mountpoint
+  ansible.builtin.command:
+    cmd: "docker volume inspect {{ rebuild_mockforge_volume | quote }} --format '{% raw %}{{ .Mountpoint }}{% endraw %}'"
+  register: rebuild_mockforge_mount
+  changed_when: false
+  tags: [verify]
+
+- name: Compare restored volume against the reference tree
+  ansible.builtin.script:
+    cmd: >-
+      {{ playbook_dir }}/../../scripts/rebuild-tree-compare.sh
+      /var/tmp/rebuild-mockforge-ref {{ rebuild_mockforge_mount.stdout | trim | quote }}
+      {{ rebuild_mockforge_files | default(300) | int }}
+    executable: /bin/bash
+  register: rebuild_mockforge_compare
+  changed_when: false
+  tags: [verify]
+
+- name: Show comparison result
+  ansible.builtin.debug:
+    msg: "mockforge verify {{ rebuild_mockforge_volume }}: {{ rebuild_mockforge_compare.stdout_lines }}"
+  tags: [verify]

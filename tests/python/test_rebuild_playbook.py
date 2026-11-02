@@ -112,3 +112,15 @@ def test_playbook_syntax_check():
         env={**__import__("os").environ, "ANSIBLE_ROLES_PATH": str(REPO_ROOT / "ansible" / "roles")},
     )
     assert res.returncode == 0, res.stdout + res.stderr
+
+
+def test_restore_setup_does_not_use_ansible_managed_in_task_content():
+    # `ansible_managed` only exists while rendering templates; in a copy `content:`
+    # it is undefined and the live run fails ("'ansible_managed' is undefined").
+    assert "ansible_managed" not in _flat_text(RESTORE_SETUP)
+
+
+def test_restore_summary_uses_slice_not_last_with_argument():
+    # jinja's `last` filter takes no count: `last(15)` fails at runtime
+    # ("do_last() takes 2 positional arguments but 3 were given").
+    assert not re.search(r"\|\s*last\(\s*\d+", _flat_text(PLAYBOOK))

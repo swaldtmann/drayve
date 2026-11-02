@@ -77,7 +77,7 @@
 
     - name: Show restore summary
       ansible.builtin.debug:
-        msg: "{{ rebuild_kedge_restore.stdout_lines | default([]) | last(15) }}"
+        msg: "{{ (rebuild_kedge_restore.stdout_lines | default([]))[-15:] }}"
       tags: [restore]
 
 # Stage 3: verify

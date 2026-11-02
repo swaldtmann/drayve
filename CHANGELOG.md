@@ -19,6 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `DOCKER-USER` chain (systemd unit `drayve-docker-user-fw`, re-applied when Docker restarts). Replies, container
   traffic and the ports in `docker_firewall_allowed_ports` (default: `ufw_allowed_ports`) pass, everything else from
   outside is dropped. Opt out with `docker_firewall_enabled: false`.
+- `ansible/tasks/rebuild_verify_mockforge.yml` (+ `scripts/rebuild-tree-compare.sh`): bundled `rebuild_verify_tasks` hook
+  that compares a restored volume against a seeded mockforge tree (sha256, file count) for rebuild drills with synthetic
+  data.
+
+### Fixed
+- `rebuild.yml`: the restore stage failed on a live run (`'ansible_managed' is undefined` in the restore environment file;
+  `last(15)` in the restore summary).
 
 ### Changed
 - **Upgrade note:** a port published by a compose override that is not in `ufw_allowed_ports` is no longer reachable from
