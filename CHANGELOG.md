@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.10.2] - 2026-11-02
+
 ### Fixed
 - Upgrade from Promtail (<= v0.9.3) to Alloy (>= v0.10.0) no longer aborts with `no such service: alloy`. The monitoring
   role's "Force-recreate Alloy on config change" task ran before the deploy role re-rendered `docker-compose.yml`, so on
