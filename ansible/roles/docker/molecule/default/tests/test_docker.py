@@ -40,3 +40,13 @@ def test_drayve_user_in_docker_group(host):
     """The drayve user should be in the docker group."""
     user = host.user("drayve")
     assert "docker" in user.groups
+
+
+def test_docker_user_chain_default_drop(host):
+    """DOCKER-USER baseline: default DROP is the last rule, 80/443 are open."""
+    rules = host.run("iptables -S DOCKER-USER").stdout.strip().splitlines()
+    assert rules[-1] == "-A DOCKER-USER -j DROP"
+    joined = "\n".join(rules)
+    assert "--ctorigdstport 80" in joined
+    assert "--ctorigdstport 443" in joined
+    assert host.service("drayve-docker-user-fw").is_enabled

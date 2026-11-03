@@ -9,6 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- `playbooks/rebuild.yml` and `make rebuild NAME=<site>`: rebuild a host on a fresh box from a kedge backup. Chains the
+  unchanged `provision.yml`, a `kedge restore` stage (stack stopped first, never `--force-live`, restore-only
+  environment, no backup cron on the new box) and a basic verify (no restarting/unhealthy containers, Traefik answers on
+  443, DOCKER-USER ends in DROP). Site-specific checks, e.g. a data comparison, plug in via `rebuild_verify_tasks`. See
+  `docs/rebuild.md`.
+- docker role: DOCKER-USER firewall baseline (default DROP). Docker-published ports bypass UFW; the role now rebuilds the
+  `DOCKER-USER` chain (systemd unit `drayve-docker-user-fw`, re-applied when Docker restarts). Replies, container
+  traffic and the ports in `docker_firewall_allowed_ports` (default: `ufw_allowed_ports`) pass, everything else from
+  outside is dropped. Opt out with `docker_firewall_enabled: false`.
+- `ansible/tasks/rebuild_verify_mockforge.yml` (+ `scripts/rebuild-tree-compare.sh`): bundled `rebuild_verify_tasks` hook
+  that compares a restored volume against a seeded mockforge tree (sha256, file count) for rebuild drills with synthetic
+  data.
+
+### Fixed
+- `rebuild.yml`: the restore stage failed on a live run (`'ansible_managed' is undefined` in the restore environment file;
+  `last(15)` in the restore summary).
+
+### Changed
+- **Upgrade note:** a port published by a compose override that is not in `ufw_allowed_ports` is no longer reachable from
+  outside after the next provision. Add it to `ufw_allowed_ports` or `docker_firewall_allowed_ports`.
+
 ## [0.10.2] - 2026-11-02
 
 ### Fixed

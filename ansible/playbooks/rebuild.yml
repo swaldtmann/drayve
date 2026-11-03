@@ -1,0 +1,90 @@
+---
+# Rebuild a Drayve host from a kedge backup: provision -> kedge restore -> verify.
+#
+# Usage (see `make rebuild NAME=<site>`):
+#   cd ansible && ansible-playbook playbooks/rebuild.yml \
+#     -e drayve_name=<name> -e domain=<domain> -e @../deploy/<name>/stack.yaml \
+#     -e rebuild_restic_repository=sftp:<user>@<host>:<path> \
+#     -e rebuild_restic_password=... [-e rebuild_restic_sftp_key=<keyfile>]
+#
+# Target is a fresh (throwaway) box. Never point this at the live source host:
+# stage 2 stops the stack and kedge overwrites its volumes and stack directory.
+#
+# Variables:
+#   rebuild_restic_repository  default backup_kedge_restic_repository (stack.yaml)
+#   rebuild_restic_password    default backup_restic_password (host secrets). With
+#                              quickstart secrets that is a NEW password, so pass
+#                              the real one for the repository explicitly.
+#   rebuild_restic_sftp_key    private key file on the controller (read-only
+#                              Storage Box account); rebuild_restic_sftp_port (23)
+#   rebuild_snapshot           snapshot id, default latest
+#   rebuild_kedge_version      default backup_kedge_version
+#   rebuild_verify_tasks       optional tasks file run last (see tasks/rebuild_verify.yml)
+#
+# Stage 1 is the unchanged provision.yml (creates the box, roles incl. the
+# DOCKER-USER baseline, a fresh stack). Stage 2 replaces that fresh stack with
+# the backup: compose down, `kedge restore` (volumes, stack dir incl. .env, DB
+# dumps), stack up. No backup cron is installed on the rebuilt box.
+
+# Stage 1: provision
+- name: Provision
+  ansible.builtin.import_playbook: provision.yml
+
+# Stage 2: restore
+- name: Restore stack from kedge backup
+  hosts: "{{ drayve_name }}"
+  become: true
+
+  vars:
+    rebuild_restic_repository: "{{ backup_kedge_restic_repository | default('') }}"
+    rebuild_restic_password: "{{ backup_restic_password | default('') }}"
+    rebuild_snapshot_id: "{{ rebuild_snapshot | default('latest') }}"
+
+  tasks:
+    - name: Require repository and password
+      ansible.builtin.assert:
+        that:
+          - rebuild_restic_repository | length > 0
+          - rebuild_restic_password | length > 0
+        fail_msg: >-
+          rebuild_restic_repository and rebuild_restic_password are required
+          (-e on the command line, or backup_kedge_restic_repository and
+          backup_restic_password from the site).
+      no_log: true
+      tags: [restore]
+
+    - name: Prepare kedge restore (checkout, restore-only env, SFTP identity)
+      ansible.builtin.include_role:
+        name: backup
+        tasks_from: kedge_restore_setup
+      tags: [restore]
+
+    - name: Stop the freshly provisioned stack
+      ansible.builtin.command:
+        cmd: docker compose down
+        chdir: "{{ drayve_deploy_dir }}"
+        removes: "{{ drayve_deploy_dir }}/docker-compose.yml"
+      changed_when: true
+      tags: [restore]
+
+    - name: Run kedge restore
+      ansible.builtin.shell:
+        cmd: set -a; . /root/.kedge-restore.env; set +a; /usr/local/bin/kedge restore {{ rebuild_snapshot_id | quote }}
+        executable: /bin/bash
+      register: rebuild_kedge_restore
+      changed_when: true
+      tags: [restore]
+
+    - name: Show restore summary
+      ansible.builtin.debug:
+        msg: "{{ (rebuild_kedge_restore.stdout_lines | default([]))[-15:] }}"
+      tags: [restore]
+
+# Stage 3: verify
+- name: Verify rebuilt host
+  hosts: "{{ drayve_name }}"
+  become: true
+
+  tasks:
+    - name: Basic verify (+ optional site hook)
+      ansible.builtin.import_tasks: ../tasks/rebuild_verify.yml

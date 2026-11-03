@@ -79,3 +79,44 @@
     groups: docker
     append: true
   tags: [docker]
+
+# === DOCKER-USER firewall baseline (default DROP) ===
+# Re-applied whenever docker restarts (PartOf=docker.service).
+- name: Install iptables
+  ansible.builtin.apt:
+    name: iptables
+    state: present
+    cache_valid_time: 3600
+  when: docker_firewall_enabled | bool
+  tags: [docker, firewall]
+
+- name: Install DOCKER-USER firewall script
+  ansible.builtin.template:
+    src: docker-user-fw.sh.j2
+    dest: /usr/local/sbin/drayve-docker-user-fw
+    owner: root
+    group: root
+    mode: "0750"
+  register: docker_firewall_script
+  when: docker_firewall_enabled | bool
+  tags: [docker, firewall]
+
+- name: Install DOCKER-USER firewall unit
+  ansible.builtin.template:
+    src: drayve-docker-user-fw.service.j2
+    dest: /etc/systemd/system/drayve-docker-user-fw.service
+    owner: root
+    group: root
+    mode: "0644"
+  register: docker_firewall_unit
+  when: docker_firewall_enabled | bool
+  tags: [docker, firewall]
+
+- name: Enable DOCKER-USER firewall unit
+  ansible.builtin.systemd:
+    name: drayve-docker-user-fw
+    enabled: true
+    state: "{{ 'restarted' if (docker_firewall_script.changed or docker_firewall_unit.changed) else 'started' }}"
+    daemon_reload: "{{ docker_firewall_unit.changed }}"
+  when: docker_firewall_enabled | bool
+  tags: [docker, firewall]
