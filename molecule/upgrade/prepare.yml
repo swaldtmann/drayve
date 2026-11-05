@@ -6,7 +6,7 @@
 # (scripts/upgrade-from-tag.sh). The CI workflows resolve and fetch the tag
 # themselves (the checkout is shallow) and export the variable.
 #
-# The roles of that tag are extracted with `git archive` and converged by a
+# The tree of that tag is extracted with `git archive` and its roles converged by a
 # nested ansible-playbook (baseline-converge.yml) against the same inventory
 # Molecule uses, then converge.yml runs the working tree over the result.
 - name: Prepare - converge the baseline release
@@ -43,12 +43,12 @@
       changed_when: false
       failed_when: _baseline_commit.rc != 0 or baseline_tag is not match('^[A-Za-z0-9._-]+$')
 
-    - name: Extract the roles of the baseline tag
+    - name: Extract the tree of the baseline tag (roles and the config/ templates they read)
       ansible.builtin.shell: |
         set -euo pipefail
         rm -rf "$BASELINE_DIR"
         mkdir -p "$BASELINE_DIR"
-        git -C "$REPO_ROOT" archive "$BASELINE_TAG" ansible/ | tar -x -C "$BASELINE_DIR"
+        git -C "$REPO_ROOT" archive "$BASELINE_TAG" | tar -x -C "$BASELINE_DIR"
       args:
         executable: /bin/bash
       environment:

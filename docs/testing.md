@@ -99,7 +99,8 @@ on an existing host with `no such service: alloy`.
 
 The baseline tag comes from `DRAYVE_UPGRADE_FROM`. Unset, it is the release before the
 current tag, or the newest release tag if HEAD is not a tag (`scripts/upgrade-from-tag.sh`).
-`prepare` extracts `ansible/` of that tag with `git archive` and converges it with a
+`prepare` extracts the tree of that tag with `git archive` (roles read templates from
+`config/` too) and converges its roles with a
 nested `ansible-playbook` (`baseline-converge.yml`, roles path of the old tree, same
 inventory); it records the tag in `/etc/drayve-upgrade-baseline`. The tag must exist
 locally, so a shallow clone needs `git fetch origin tag <tag>` first.
