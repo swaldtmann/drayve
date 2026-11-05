@@ -1,0 +1,14 @@
+---
+# Upgrade test, step 2: the working tree over the baseline release that
+# prepare.yml converged. Same roles and order as the `basic` scenario.
+- name: Converge the working tree over the baseline release
+  hosts: all
+  become: true
+  roles:
+    - role: common
+    - role: docker
+    - role: secrets
+    - role: traefik
+    - role: auth
+    - role: monitoring
+    - role: deploy

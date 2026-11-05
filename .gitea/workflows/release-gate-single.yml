@@ -9,8 +9,12 @@ name: Release Gate — Single (manual)
 #
 # Pick one of: basic | auth-none | authelia | authelia-file | authentik
 #              | authentik-ldap | light | sops | backup | backup-kedge | integration
+#              | upgrade
 #
-# For a full gate (all 11 scenarios) push a v* tag — see release-gate-matrix.yml.
+# `upgrade` converges a previous release first (tag from the optional input
+# `upgrade_from`; default: the newest release tag), then this branch on top.
+#
+# For a full gate (all 12 scenarios) push a v* tag — see release-gate-matrix.yml.
 
 on:
   workflow_dispatch:
@@ -32,6 +36,12 @@ on:
           - backup
           - backup-kedge
           - integration
+          - upgrade
+      upgrade_from:
+        description: "release tag to upgrade from (scenario upgrade only; empty = newest tag)"
+        required: false
+        default: ""
+        type: string
 
 jobs:
   molecule:
@@ -54,6 +64,25 @@ jobs:
         run: |
           rm -rf $WORKDIR
           git -c http.extraheader="Authorization: token ${CI_TOKEN}" clone --depth 1 -b ${GITHUB_REF_NAME} ${{ github.server_url }}/${{ github.repository }}.git $WORKDIR
+
+      - name: Fetch the baseline tag of the upgrade scenario
+        # The checkout is shallow and has no tags. `upgrade` converges a previous
+        # release first: the input `upgrade_from`, or the newest release tag.
+        if: inputs.scenario == 'upgrade'
+        env:
+          CI_TOKEN: ${{ github.token }}
+          UPGRADE_FROM: ${{ inputs.upgrade_from }}
+        run: |
+          cd $WORKDIR
+          auth="Authorization: token ${CI_TOKEN}"
+          tag="$UPGRADE_FROM"
+          if [ -z "$tag" ]; then
+            tag=$(git -c http.extraheader="$auth" ls-remote --tags --refs origin 'v*' \
+              | sed 's#.*refs/tags/##' | scripts/upgrade-from-tag.sh)
+          fi
+          git -c http.extraheader="$auth" fetch --depth 1 origin "refs/tags/${tag}:refs/tags/${tag}"
+          echo "DRAYVE_UPGRADE_FROM=${tag}" >> "$GITHUB_ENV"
+          echo "upgrade baseline: ${tag}"
 
       - name: Install dependencies
         run: |

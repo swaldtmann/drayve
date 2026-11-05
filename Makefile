@@ -228,6 +228,10 @@ test-sops: _require-test-driver  ## SOPS secrets integration test (Incus VM; Het
 	@echo "==> Running SOPS integration test (creates a test VM)"
 	@$(MOLECULE) test -s sops
 
+test-upgrade: _require-test-driver  ## Upgrade test: baseline tag (DRAYVE_UPGRADE_FROM=vX.Y.Z), then this tree (Incus VM; Hetzner needs HCLOUD_TOKEN)
+	@echo "==> Running upgrade test (creates a test VM)"
+	@$(MOLECULE) test -s upgrade
+
 setup:  ## One-time setup: venv
 	@echo "==> Setting up venv..."
 	@python3 -m venv .venv

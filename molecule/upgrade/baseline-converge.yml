@@ -1,0 +1,26 @@
+---
+# Upgrade test, step 1: the baseline release. prepare.yml runs this playbook
+# through a nested ansible-playbook with ANSIBLE_ROLES_PATH pointing at the roles
+# of the baseline tag (git archive), so `include_role` inside the roles resolves
+# against the old tree as well. The role list is the one of converge.yml; it was
+# the same in every release since v0.8.x.
+- name: Converge the baseline release
+  hosts: all
+  become: true
+  vars:
+    upgrade_baseline_tag: unknown
+    upgrade_baseline_commit: unknown
+  roles:
+    - role: common
+    - role: docker
+    - role: secrets
+    - role: traefik
+    - role: auth
+    - role: monitoring
+    - role: deploy
+  post_tasks:
+    - name: Record the baseline release on the host
+      ansible.builtin.copy:
+        dest: /etc/drayve-upgrade-baseline
+        content: "{{ upgrade_baseline_tag }} {{ upgrade_baseline_commit }}\n"
+        mode: "0644"
