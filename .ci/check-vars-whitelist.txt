@@ -40,3 +40,9 @@ crowdsec_lapi_key
 # Stack-derived (lookup in tasks)
 multinet_primary_network
 stack_name
+
+# rebuild.yml CLI parameters (-e, see docs/rebuild.md)
+rebuild_mockforge_src
+rebuild_mockforge_volume
+rebuild_restic_sftp_key
+rebuild_verify_tasks
