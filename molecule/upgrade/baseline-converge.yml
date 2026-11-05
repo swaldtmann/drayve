@@ -8,6 +8,10 @@
   hosts: all
   become: true
   vars:
+    # Baselines up to v0.9.x run Promtail and need its image variable; later roles
+    # ignore it. Set here, not in molecule.yml: tests/python/test_pinned_images.py
+    # requires a default and a registry entry for every *_image variable there.
+    promtail_image: grafana/promtail:3.6.11
     upgrade_baseline_tag: unknown
     upgrade_baseline_commit: unknown
   roles:
