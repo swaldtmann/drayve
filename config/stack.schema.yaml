@@ -108,6 +108,28 @@ properties:
           Public URL of the Authelia portal, rendered as session.cookies[].authelia_url
           (only with auth.provider=authelia). Must be https:// and its host must equal
           or be a subdomain of the cookie domain. Defaults to https://auth.<stack.domain>.
+      session_inactivity:
+        type: string
+        pattern: '^([0-9]+[yMwdhms])+$'
+        description: >
+          Authelia session.inactivity: idle time after which the session ends, e.g. "30m"
+          (only with auth.provider=authelia). Not set: Authelia default.
+      session_expiration:
+        type: string
+        pattern: '^([0-9]+[yMwdhms])+$'
+        description: >
+          Authelia session.expiration: absolute session lifetime, e.g. "8h"
+          (only with auth.provider=authelia). Not set: Authelia default.
+      session_remember_me:
+        oneOf:
+          - type: string
+            pattern: '^([0-9]+[yMwdhms])+$'
+          - type: integer
+            const: -1
+        description: >
+          Authelia session.remember_me: duration of a "remember me" session, or the integer -1
+          (unquoted) to disable "remember me" (only with auth.provider=authelia). The string "-1"
+          is rejected. Not set: Authelia default.
       remote:
         type: object
         description: Authelia of another drayve host (required with auth.provider=authelia_remote).

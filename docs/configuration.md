@@ -45,6 +45,9 @@ Everything else has sensible defaults. This gives you: basic auth, full monitori
 | `users` | list | — | File-backend users: `name`, `email` (required), `displayname`, `groups`. Authelia with `lldap: false` only; hashes go in `secrets.yml` |
 | `cookie_domain` | string | `stack.domain` | Authelia session cookie domain (authelia only). Use a shared parent domain when other hosts below it use this Authelia |
 | `portal_url` | string | `https://auth.<stack.domain>` | Authelia portal URL, rendered as `session.cookies[].authelia_url` (authelia only). `https://`, host must equal or sit below `cookie_domain` |
+| `session_inactivity` | duration string | — | Authelia `session.inactivity`, e.g. `30m` (authelia only). Not set: Authelia default |
+| `session_expiration` | duration string | — | Authelia `session.expiration`, e.g. `8h` (authelia only). Not set: Authelia default |
+| `session_remember_me` | duration string or `-1` | — | Authelia `session.remember_me` (authelia only). The integer `-1`, unquoted, disables "remember me"; the string `"-1"` is refused (Authelia would not start or keep it on). Units: `y M w d h m s`, chainable (`1h30m`) |
 | `remote.forward_auth_url` | string | — | Full forward-auth endpoint of the other host's Authelia: `https://` and the path exactly `/api/authz/forward-auth` (a query is allowed). The portal root or `/api/health` is refused: they answer 200 and would let every request through. **Required** for `authelia_remote` |
 | `remote.portal_url` | string | — | Portal URL of the other host's Authelia, `https://` only. **Required** for `authelia_remote`; used for the landing-page link |
 
