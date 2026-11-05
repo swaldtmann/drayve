@@ -9,7 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-05
+
 ### Added
+- Release gate: Molecule scenario `upgrade` converges the previous release tag (`DRAYVE_UPGRADE_FROM`, default: the
+  release before the current tag), then the working tree, then checks idempotence and that replaced services are gone.
 - authelia: `auth.session_inactivity`, `auth.session_expiration` and `auth.session_remember_me` set the matching top-level
   `session:` keys of the Authelia configuration. `session_remember_me: -1` (unquoted integer) disables "remember me";
   the string `"-1"` is rejected by `make validate` and the preflight. Not set: output unchanged.
