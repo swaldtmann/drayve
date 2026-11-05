@@ -1,0 +1,90 @@
+---
+# Upgrade test, step 1: put the host into the state of a previous release.
+#
+# The baseline is a git tag, DRAYVE_UPGRADE_FROM (e.g. v0.9.3). Unset: the
+# release before the current tag, or the newest tag if HEAD is not a tag
+# (scripts/upgrade-from-tag.sh). The CI workflows resolve and fetch the tag
+# themselves (the checkout is shallow) and export the variable.
+#
+# The tree of that tag is extracted with `git archive` and its roles converged by a
+# nested ansible-playbook (baseline-converge.yml) against the same inventory
+# Molecule uses, then converge.yml runs the working tree over the result.
+- name: Prepare - converge the baseline release
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    repo_root: "{{ playbook_dir | dirname | dirname }}"
+    baseline_dir: "{{ lookup('ansible.builtin.env', 'MOLECULE_EPHEMERAL_DIRECTORY') }}/upgrade-baseline"
+    inventory_dir_molecule: "{{ lookup('ansible.builtin.env', 'MOLECULE_INVENTORY_FILE') | dirname }}"
+  tasks:
+    - name: Resolve the baseline tag
+      ansible.builtin.shell: |
+        set -euo pipefail
+        cd "$REPO_ROOT"
+        if [ -n "${DRAYVE_UPGRADE_FROM:-}" ]; then
+          echo "$DRAYVE_UPGRADE_FROM"
+        else
+          git tag -l 'v*' | scripts/upgrade-from-tag.sh "$(git describe --exact-match --tags HEAD 2>/dev/null || true)"
+        fi
+      args:
+        executable: /bin/bash
+      environment:
+        REPO_ROOT: "{{ repo_root }}"
+      register: _baseline_tag
+      changed_when: false
+
+    - name: Look up the commit of the baseline tag
+      ansible.builtin.command:
+        cmd: git -C {{ repo_root | quote }} rev-parse --verify --quiet refs/tags/{{ baseline_tag | quote }}^{commit}
+      vars:
+        baseline_tag: "{{ _baseline_tag.stdout | trim }}"
+      register: _baseline_commit
+      changed_when: false
+      failed_when: _baseline_commit.rc != 0 or baseline_tag is not match('^[A-Za-z0-9._-]+$')
+
+    - name: Extract the tree of the baseline tag (roles and the config/ templates they read)
+      ansible.builtin.shell: |
+        set -euo pipefail
+        rm -rf "$BASELINE_DIR"
+        mkdir -p "$BASELINE_DIR"
+        git -C "$REPO_ROOT" archive "$BASELINE_TAG" | tar -x -C "$BASELINE_DIR"
+      args:
+        executable: /bin/bash
+      environment:
+        REPO_ROOT: "{{ repo_root }}"
+        BASELINE_DIR: "{{ baseline_dir }}"
+        BASELINE_TAG: "{{ _baseline_tag.stdout | trim }}"
+      changed_when: true
+
+    - name: Converge the baseline release (nested ansible-playbook)
+      ansible.builtin.command:
+        argv:
+          - ansible-playbook
+          - -i
+          - "{{ inventory_dir_molecule }}"
+          - -e
+          - "ops_repo_root={{ baseline_dir }}"
+          - -e
+          - "upgrade_baseline_tag={{ _baseline_tag.stdout | trim }}"
+          - -e
+          - "upgrade_baseline_commit={{ _baseline_commit.stdout | trim }}"
+          - "{{ playbook_dir }}/baseline-converge.yml"
+      environment:
+        ANSIBLE_ROLES_PATH: "{{ baseline_dir }}/ansible/roles"
+      register: _baseline_run
+      failed_when: false
+      changed_when: true
+
+    - name: Show the end of the baseline run
+      ansible.builtin.debug:
+        msg: "Baseline {{ _baseline_tag.stdout | trim }} ({{ _baseline_commit.stdout | trim }}): rc={{ _baseline_run.rc }}\n{{ _baseline_run.stdout_lines[-25:] | join('\n') }}"
+
+    - name: Fail if the baseline release did not converge
+      ansible.builtin.fail:
+        msg: |
+          Baseline {{ _baseline_tag.stdout | trim }} did not converge (rc={{ _baseline_run.rc }}).
+          This is a problem of the baseline or its test setup, not of the working tree.
+          {{ _baseline_run.stdout_lines | join('\n') }}
+          {{ _baseline_run.stderr }}
+      when: _baseline_run.rc != 0

@@ -2,7 +2,7 @@
 
 The scenarios under `molecule/` (`auth-none`, `authelia`, `authelia-file`,
 `authentik`, `authentik-ldap`, `backup`, `backup-kedge`, `basic`, `integration`,
-`light`, `sops`) converge the roles on a real VM, check idempotence, verify with
+`light`, `sops`, `upgrade`) converge the roles on a real VM, check idempotence, verify with
 Testinfra and tear the VM down again.
 
 Where the VM comes from is chosen by one environment variable,
@@ -86,6 +86,33 @@ Molecule falls back to the driver's). Each scenario creates a server named
 Switching the driver for a scenario that already has Molecule state needs
 `molecule reset -s <scenario>` first; Molecule refuses to change drivers
 silently (state lives in `~/.ansible/tmp/molecule.*.<scenario>`).
+
+## The `upgrade` scenario
+
+`molecule test -s upgrade` (or `make test-upgrade`) tests the step a fresh-install
+scenario cannot: an existing host moving to the working tree. `prepare` converges
+the roles of an older release (a git tag), `converge` runs the working tree over
+it, `idempotence` runs it again, `verify` checks that retired services are gone
+(Promtail) and the new ones run (Alloy, Loki, Grafana, ...). Stack and variables
+are those of `basic`. Origin: v0.10.1 passed the gate with fresh installs but broke
+on an existing host with `no such service: alloy`.
+
+The baseline tag comes from `DRAYVE_UPGRADE_FROM`. Unset, it is the release before the
+current tag, or the newest release tag if HEAD is not a tag (`scripts/upgrade-from-tag.sh`).
+`prepare` extracts the tree of that tag with `git archive` (roles read templates from
+`config/` too) and converges its roles with a
+nested `ansible-playbook` (`baseline-converge.yml`, roles path of the old tree, same
+inventory); it records the tag in `/etc/drayve-upgrade-baseline`. The tag must exist
+locally, so a shallow clone needs `git fetch origin tag <tag>` first.
+
+```bash
+DRAYVE_UPGRADE_FROM=v0.9.3 molecule test -s upgrade
+```
+
+In CI, `release-gate-matrix.yml` runs it in group g2 and fetches the tag before the
+run. `release-gate-single.yml` takes the optional input `upgrade_from` (a tag).
+A failure in `prepare` means the baseline itself did not converge; a failure in
+`converge`, `idempotence` or `verify` is the upgrade.
 
 ## The `authelia-file` scenario
 

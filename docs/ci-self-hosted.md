@@ -117,7 +117,7 @@ make that bearable:
 | Workflow | Trigger | What it does |
 |---|---|---|
 | `test.yml` | push to `main`, pull request against `main` | One job: ansible-lint, playbook syntax check, ShellCheck, Python syntax of the test files, validation of `examples/*.yaml`, variable inventory check, pytest unit tests, bats unit tests |
-| `release-gate-matrix.yml` | push of a tag `v*` | All 11 Molecule scenarios as full `molecule test` sequences (create, converge, idempotence, verify, destroy) on nested test VMs, in two jobs (5 and 6 scenarios) that run one after the other |
+| `release-gate-matrix.yml` | push of a tag `v*` | All 12 Molecule scenarios as full `molecule test` sequences (create, converge, idempotence, verify, destroy) on nested test VMs, in two jobs (5 and 7 scenarios) that run one after the other |
 | `release-gate-single.yml` | manual (`workflow_dispatch`) | One chosen Molecule scenario, same setup |
 
 Notes:

@@ -1,14 +1,15 @@
 name: Release Gate — Matrix (tag-push)
 
-# Real-VM molecule scenarios on tag-push (v*). All 11 scenarios run, on Incus
+# Real-VM molecule scenarios on tag-push (v*). All 12 scenarios run, on Incus
 # test VMs nested inside the self-hosted runner VM (default molecule driver, see
 # docs/testing.md). Tests only: no cloud credentials, no deploy, no release.
 #
 # The runner takes exactly ONE job per cycle and is reset afterwards (~140 s
 # overhead per job), so scenarios are not one job each. They run one after the
-# other inside a job; two jobs (5 + 6 scenarios) keep each job well below the
+# other inside a job; two jobs (5 + 7 scenarios) keep each job below the
 # runner's 2 h job timeout. authelia-file (about an hour: it redeploys five
-# times) sits in g2, the group without the Authentik stacks.
+# times) sits in g2, the group without the Authentik stacks. `upgrade` (two
+# converges, ~15 min) joins g2 too: the Authentik groups are the longer ones.
 #
 # For single-scenario manual runs use release-gate-single.yml (workflow_dispatch).
 
@@ -41,7 +42,7 @@ jobs:
           - name: g1
             group: "basic auth-none authelia authentik authentik-ldap"
           - name: g2
-            group: "light sops backup backup-kedge integration authelia-file"
+            group: "light sops backup backup-kedge integration authelia-file upgrade"
 
     steps:
       - name: Checkout
@@ -50,6 +51,22 @@ jobs:
         run: |
           rm -rf "$WORKDIR"
           git -c http.extraheader="Authorization: token ${CI_TOKEN}" clone --depth 1 -b ${GITHUB_REF_NAME} ${{ github.server_url }}/${{ github.repository }}.git "$WORKDIR"
+
+      - name: Fetch the baseline tag of the upgrade scenario
+        # The checkout is shallow and has no tags. `upgrade` converges the release
+        # before this tag first, so resolve it (scripts/upgrade-from-tag.sh) and fetch
+        # that one tag. Only needed in the group that runs `upgrade`.
+        env:
+          CI_TOKEN: ${{ github.token }}
+        run: |
+          case " ${{ matrix.group }} " in *" upgrade "*) ;; *) echo "no upgrade scenario in this group"; exit 0 ;; esac
+          cd "$WORKDIR"
+          auth="Authorization: token ${CI_TOKEN}"
+          tag=$(git -c http.extraheader="$auth" ls-remote --tags --refs origin 'v*' \
+            | sed 's#.*refs/tags/##' | scripts/upgrade-from-tag.sh "$GITHUB_REF_NAME")
+          git -c http.extraheader="$auth" fetch --depth 1 origin "refs/tags/${tag}:refs/tags/${tag}"
+          echo "DRAYVE_UPGRADE_FROM=${tag}" >> "$GITHUB_ENV"
+          echo "upgrade baseline: ${tag}"
 
       - name: Install dependencies
         run: |
