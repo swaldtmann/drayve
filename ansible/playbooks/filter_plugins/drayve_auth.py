@@ -19,6 +19,7 @@ never see password hashes (those live in secrets.yml).
 from __future__ import annotations
 
 import ipaddress
+import re
 from urllib.parse import urlsplit
 
 POLICIES = ("deny", "one_factor", "two_factor", "bypass")
@@ -35,6 +36,8 @@ MIN_PREFIX_V6 = 16
 IPV4_MAPPED = ipaddress.ip_network("::ffff:0:0/96")
 FORWARD_AUTH_PATH = "/api/authz/forward-auth"
 TEMPLATE_MARKERS = ("{{", "{%")
+# Authelia duration: units y M w d h m s, may be chained (e.g. 1h30m)
+DURATION_RE = re.compile(r"(?:[0-9]+[yMwdhms])+")
 ADDRESS_CHARS = frozenset("0123456789abcdefABCDEF:./")
 
 
@@ -272,6 +275,36 @@ def _check_remote(auth, errors, warnings) -> None:
                 )
 
 
+def _is_duration(value) -> bool:
+    return isinstance(value, str) and DURATION_RE.fullmatch(value) is not None
+
+
+def _check_session(auth, errors) -> None:
+    """auth.session_*: Authelia duration strings; remember_me may also be the integer -1."""
+    for key in ("session_inactivity", "session_expiration", "session_remember_me"):
+        value = auth.get(key)
+        if value is None:
+            continue
+        if _is_duration(value):
+            continue
+        where = f"auth.{key}"
+        if key == "session_remember_me":
+            if isinstance(value, int) and not isinstance(value, bool) and value == -1:
+                continue
+            hint = ""
+            if value == "-1":
+                hint = (
+                    " (the string \"-1\" makes Authelia refuse to start or leaves remember-me on; "
+                    "write -1 as an unquoted number to switch remember-me off)"
+                )
+            errors.append(
+                f"{where} must be a duration string like 30m, 8h, 1d or the unquoted integer -1 "
+                f"(off), got {value!r}{hint}"
+            )
+        else:
+            errors.append(f"{where} must be a duration string like 30m, 8h or 1d, got {value!r}")
+
+
 def check_auth(auth) -> tuple[list[str], list[str]]:
     """Return (errors, warnings) for the ``auth`` section of a stack."""
     errors: list[str] = []
@@ -287,6 +320,7 @@ def check_auth(auth) -> tuple[list[str], list[str]]:
         _check_remote(auth, errors, warnings)
 
     if provider == "authelia":
+        _check_session(auth, errors)
         ac = auth.get("access_control")
         users = _check_users(auth, errors)
         if ac is not None:

@@ -62,6 +62,10 @@ provisioner:
         auth:
           provider: authelia
           lldap: true
+          # session lifetime keys (ltsh/BSI CON.10.A3 values): Authelia must start with them
+          session_inactivity: 30m
+          session_expiration: 8h
+          session_remember_me: -1
           oidc_clients:
             - id: grafana
               name: Grafana

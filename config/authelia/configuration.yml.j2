@@ -71,6 +71,16 @@ access_control:
 
 session:
   secret: "{{ authelia_session_secret }}"
+{% if (auth | default({})).session_inactivity | default(none) is not none %}
+  inactivity: {{ (auth | default({})).session_inactivity | string | to_json }}
+{% endif %}
+{% if (auth | default({})).session_expiration | default(none) is not none %}
+  expiration: {{ (auth | default({})).session_expiration | string | to_json }}
+{% endif %}
+{% if (auth | default({})).session_remember_me | default(none) is not none %}
+{# integer -1 must stay a bare YAML number: a string "-1" crashes Authelia or leaves remember-me on #}
+  remember_me: {{ (auth | default({})).session_remember_me if (auth | default({})).session_remember_me is number else ((auth | default({})).session_remember_me | string | to_json) }}
+{% endif %}
   cookies:
     - domain: "{{ (auth | default({})).cookie_domain | default(drayve_domain, true) }}"
       authelia_url: "{{ (auth | default({})).portal_url | default('https://auth.' ~ drayve_domain, true) }}"

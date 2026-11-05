@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- authelia: `auth.session_inactivity`, `auth.session_expiration` and `auth.session_remember_me` set the matching top-level
+  `session:` keys of the Authelia configuration. `session_remember_me: -1` (unquoted integer) disables "remember me";
+  the string `"-1"` is rejected by `make validate` and the preflight. Not set: output unchanged.
 - `playbooks/rebuild.yml` and `make rebuild NAME=<site>`: rebuild a host on a fresh box from a kedge backup. Chains the
   unchanged `provision.yml`, a `kedge restore` stage (stack stopped first, never `--force-live`, restore-only
   environment, no backup cron on the new box) and a basic verify (no restarting/unhealthy containers, Traefik answers on
