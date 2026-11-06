@@ -201,6 +201,7 @@
                 crowdsecLapiScheme: http
                 updateIntervalSeconds: 15
                 defaultDecisionSeconds: 60
+                updateMaxFailure: {{ crowdsec_update_max_failure | int }}
                 forwardedHeadersTrustedIPs:
                   - 172.16.0.0/12
     owner: "{{ drayve_user }}"

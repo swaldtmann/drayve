@@ -52,12 +52,27 @@ acme_dns_env_vars:
 # on the CrowdSec plan.
 crowdsec_signal_sharing: false
 
+# CrowdSec bouncer plugin: how many failed stream updates against the LAPI it
+# tolerates before it declares the stream unhealthy and answers EVERY request
+# with 403 (crowdsec-bouncer-traefik-plugin v1.8.1, bouncer.go line 586):
+#   0   plugin default: the first failed update blocks all traffic (fail-closed)
+#   n   block after n consecutive failed updates
+#   -1  never block on update failures (fail-open for new decisions; decisions
+#       already in the bouncer cache keep applying). README: "set -1 to never block".
+# Default -1: a LAPI restart/outage during a deploy must not turn into a site-wide
+# 403 (CrowdSec reads its own 403s in the access log and bans neighbours).
+# Override per host (inventory / group_vars) to restore fail-closed.
+crowdsec_update_max_failure: -1
+
 # CrowdSec whitelist — override per host
 crowdsec_whitelist_ips:
   - "127.0.0.1"
 
 # Bouncer watchdog: self-heal against plugin fail-closed / hold
-# after a LAPI restart or accumulated stream state. Curls periodically against
+# after a LAPI restart or accumulated stream state. With the default
+# crowdsec_update_max_failure: -1 the plugin no longer fails closed on a LAPI
+# outage; the watchdog stays for the hold mode (stream hangs, no response) and
+# for hosts that set crowdsec_update_max_failure >= 0. Curls periodically against
 # a known 200 route, restarts Traefik if the plugin does not respond for longer than
 # threshold_seconds or returns 403.
 bouncer_watchdog_enabled: true

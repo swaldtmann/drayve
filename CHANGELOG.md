@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- traefik role: the CrowdSec bouncer middleware is rendered with `updateMaxFailure` from the new variable
+  `crowdsec_update_max_failure` (default `-1`). The plugin default `0` answers every request with 403 as soon as one
+  stream update against the LAPI fails (crowdsec-bouncer-traefik-plugin v1.8.1, `bouncer.go`). On a real host a ~70 s
+  LAPI outage during a deploy made the bouncer 403 all traffic; CrowdSec then read its own 403s in the Traefik log as
+  `http-generic-403-bf` and banned a neighbouring host, and the ban kept extending itself for ~7 h. With `-1` the
+  bouncer never blocks on update failures: new decisions are not fetched during the outage, cached decisions keep
+  applying. Set `crowdsec_update_max_failure: 0` (or `n`) per host to restore fail-closed. The bouncer watchdog stays
+  (it also covers the hold mode where the stream hangs).
+
 ## [0.11.0] - 2026-11-05
 
 ### Added
