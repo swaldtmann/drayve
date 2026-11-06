@@ -207,6 +207,7 @@
     owner: "{{ drayve_user }}"
     group: "{{ drayve_group }}"
     mode: "0600"
+  register: crowdsec_middleware
   when: crowdsec_enabled
   tags: [traefik, crowdsec]
 

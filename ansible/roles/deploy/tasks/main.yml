@@ -614,7 +614,10 @@
     chdir: "{{ drayve_deploy_dir }}"
   become: true
   become_user: "{{ drayve_user }}"
-  when: traefik_config.changed | default(false)
+  # crowdsec_middleware: registered by the traefik role (runs before this one).
+  # The bouncer plugin reads its settings (updateMaxFailure) only at start, so a
+  # changed crowdsec.yml does not apply until Traefik is recreated.
+  when: (traefik_config.changed | default(false)) or (crowdsec_middleware.changed | default(false))
   tags: [deploy, traefik]
 
 - name: Force-recreate Authelia on config or users change

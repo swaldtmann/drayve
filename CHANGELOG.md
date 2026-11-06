@@ -17,7 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `http-generic-403-bf` and banned a neighbouring host, and the ban kept extending itself for ~7 h. With `-1` the
   bouncer never blocks on update failures: new decisions are not fetched during the outage, cached decisions keep
   applying. Set `crowdsec_update_max_failure: 0` (or `n`) per host to restore fail-closed. The bouncer watchdog stays
-  (it also covers the hold mode where the stream hangs).
+  (it also covers the hold mode where the stream hangs). Traefik is recreated when the bouncer middleware changes
+  (the plugin reads its settings only at start), so the new value takes effect on existing hosts with the deploy.
 
 ## [0.11.0] - 2026-11-05
 

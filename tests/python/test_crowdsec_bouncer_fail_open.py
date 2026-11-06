@@ -58,3 +58,29 @@ def test_middleware_renders_minus_one_as_integer_by_default(render_bouncer):
 def test_host_can_opt_back_into_fail_closed(render_bouncer, override):
     value = render_bouncer(crowdsec_update_max_failure=override)["updateMaxFailure"]
     assert value == override and isinstance(value, int), value
+
+
+# The plugin keeps its stream ticker (and so updateMaxFailure) until Traefik is
+# recreated: a changed crowdsec.yml alone does not apply. The deploy role must
+# recreate Traefik when the middleware task reports a change.
+
+def _tasks(path: Path) -> list[dict]:
+    return yaml.safe_load(path.read_text())
+
+
+def test_middleware_task_registers_its_result():
+    task = next(t for t in _tasks(TRAEFIK_ROLE / "tasks" / "main.yml") if t.get("name") == TASK_NAME)
+    assert task.get("register") == "crowdsec_middleware"
+
+
+def test_changed_middleware_recreates_traefik():
+    deploy = REPO_ROOT / "ansible" / "roles" / "deploy" / "tasks" / "main.yml"
+    task = next(t for t in _tasks(deploy) if t.get("name") == "Force-recreate Traefik on config change")
+    assert "crowdsec_middleware.changed | default(false)" in task["when"]
+    assert "traefik_config.changed | default(false)" in task["when"]
+
+
+def test_traefik_role_runs_before_deploy_role():
+    play = next(p for p in _tasks(REPO_ROOT / "ansible" / "playbooks" / "deploy.yml") if p.get("name") == "Deploy")
+    roles = play["roles"]
+    assert roles.index("traefik") < roles.index("deploy")
