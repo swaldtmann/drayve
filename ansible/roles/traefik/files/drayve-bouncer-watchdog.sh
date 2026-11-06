@@ -3,6 +3,8 @@
 #
 # Catches two plugin failure modes:
 #   (a) fail-closed after a LAPI restart    → HTTP 4xx/5xx unrelated to any decision
+#       (does not occur with the default crowdsec_update_max_failure: -1; only
+#       on hosts that set it to >= 0)
 #   (b) hold mode after stream-state drift  → HTTP stream hangs, no response
 #
 # Strategy: one curl against ${URL} per tick with ${TIMEOUT}s. On failure
