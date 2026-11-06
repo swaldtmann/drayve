@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-11-06
+
 ### Fixed
 - traefik role: the CrowdSec bouncer middleware is rendered with `updateMaxFailure` from the new variable
   `crowdsec_update_max_failure` (default `-1`). The plugin default `0` answers every request with 403 as soon as one
