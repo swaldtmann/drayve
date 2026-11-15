@@ -103,8 +103,9 @@ authentik_redis_image: redis:7.4.11-alpine
 # linux/amd64 + linux/arm64 present). Keep the compose fallback in
 # ansible/templates/docker-compose.yml.j2 in sync (traefik_image lives in
 # ansible/roles/traefik/defaults/main.yml).
-# crowdsecurity/crowdsec:latest -> v1.8.1
-crowdsec_image: crowdsecurity/crowdsec:v1.8.1
+# crowdsecurity/crowdsec:latest -> v1.8.1 -> v1.8.2 (index digest sha256:65b74942f7e7ed5c60fde4ac15fc4ba715904c398c8b16dd451f4907d90347d4 on 2026-11-15,
+# Docker Hub API; linux/amd64 + linux/arm64)
+crowdsec_image: crowdsecurity/crowdsec:v1.8.2
 # nginx:alpine -> 1.31.6-alpine
 landing_image: nginx:1.31.6-alpine
 

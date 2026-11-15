@@ -13,7 +13,7 @@ set -u
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PYTHON="${PYTHON:-python3}"
-IMAGE="${CROWDSEC_IMAGE:-crowdsecurity/crowdsec:v1.8.1}"
+IMAGE="${CROWDSEC_IMAGE:-crowdsecurity/crowdsec:v1.8.2}"
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/drayve-cs-test.XXXXXX")"
 NAME="drayve-cs-test-$$"
 FAILS=0

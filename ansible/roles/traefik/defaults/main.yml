@@ -3,11 +3,11 @@ traefik_config_dir: "{{ drayve_deploy_dir }}/traefik/config"
 traefik_dynamic_dir: "{{ drayve_deploy_dir }}/traefik/config/dynamic"
 traefik_certs_dir: "{{ drayve_deploy_dir }}/traefik/certs"
 
-# traefik:v3.6.25 -> v3.7.16 (index digest
-# sha256:1336e85aaed293bd63d005086e0dd013b04078b26aaeb1c18b26a2f928af7e65 on 2026-10-30,
-# `docker buildx imagetools inspect traefik:v3.7.16`; amd64 + arm64).
+# traefik:v3.6.25 -> v3.7.16 -> v3.7.19 (index digest
+# sha256:aa942a00bce033c909bf1f7e861d93761be4b31a035f10d2410d33e38a8f41cf on 2026-11-15,
+# Docker Hub API; amd64 + arm64).
 # Keep the compose fallback in sync.
-traefik_image: traefik:v3.7.16
+traefik_image: traefik:v3.7.19
 
 # Which certResolver Traefik router labels use: "letsencrypt" (httpChallenge,
 # default) or "letsencrypt-dns" (dnsChallenge, provider = acme_dns_provider

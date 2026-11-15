@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.11.2] - 2026-11-15
+
+### Changed
+- Traefik `v3.7.16` -> `v3.7.19` (includes security fixes from v3.7.17 and v3.7.18; built with Go 1.27, lego
+  v5.6.0). v3.7.18 rejects BasicAuth passwords longer than 1024 bytes with 401; the `basic` auth stack is unaffected
+  unless a user has such a password. Upstream migration notes: https://doc.traefik.io/traefik/v3.7/migrate/v3/
+- CrowdSec `v1.8.1` -> `v1.8.2` (bot detection and WAF additions, performance work, bug fixes; no configuration
+  change needed for drayve). The CrowdSec bouncer plugin stays at `v1.8.1`.
+
 ## [0.11.1] - 2026-11-06
 
 ### Fixed

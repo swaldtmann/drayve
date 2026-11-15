@@ -268,7 +268,7 @@
     content: "{{ lookup('template', 'crowdsec-whitelist.yaml.j2') }}"
     validate: >-
       docker run --rm -v %s:/wl.yaml:ro --entrypoint sh
-      {{ crowdsec_image | default('crowdsecurity/crowdsec:v1.8.1') }}
+      {{ crowdsec_image | default('crowdsecurity/crowdsec:v1.8.2') }}
       -c 'mkdir -p /etc/crowdsec /var/lib/crowdsec/data
       && cp -a /staging/etc/crowdsec/. /etc/crowdsec/
       && cp /wl.yaml /etc/crowdsec/parsers/s02-enrich/whitelist.yaml
