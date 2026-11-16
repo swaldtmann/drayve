@@ -76,6 +76,26 @@ def test_baseline_play_refreshes_apt_index_before_roles():
     assert "until" in task and task.get("retries") == 3 and task.get("delay") == 10
 
 
+def test_baseline_play_quiets_apt_daily_before_the_refresh():
+    """Baselines before v0.11.3 only wait 60 s for the dpkg lock; unattended-upgrades
+    on a fresh VM holds it longer (release gate #176)."""
+    play = yaml.safe_load((SCENARIO_DIR / "baseline-converge.yml").read_text())[0]
+    pre = play.get("pre_tasks") or []
+    refresh = next(i for i, t in enumerate(pre)
+                   if isinstance(t.get("ansible.builtin.apt"), dict)
+                   and t["ansible.builtin.apt"].get("update_cache"))
+    stopped = set()
+    wait_idx = None
+    for i, t in enumerate(pre[:refresh]):
+        svc = t.get("ansible.builtin.systemd") or t.get("ansible.builtin.service")
+        if isinstance(svc, dict) and svc.get("state") == "stopped":
+            stopped.update(t.get("loop") or [svc.get("name")])
+        if "flock" in str(t.get("ansible.builtin.command", "")):
+            wait_idx = i
+    assert {"apt-daily.timer", "apt-daily-upgrade.timer", "unattended-upgrades.service"} <= stopped
+    assert wait_idx is not None, "no wait for the dpkg lock before the apt refresh"
+
+
 def test_docs_describe_the_scenario():
     text = (REPO_ROOT / "docs" / "testing.md").read_text()
     assert "`upgrade`" in text

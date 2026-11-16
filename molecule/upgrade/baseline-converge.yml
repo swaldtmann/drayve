@@ -16,6 +16,25 @@
     upgrade_baseline_tag: unknown
     upgrade_baseline_commit: unknown
   pre_tasks:
+    # Baselines before v0.11.3 only wait DPkg::Lock::Timeout=60 for the dpkg lock; on
+    # a fresh VM unattended-upgrades holds it for minutes (release gate #176). The VM
+    # is thrown away afterwards, so stop apt-daily and wait for the lock to be free.
+    - name: Stop apt-daily timers and unattended-upgrades
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: stopped
+      loop:
+        - apt-daily.timer
+        - apt-daily-upgrade.timer
+        - unattended-upgrades.service
+      register: _stop_apt_daily
+      failed_when: _stop_apt_daily is failed and 'Could not find' not in (_stop_apt_daily.msg | default(''))
+
+    # A running unattended-upgrade may finish its current package after the stop.
+    - name: Wait until no process holds the dpkg frontend lock
+      ansible.builtin.command: flock -w 900 /var/lib/dpkg/lock-frontend true
+      changed_when: false
+
     # Baselines before v0.11.3 do not refresh the apt index in their own apt tasks;
     # a fresh VM then fails with "No package matching 'apache2-utils'" (release gate #175).
     - name: Refresh the apt index for baselines without update_cache
