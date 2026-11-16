@@ -63,6 +63,19 @@ def test_workflows_fetch_the_baseline_tag(name):
     assert "DRAYVE_UPGRADE_FROM" in text
 
 
+def test_baseline_play_refreshes_apt_index_before_roles():
+    """Baselines before v0.11.3 do not run update_cache themselves (release gate
+    #175: apache2-utils not available on a fresh VM)."""
+    play = yaml.safe_load((SCENARIO_DIR / "baseline-converge.yml").read_text())[0]
+    pre = play.get("pre_tasks") or []
+    apt = [t["ansible.builtin.apt"] for t in pre if "ansible.builtin.apt" in t]
+    assert apt, "no apt-update task in pre_tasks of the baseline play"
+    assert apt[0].get("update_cache") is True
+    assert "lock_timeout" in apt[0]
+    task = next(t for t in pre if "ansible.builtin.apt" in t)
+    assert "until" in task and task.get("retries") == 3 and task.get("delay") == 10
+
+
 def test_docs_describe_the_scenario():
     text = (REPO_ROOT / "docs" / "testing.md").read_text()
     assert "`upgrade`" in text
