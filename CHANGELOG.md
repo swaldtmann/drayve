@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.11.3] - 2026-11-16
+
+### Fixed
+- All apt install tasks in `ansible/roles/` wait for the dpkg lock instead of failing after 60 s: `lock_timeout` from
+  the new variable `drayve_apt_lock_timeout` (default `600`), plus `until`/`retries: 3`/`delay: 10`. On fresh hosts
+  `apt-daily-upgrade.timer` can hold the lock for minutes shortly after boot; the release gate failed on it in
+  `authelia` (`Install sqlite3 CLI`).
+- The same tasks refresh the package index (`update_cache: true`) on every attempt. The previous `cache_valid_time`
+  had no effect without `update_cache`, so a stale index could request package versions that the mirror no longer
+  serves (404 for `apache2-utils` from security.ubuntu.com in `backup-kedge`).
+
 ## [0.11.2] - 2026-11-15
 
 ### Changed
