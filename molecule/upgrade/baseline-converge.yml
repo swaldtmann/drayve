@@ -30,9 +30,15 @@
       register: _stop_apt_daily
       failed_when: _stop_apt_daily is failed and 'Could not find' not in (_stop_apt_daily.msg | default(''))
 
-    # A running unattended-upgrade may finish its current package after the stop.
-    - name: Wait until no process holds the dpkg frontend lock
-      ansible.builtin.command: flock -w 900 /var/lib/dpkg/lock-frontend true
+    # apt/dpkg lock with fcntl, flock(1) uses flock(2): the two do not see each other,
+    # so flock cannot wait for apt (release gate #176 ran apt-daily-upgrade.service).
+    # A transient unit ordered After= the apt-daily services stays queued until a
+    # running job has finished. The services are not stopped: killing dpkg mid-run
+    # can leave it broken.
+    - name: Wait until apt-daily and apt-daily-upgrade jobs have finished
+      ansible.builtin.command: >-
+        timeout 1200 systemd-run --wait --quiet
+        --property="After=apt-daily.service apt-daily-upgrade.service" /bin/true
       changed_when: false
 
     # Baselines before v0.11.3 do not refresh the apt index in their own apt tasks;

@@ -86,14 +86,18 @@ def test_baseline_play_quiets_apt_daily_before_the_refresh():
                    and t["ansible.builtin.apt"].get("update_cache"))
     stopped = set()
     wait_idx = None
+    flock_tasks = [t for t in pre if "flock" in str(t.get("ansible.builtin.command", ""))]
     for i, t in enumerate(pre[:refresh]):
         svc = t.get("ansible.builtin.systemd") or t.get("ansible.builtin.service")
         if isinstance(svc, dict) and svc.get("state") == "stopped":
             stopped.update(t.get("loop") or [svc.get("name")])
-        if "flock" in str(t.get("ansible.builtin.command", "")):
+        cmd = str(t.get("ansible.builtin.command", ""))
+        if "systemd-run" in cmd and "--wait" in cmd and "After=apt-daily.service apt-daily-upgrade.service" in cmd:
             wait_idx = i
     assert {"apt-daily.timer", "apt-daily-upgrade.timer", "unattended-upgrades.service"} <= stopped
-    assert wait_idx is not None, "no wait for the dpkg lock before the apt refresh"
+    assert wait_idx is not None, "no systemd-run --wait on apt-daily(-upgrade).service before the apt refresh"
+    assert not flock_tasks, "flock(2) does not see apt's fcntl lock"
+    assert not {"apt-daily.service", "apt-daily-upgrade.service"} & stopped
 
 
 def test_docs_describe_the_scenario():
