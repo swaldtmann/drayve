@@ -20,7 +20,12 @@
       - rsync
       - git
     state: present
-    cache_valid_time: 3600
+    update_cache: true
+    lock_timeout: "{{ drayve_apt_lock_timeout | default(600) }}"
+  register: _apt_install_kedge_restore_dependencies
+  until: _apt_install_kedge_restore_dependencies is succeeded
+  retries: 3
+  delay: 10
   tags: [backup]
 
 - name: Clone kedge repository

@@ -16,7 +16,11 @@
     name: "{{ hbu_packages }}"
     state: present
     update_cache: true
-    cache_valid_time: 3600
+    lock_timeout: "{{ drayve_apt_lock_timeout | default(600) }}"
+  register: _apt_install_unattended_upgrades_stack
+  until: _apt_install_unattended_upgrades_stack is succeeded
+  retries: 3
+  delay: 10
   tags: [hbu, hbu-pkg]
 
 - name: Render APT periodic config (20auto-upgrades)

@@ -15,7 +15,11 @@
       - gnupg
     state: present
     update_cache: true
-    cache_valid_time: 3600
+    lock_timeout: "{{ drayve_apt_lock_timeout | default(600) }}"
+  register: _apt_install_docker_prerequisites
+  until: _apt_install_docker_prerequisites is succeeded
+  retries: 3
+  delay: 10
   when: docker_check.rc != 0
   tags: [docker]
 
@@ -48,6 +52,11 @@
       - docker-buildx-plugin
     state: present
     update_cache: true
+    lock_timeout: "{{ drayve_apt_lock_timeout | default(600) }}"
+  register: _apt_install_docker_engine
+  until: _apt_install_docker_engine is succeeded
+  retries: 3
+  delay: 10
   when: docker_check.rc != 0
   tags: [docker]
 
@@ -86,7 +95,12 @@
   ansible.builtin.apt:
     name: iptables
     state: present
-    cache_valid_time: 3600
+    update_cache: true
+    lock_timeout: "{{ drayve_apt_lock_timeout | default(600) }}"
+  register: _apt_install_iptables
+  until: _apt_install_iptables is succeeded
+  retries: 3
+  delay: 10
   when: docker_firewall_enabled | bool
   tags: [docker, firewall]
 

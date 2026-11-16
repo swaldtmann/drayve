@@ -38,7 +38,12 @@
       ansible.builtin.apt:
         name: apache2-utils
         state: present
-        cache_valid_time: 3600
+        update_cache: true
+        lock_timeout: "{{ drayve_apt_lock_timeout | default(600) }}"
+      register: _apt_install_apache2_utils_for_htpasswd
+      until: _apt_install_apache2_utils_for_htpasswd is succeeded
+      retries: 3
+      delay: 10
 
     - name: Check if htpasswd exists
       ansible.builtin.stat:
