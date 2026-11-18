@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.11.4] - 2026-11-18
+
+### Fixed
+- DOCKER-USER firewall baseline (`docker-user-fw.sh`) now also filters IPv6 via `ip6tables` with the same allow
+  list. The IPv6 chain is set up only when `ip6tables` is available and the `DOCKER-USER` chain exists or can be
+  created; otherwise it is skipped silently. Docker publishes ports on `[::]` as well, which stayed unfiltered.
+- `ansible/playbooks/host-update.yml` and `ansible/tasks/rebuild_verify_mockforge.yml` wait for the dpkg lock and
+  refresh the package index like the role tasks since 0.11.3 (`lock_timeout`, `update_cache`, `until`/`retries`).
+- `make lint` uses `ansible-lint` from `PATH` when no `.venv` exists instead of failing with exit 127.
+- `release-gate-single.yml` passes the ref name to `scripts/upgrade-from-tag.sh`, so a run on a tag ref takes the
+  highest tag below it as upgrade baseline (as the matrix gate does) instead of the tag itself.
+
 ## [0.11.3] - 2026-11-16
 
 ### Fixed
