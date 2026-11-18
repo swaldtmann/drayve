@@ -113,3 +113,24 @@ def test_tasks_are_gated_by_the_switch_and_start_the_unit():
     assert "drayve-docker-user-fw.service.j2" in tasks
     assert "docker_firewall_enabled" in tasks
     assert "drayve-docker-user-fw" in tasks
+
+
+def _v6(lines: list[str]) -> list[str]:
+    return [ln.strip() for ln in lines if "ip6tables" in ln]
+
+
+def test_ipv6_chain_is_guarded_by_availability(ansible_jinja_env):
+    """Docker publishes on [::] too; ip6tables gets the same baseline, but is
+    skipped cleanly when the binary or the DOCKER-USER chain is missing."""
+    text = "\n".join(_render(ansible_jinja_env))
+    assert "command -v ip6tables" in text
+    assert "ip6tables -n -L DOCKER-USER" in text
+
+
+def test_ipv6_rules_mirror_ipv4(ansible_jinja_env):
+    lines = _render(ansible_jinja_env)
+    v4 = [r.replace("iptables", "X", 1) for r in _rules(lines) if r.startswith("iptables")]
+    v6 = [r.replace("ip6tables", "X", 1) for r in _v6(lines) if "-A DOCKER-USER" in r]
+    assert v4 and v4 == v6
+    assert any("--ctorigdstport 443" in r for r in v6)
+    assert [r for r in _v6(lines) if "-A DOCKER-USER" in r][-1].endswith("-j DROP")

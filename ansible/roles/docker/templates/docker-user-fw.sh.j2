@@ -2,21 +2,30 @@
 # {{ ansible_managed }}
 # DOCKER-USER firewall baseline (default DROP), installed by drayve role 'docker'.
 # Idempotent: flushes and rebuilds the DOCKER-USER chain on every run.
+# IPv6: Docker publishes on [::] as well, so ip6tables gets the same baseline;
+# skipped cleanly if ip6tables or the DOCKER-USER chain is unavailable.
 # Docker evaluates DOCKER-USER before its own forwarding rules and never flushes it.
 set -euo pipefail
 
-iptables -N DOCKER-USER 2>/dev/null || true
-iptables -F DOCKER-USER
+{% macro rules(ipt) %}
+{{ ipt }} -F DOCKER-USER
 
 # Replies to connections that are already allowed.
-iptables -A DOCKER-USER -m conntrack --ctstate ESTABLISHED,RELATED -j RETURN
+{{ ipt }} -A DOCKER-USER -m conntrack --ctstate ESTABLISHED,RELATED -j RETURN
 # Traffic coming from containers (outbound, container-to-container).
-iptables -A DOCKER-USER -i docker0 -j RETURN
-iptables -A DOCKER-USER -i br+ -j RETURN
+{{ ipt }} -A DOCKER-USER -i docker0 -j RETURN
+{{ ipt }} -A DOCKER-USER -i br+ -j RETURN
 # Published ports that may be reached from outside (original destination port,
 # i.e. before Docker's DNAT).
 {% for item in docker_firewall_allowed_ports %}
-iptables -A DOCKER-USER -p {{ item.proto | default('tcp') }} -m conntrack --ctorigdstport {{ item.port }} --ctdir ORIGINAL -j RETURN
+{{ ipt }} -A DOCKER-USER -p {{ item.proto | default('tcp') }} -m conntrack --ctorigdstport {{ item.port }} --ctdir ORIGINAL -j RETURN
 {% endfor %}
 # Everything else from outside.
-iptables -A DOCKER-USER -j DROP
+{{ ipt }} -A DOCKER-USER -j DROP
+{% endmacro %}
+iptables -N DOCKER-USER 2>/dev/null || true
+{{ rules('iptables') }}
+if command -v ip6tables >/dev/null 2>&1 \
+  && { ip6tables -n -L DOCKER-USER >/dev/null 2>&1 || ip6tables -N DOCKER-USER 2>/dev/null; }; then
+{{ rules('ip6tables') | indent(2, first=True) }}
+fi

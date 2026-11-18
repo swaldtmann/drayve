@@ -63,6 +63,14 @@ def test_workflows_fetch_the_baseline_tag(name):
     assert "DRAYVE_UPGRADE_FROM" in text
 
 
+@pytest.mark.parametrize("name", ["release-gate-matrix.yml", "release-gate-single.yml"])
+def test_workflows_pass_ref_name_to_the_resolver(name):
+    """On a tag ref the newest tag is the checkout itself (upgrade from itself,
+    gate run 162); the resolver needs the ref name to pick the one below it."""
+    text = (WORKFLOWS / name).read_text()
+    assert 'scripts/upgrade-from-tag.sh "$GITHUB_REF_NAME"' in text
+
+
 def test_baseline_play_refreshes_apt_index_before_roles():
     """Baselines before v0.11.3 do not run update_cache themselves (release gate
     #175: apache2-utils not available on a fresh VM)."""

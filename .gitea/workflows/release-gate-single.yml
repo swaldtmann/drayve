@@ -78,7 +78,7 @@ jobs:
           tag="$UPGRADE_FROM"
           if [ -z "$tag" ]; then
             tag=$(git -c http.extraheader="$auth" ls-remote --tags --refs origin 'v*' \
-              | sed 's#.*refs/tags/##' | scripts/upgrade-from-tag.sh)
+              | sed 's#.*refs/tags/##' | scripts/upgrade-from-tag.sh "$GITHUB_REF_NAME")
           fi
           git -c http.extraheader="$auth" fetch --depth 1 origin "refs/tags/${tag}:refs/tags/${tag}"
           echo "DRAYVE_UPGRADE_FROM=${tag}" >> "$GITHUB_ENV"

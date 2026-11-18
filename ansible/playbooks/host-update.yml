@@ -134,23 +134,37 @@
     - name: APT update (refresh package lists)
       ansible.builtin.apt:
         update_cache: true
-        cache_valid_time: 0
+        lock_timeout: "{{ drayve_apt_lock_timeout | default(600) }}"
+      register: hu_apt_update
+      until: hu_apt_update is succeeded
+      retries: 3
+      delay: 10
 
     - name: APT full-upgrade
       ansible.builtin.apt:
         upgrade: full
+        update_cache: true
+        lock_timeout: "{{ drayve_apt_lock_timeout | default(600) }}"
         autoremove: true
         autoclean: true
       when: hu_apt_full_upgrade | bool
       register: hu_apt_upgrade
+      until: hu_apt_upgrade is succeeded
+      retries: 3
+      delay: 10
 
     - name: APT upgrade (no full-upgrade)
       ansible.builtin.apt:
         upgrade: 'yes'
+        update_cache: true
+        lock_timeout: "{{ drayve_apt_lock_timeout | default(600) }}"
         autoremove: true
         autoclean: true
       when: not (hu_apt_full_upgrade | bool)
       register: hu_apt_upgrade_alt
+      until: hu_apt_upgrade_alt is succeeded
+      retries: 3
+      delay: 10
 
     - name: Detect reboot-required after upgrade
       ansible.builtin.stat:

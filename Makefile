@@ -15,7 +15,7 @@ ANSIBLE_DIR := ansible
 DEPLOY_DIR := deploy
 INVENTORY := $(DEPLOY_DIR)/hosts.yaml
 PYTHON := $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
-ANSIBLE_LINT := $(if $(wildcard .venv/bin/ansible-lint),.venv/bin/ansible-lint,ansible-lint)
+ANSIBLE_LINT := $(if $(wildcard .venv/bin/ansible-lint),$(CURDIR)/.venv/bin/ansible-lint,ansible-lint)
 # Deliberate and-or chain in the $(shell) below: it only picks a value (uv vs. plain molecule), echo cannot fail, nothing is swallowed.
 MOLECULE := $(if $(wildcard .venv/bin/molecule),PATH="$(CURDIR)/.venv/bin:$(PATH)" .venv/bin/molecule,$(shell command -v uv >/dev/null 2>&1 && echo "uv run molecule" || echo "molecule"))
 
@@ -78,7 +78,7 @@ validate: _require-stack  ## Validate stack.yaml for a host (NAME=)
 
 lint:  ## Lint playbooks + roles
 	@echo "==> Running ansible-lint..."
-	@set -o pipefail; cd $(ANSIBLE_DIR) && $(CURDIR)/$(ANSIBLE_LINT) playbooks/ roles/ 2>&1 | grep -v "^WARNING" | sed 's/^/    /'
+	@set -o pipefail; cd $(ANSIBLE_DIR) && $(ANSIBLE_LINT) playbooks/ roles/ 2>&1 | grep -v "^WARNING" | sed 's/^/    /'
 	@echo "==> Lint passed"
 
 provision: _require-name _require-stack _require-inventory validate  ## Provision + deploy server (NAME= [CONFIRM=y])

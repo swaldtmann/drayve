@@ -18,7 +18,13 @@ from pathlib import Path
 import pytest
 import yaml
 
-ROLES = Path(__file__).resolve().parents[2] / "ansible" / "roles"
+ANSIBLE = Path(__file__).resolve().parents[2] / "ansible"
+ROLES = ANSIBLE / "roles"
+# Non-role files with apt tasks that run on fresh/updating hosts.
+EXTRA_FILES = [
+    ANSIBLE / "tasks" / "rebuild_verify_mockforge.yml",
+    ANSIBLE / "playbooks" / "host-update.yml",
+]
 APT = "ansible.builtin.apt"
 
 
@@ -31,6 +37,14 @@ def _walk(tasks):
             yield from _walk(t.get(key))
 
 
+def _walk_file(f):
+    for doc in yaml.safe_load(f.read_text()) or []:
+        yield from _walk([doc])
+        # playbook plays: descend into their task lists
+        for key in ("pre_tasks", "tasks", "post_tasks", "handlers"):
+            yield from _walk(doc.get(key) if isinstance(doc, dict) else None)
+
+
 def _apt_install_tasks():
     found = []
     for f in sorted(ROLES.glob("*/tasks/*.yml")):
@@ -38,6 +52,11 @@ def _apt_install_tasks():
             args = t.get(APT)
             if isinstance(args, dict) and args.get("name"):
                 found.append(pytest.param(t, id=f"{f.parent.parent.name}/{f.name}:{t['name']}"))
+    for f in EXTRA_FILES:
+        for t in _walk_file(f):
+            args = t.get(APT)
+            if isinstance(args, dict) and (args.get("name") or args.get("upgrade") or args.get("update_cache")):
+                found.append(pytest.param(t, id=f"{f.parent.name}/{f.name}:{t['name']}"))
     return found
 
 
