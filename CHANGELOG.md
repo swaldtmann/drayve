@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.11.5] - 2026-11-24
+
 ### Fixed
 - Traefik logrotate `postrotate` no longer uses `docker kill --signal=USR1`. Every `docker kill` marks the
   container as manually stopped, which silently disables `restart: unless-stopped` (no restart after reboot or
