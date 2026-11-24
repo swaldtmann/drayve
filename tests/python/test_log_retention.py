@@ -53,7 +53,9 @@ def test_default_rule_has_rotate_13_and_maxage_14(render):
 
 def test_postrotate_signals_traefik_container(render):
     out = render()
-    assert 'docker kill --signal="USR1" traefik' in out
+    assert "docker exec traefik sh -c 'kill -USR1 1'" in out
+    # docker kill sets HasBeenManuallyStopped and disables restart: unless-stopped
+    assert "docker kill" not in out
     assert "postrotate" in out and "endscript" in out
 
 
