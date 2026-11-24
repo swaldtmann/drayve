@@ -11,6 +11,6 @@
     delaycompress
     sharedscripts
     postrotate
-        docker kill --signal="USR1" {{ traefik_container_name }} >/dev/null 2>&1 || true
+        docker exec {{ traefik_container_name }} sh -c 'kill -USR1 1' >/dev/null 2>&1 || true
     endscript
 }
