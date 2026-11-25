@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-25
+
+**BREAKING:** `auth.provider: authentik` now requires `auth.admin_group`; stacks without it fail validation
+(no default-allow). Authentik pinned to 2026.8.6.
+
 ### Fixed
 - Authentik against a host-native 389-DS runs through without manual steps:
   - `mem_authentik_server` 512m -> 1536m. The server needs ~700 MiB and the bootstrap's `docker exec` Django shell
