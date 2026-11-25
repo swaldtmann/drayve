@@ -51,6 +51,7 @@ provisioner:
         auth_lldap: true
         auth:
           provider: authentik
+          admin_group: lldap_admin   # LLDAP's built-in group
           ldap:
             host: lldap
             port: 3890

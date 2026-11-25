@@ -224,6 +224,12 @@ properties:
               items:
                 type: string
               default: []
+      admin_group:
+        type: string
+        pattern: "^[A-Za-z0-9._-]+$"
+        description: >
+          Required with auth.provider=authentik. Name (cn) of the group whose members may use Landing,
+          Traefik dashboard, whoami and Grafana (Admin role there). Comes from the LDAP sync.
       ldap:
         type: object
         description: External LDAP source for Authentik (only with auth.provider=authentik).

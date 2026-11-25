@@ -16,6 +16,7 @@ import urllib.error
 
 DOMAIN = "{{ drayve_domain }}"
 LANDING_DOMAIN = "{{ authentik_landing_domain }}"
+ADMIN_GROUP = {{ authentik_admin_group | tojson }}
 GRAFANA_SECRET = "{{ authentik_oidc_grafana_secret }}"
 
 # LDAP Source config (from stack.yaml auth.ldap)
@@ -306,21 +307,66 @@ def ensure_application(api, name, slug, provider_pk):
     exact = [r for r in results if r.get("slug") == slug]
     if exact:
         log(f"Application '{slug}' already exists")
-        return
+        return exact[0]["pk"]
 
     try:
-        api.post("/core/applications/", {
+        resp = api.post("/core/applications/", {
             "name": name,
             "slug": slug,
             "provider": provider_pk,
         })
         log(f"Created application: {name} (slug={slug})")
+        return resp["pk"]
     except urllib.error.HTTPError as e:
         body = e.read().decode() if e.fp else ""
         if e.code == 400 and "already exists" in body:
             log(f"Application '{slug}' already exists (confirmed by 400)")
-            return
+            resp = api.get(f"/core/applications/?slug={slug}&page_size=50")
+            for r in resp.get("results", []):
+                if r.get("slug") == slug:
+                    return r["pk"]
         raise
+
+
+def ensure_admin_group(api, name, timeout=300, interval=5):
+    """Return the PK of the admin group (name = cn of the synced LDAP group).
+
+    With an LDAP source the group arrives with the (asynchronous) sync, so poll for it and fail
+    clearly if it never shows up. Without LDAP there is nothing to sync: create it locally.
+    """
+    deadline = time.time() + timeout
+    while True:
+        resp = api.get(f"/core/groups/?name={urllib.parse.quote(name)}&page_size=50")
+        for r in resp.get("results", []):
+            if r.get("name") == name:
+                return r["pk"]
+        if not (LDAP_ENABLED and LDAP_HOST):
+            pk = api.post("/core/groups/", {"name": name})["pk"]
+            log(f"Created local group '{name}' (no LDAP source)")
+            return pk
+        if time.time() >= deadline:
+            raise RuntimeError(
+                f"Admin group '{name}' not found in Authentik after {timeout}s — "
+                "is it in the LDAP source (group filter / ou) and synced?"
+            )
+        time.sleep(interval)
+
+
+def ensure_group_binding(api, application_pk, group_pk):
+    """Bind the application to a group policy (idempotent). With any binding, only members get in."""
+    resp = api.get(f"/policies/bindings/?target={application_pk}&group={group_pk}&page_size=50")
+    for r in resp.get("results", []):
+        if r.get("target") == application_pk and r.get("group") == group_pk:
+            return
+    api.post("/policies/bindings/", {
+        "target": application_pk,
+        "group": group_pk,
+        "order": 0,
+        "enabled": True,
+        "negate": False,
+        "timeout": 30,
+    })
+    log(f"Bound application {application_pk} to group {group_pk}")
 
 
 def assign_to_outpost(api, outpost_pk, provider_pk):
@@ -471,6 +517,11 @@ def ensure_ldap_source(api, bind_password):
 
 
 def main():
+    if not ADMIN_GROUP:
+        raise RuntimeError(
+            "auth.admin_group is required with auth.provider=authentik: the LDAP group whose members "
+            "may use Landing, Traefik dashboard, whoami and Grafana (no default allow)"
+        )
     # 1. Resolve container IP and wait for ready
     ip = get_container_ip("authentik-server")
     base_url = f"http://{ip}:9000/api/v3"
@@ -497,13 +548,14 @@ def main():
         ensure_outpost_host(api, outpost)
 
     # 5. Create proxy providers + applications
+    app_pks = []
     for name, host, slug in [
         ("whoami", f"https://whoami.{DOMAIN}", "whoami"),
         ("landing", f"https://{LANDING_DOMAIN}", "landing"),
         ("traefik-dashboard", f"https://traefik.{DOMAIN}", "traefik-dashboard"),
     ]:
         pk = ensure_proxy_provider(api, name, host, auth_flow, inval_flow)
-        ensure_application(api, name.replace("-", " ").title(), slug, pk)
+        app_pks.append(ensure_application(api, name.replace("-", " ").title(), slug, pk))
         assign_to_outpost(api, outpost, pk)
 
     # 6. Grafana OIDC
@@ -512,7 +564,7 @@ def main():
         f"https://grafana.{DOMAIN}/login/generic_oauth",
         auth_flow, inval_flow,
     )
-    ensure_application(api, "Grafana", "grafana", gf_pk)
+    app_pks.append(ensure_application(api, "Grafana", "grafana", gf_pk))
 
     # 7. LDAP Source (if configured)
     if LDAP_ENABLED and LDAP_HOST:
@@ -525,6 +577,11 @@ def main():
             log(f"LDAP source '{ldap_slug}' saved — authentik starts the sync itself")
     elif LDAP_ENABLED:
         log("WARNING: LDAP enabled but no host configured — skipping")
+
+    # 8. Only the admin group may use the applications (the group arrives with the LDAP sync above)
+    group_pk = ensure_admin_group(api, ADMIN_GROUP)
+    for app_pk in app_pks:
+        ensure_group_binding(api, app_pk, group_pk)
 
     log("Bootstrap complete.")
 

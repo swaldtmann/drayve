@@ -42,6 +42,7 @@ BASE_VARS = dict(
     authentik_ldap_user_mappings=["openldap-uid", "openldap-cn", "default-mail", "default-dn-path"],
     authentik_ldap_group_name_attr="cn",
     authentik_ldap_tls_ca_name="",
+    authentik_admin_group="infra-admins",
 )
 
 
@@ -102,6 +103,8 @@ def test_landing_provider_uses_landing_domain(load, monkeypatch):
     monkeypatch.setattr(b, "ensure_application", lambda *a, **k: None)
     monkeypatch.setattr(b, "assign_to_outpost", lambda *a, **k: None)
     monkeypatch.setattr(b, "ensure_oauth2_provider", lambda *a, **k: 1)
+    monkeypatch.setattr(b, "ensure_admin_group", lambda *a, **k: "grp")
+    monkeypatch.setattr(b, "ensure_group_binding", lambda *a, **k: None)
     b.main()
     assert seen["landing"] == "https://dash.example.test"
     assert seen["traefik-dashboard"] == "https://traefik.example.test"
@@ -187,6 +190,8 @@ def test_bootstrap_never_posts_to_a_sync_endpoint(load, monkeypatch, capsys):
     monkeypatch.setattr(b, "ensure_application", lambda *a, **k: None)
     monkeypatch.setattr(b, "assign_to_outpost", lambda *a, **k: None)
     monkeypatch.setattr(b, "ensure_oauth2_provider", lambda *a, **k: 1)
+    monkeypatch.setattr(b, "ensure_admin_group", lambda *a, **k: "grp")
+    monkeypatch.setattr(b, "ensure_group_binding", lambda *a, **k: None)
     monkeypatch.setattr(b, "ensure_ldap_source", lambda a, pw: "drayve-ldap")
     monkeypatch.setenv("AUTHENTIK_LDAP_BIND_PASSWORD", "pw")
     b.main()

@@ -112,6 +112,14 @@ def validate(config):
             "auth.ldap requires auth.provider=authentik"
         )
 
+    # authentik: the admin pages are bound to one group, never default-allow
+    if auth.get("provider") == "authentik":
+        admin_group = str(auth.get("admin_group") or "")
+        if not admin_group:
+            errors.append("auth.provider=authentik requires auth.admin_group")
+        elif not re.fullmatch(r"[A-Za-z0-9._-]+", admin_group):
+            errors.append("auth.admin_group may contain only letters, digits, '.', '_' and '-'")
+
     # authelia_remote: forward-auth against the Authelia of another drayve host
     if auth.get("provider") == "authelia_remote":
         remote = auth.get("remote")

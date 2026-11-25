@@ -48,6 +48,9 @@ provisioner:
         # --- Auth: Authentik ---
         auth_provider: authentik
         auth_lldap: false
+        auth:
+          provider: authentik
+          admin_group: infra-admins   # no LDAP here: the bootstrap creates it locally
         authentik_secret_key: test-authentik-secret-key-min-32-chars
         authentik_pg_pass: test-authentik-pg-password
         authentik_bootstrap_password: test-authentik-admin-pw

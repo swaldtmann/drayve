@@ -29,6 +29,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
     saved, the bootstrap logs that instead of a misleading "may already be running".
 
 ### Added
+- `auth.admin_group` (required with `auth.provider: authentik`): only members of this group (name = cn of the synced
+  LDAP group) may use Landing, Traefik dashboard, whoami and Grafana. The bootstrap binds each of these applications to
+  a group policy on it (idempotent; waits for the LDAP sync to deliver the group, creates it locally when there is no
+  LDAP source). Before, every authenticated account got through. An empty value is rejected by `validate-stack.py`,
+  the deploy preflight and the bootstrap (no default allow). Grafana: role Admin for members, no role = no access
+  (`ROLE_ATTRIBUTE_STRICT`); it was Viewer for everybody and Admin for the non-existing group `authentik Admins`.
 - LDAP source parameters as role variables / `auth.ldap.*` keys: `user_dn`, `group_dn`, `user_filter`,
   `group_filter`, `uniqueness_field`, `group_membership_field`, `user_mappings`, `group_name_attr`, `tls_ca_name`
   (and `start_tls` in the schema). Defaults fit a 389-DS: `ou=people` / `ou=groups`, user filter

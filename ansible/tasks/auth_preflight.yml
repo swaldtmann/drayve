@@ -22,6 +22,15 @@
 #   security.trusted_proxies (extra Traefik trustedIPs, e.g. the other host of an
 #   authelia_remote pair): list of valid addresses/networks, never prefix length 0
 
+- name: Drayve auth preflight — authentik needs auth.admin_group
+  ansible.builtin.assert:
+    that:
+      - (auth.admin_group | default('')) | length > 0
+      - (auth.admin_group | default('')) is match('^[A-Za-z0-9._-]+$')
+    fail_msg: "auth.provider=authentik requires auth.admin_group (LDAP group whose members may use Landing, Traefik dashboard, whoami and Grafana; letters, digits, . _ - only)"
+  when: (auth.provider | default('basic')) == 'authentik'
+  tags: [always]
+
 - name: Drayve auth preflight — authelia_remote needs auth.remote.forward_auth_url
   ansible.builtin.assert:
     that:

@@ -263,7 +263,7 @@ def test_preflight_grafana_flag_overrides_profile(ansible_available, tmp_path):
 
 @pytest.mark.parametrize("provider", ["basic", "none", "authentik"])
 def test_preflight_ignores_other_providers(ansible_available, tmp_path, provider):
-    r = _run_preflight(tmp_path, auth={"provider": provider, "oidc_clients": [FORGEJO]})
+    r = _run_preflight(tmp_path, auth={"provider": provider, "oidc_clients": [FORGEJO], "admin_group": "infra-admins"})
     assert r.returncode == 0, r.stdout + r.stderr
 
 
