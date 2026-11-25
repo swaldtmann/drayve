@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.12.2] - 2026-11-26
+
+### Fixed
+- authentik bootstrap waits up to 300 s for the OAuth2 scope mappings (blueprints create them after `/-/health/ready/`); a fast first start aborted with "scope mappings missing".
+- molecule `authentik-ldap`: LLDAP-compatible `user_filter` (`nsOrgPerson` is unknown to LLDAP and aborted the sync before groups); verifier expects group sync on. 389-DS defaults unchanged.
+
 ## [0.12.1] - 2026-11-25
 
 ### Fixed
