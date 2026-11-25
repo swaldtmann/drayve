@@ -282,3 +282,14 @@ def test_grafana_admin_role_follows_admin_group_and_is_strict():
     assert "admin_group" in line and "authentik Admins" not in line, line
     assert "'Viewer'" not in line, line
     assert "GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_STRICT=true" in text
+
+
+# --- Application lookup must see applications hidden by a group binding ------------------
+
+def test_application_lookup_asks_for_the_full_superuser_list(load):
+    # Without superuser_full_list the list only holds applications the API user may access:
+    # once bound to the admin group, akadmin no longer sees them, the POST then fails with 400.
+    b = load()
+    api = Rec({"/core/applications/?slug=": {"results": [{"pk": "a1", "slug": "landing"}]}})
+    b.ensure_application(api, "Landing", "landing", 2)
+    assert "superuser_full_list=true" in api.get_paths[0]

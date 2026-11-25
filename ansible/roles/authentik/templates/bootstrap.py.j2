@@ -302,7 +302,7 @@ def ensure_application(api, name, slug, provider_pk):
     exists (possible eventual consistency after create). We fall back to
     treating 400 "already exists" on POST as success (idempotent).
     """
-    resp = api.get(f"/core/applications/?slug={slug}&page_size=50")
+    resp = api.get(f"/core/applications/?slug={slug}&page_size=50&superuser_full_list=true")
     results = resp.get("results", [])
     exact = [r for r in results if r.get("slug") == slug]
     if exact:
@@ -321,7 +321,7 @@ def ensure_application(api, name, slug, provider_pk):
         body = e.read().decode() if e.fp else ""
         if e.code == 400 and "already exists" in body:
             log(f"Application '{slug}' already exists (confirmed by 400)")
-            resp = api.get(f"/core/applications/?slug={slug}&page_size=50")
+            resp = api.get(f"/core/applications/?slug={slug}&page_size=50&superuser_full_list=true")
             for r in resp.get("results", []):
                 if r.get("slug") == slug:
                     return r["pk"]
