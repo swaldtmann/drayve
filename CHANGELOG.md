@@ -19,6 +19,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
     `default-mail`, `default-dn-path`) instead of "everything with ldap in `managed`" (`ms-samaccountname` yields
     `username None` on 389-DS). The bootstrap creates the group mapping (`name` = `cn`) itself, because authentik
     ships none and `sync_groups` needs one.
+  - The landing proxy provider uses `services.landing.domain` (fallback: the drayve domain) as external host; an
+    existing provider with another host is corrected. Before, `dash.<domain>` got a 404 from the outpost.
+  - With `auth.provider: authentik` Grafana is no longer behind the forwardAuth middleware (no proxy provider exists
+    for its host, so it answered 404); login is OIDC only.
+  - The bootstrap sets `authentik_host` of the embedded outpost to `https://auth.<domain>`; unset, forwardAuth
+    redirected to `http://localhost/application/o/authorize/`.
+  - The dead `POST /sources/ldap/{pk}/sync/` (404 in authentik 2026.8) is gone; authentik syncs when the source is
+    saved, the bootstrap logs that instead of a misleading "may already be running".
 
 ### Added
 - LDAP source parameters as role variables / `auth.ldap.*` keys: `user_dn`, `group_dn`, `user_filter`,

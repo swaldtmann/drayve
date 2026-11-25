@@ -15,6 +15,7 @@ import urllib.request
 import urllib.error
 
 DOMAIN = "{{ drayve_domain }}"
+LANDING_DOMAIN = "{{ authentik_landing_domain }}"
 GRAFANA_SECRET = "{{ authentik_oidc_grafana_secret }}"
 
 # LDAP Source config (from stack.yaml auth.ldap)
@@ -199,6 +200,20 @@ def get_embedded_outpost(api):
     return None
 
 
+def ensure_outpost_host(api, outpost_pk):
+    """Set authentik_host of the embedded outpost to https://auth.<domain> (idempotent).
+
+    Unset, forwardAuth redirects point at http://localhost/application/o/authorize/.
+    """
+    host = f"https://auth.{DOMAIN}"
+    config = dict(api.get(f"/outposts/instances/{outpost_pk}/").get("config") or {})
+    if config.get("authentik_host") == host:
+        return
+    config["authentik_host"] = host
+    api.patch(f"/outposts/instances/{outpost_pk}/", {"config": config})
+    log(f"Embedded outpost authentik_host set to {host}")
+
+
 def ensure_proxy_provider(api, name, external_host, auth_flow, inval_flow):
     """Create proxy provider if it doesn't exist. Returns PK."""
     resp = api.get(f"/providers/proxy/?name={name}&page_size=50")
@@ -206,7 +221,11 @@ def ensure_proxy_provider(api, name, external_host, auth_flow, inval_flow):
     exact = [r for r in results if r.get("name") == name]
     if exact:
         pk = exact[0]["pk"]
-        log(f"Provider '{name}' already exists (pk={pk})")
+        if exact[0].get("external_host") != external_host:
+            api.patch(f"/providers/proxy/{pk}/", {"external_host": external_host})
+            log(f"Provider '{name}' (pk={pk}): external_host corrected")
+        else:
+            log(f"Provider '{name}' already exists (pk={pk})")
         return pk
 
     try:
@@ -447,23 +466,6 @@ def ensure_ldap_source(api, bind_password):
     return slug
 
 
-def trigger_ldap_sync(api, slug):
-    """Trigger a full LDAP sync."""
-    resp = api.get(f"/sources/ldap/?slug={slug}&page_size=50")
-    results = resp.get("results", [])
-    if not results:
-        log(f"WARNING: LDAP source '{slug}' not found for sync trigger")
-        return
-
-    pk = results[0]["pk"]
-    try:
-        api.post(f"/sources/ldap/{pk}/sync/", {})
-        log(f"Triggered LDAP sync for '{slug}'")
-    except urllib.error.HTTPError as e:
-        # Sync trigger may fail if already running — not critical
-        log(f"LDAP sync trigger returned {e.code} — may already be running")
-
-
 def main():
     # 1. Resolve container IP and wait for ready
     ip = get_container_ip("authentik-server")
@@ -487,11 +489,13 @@ def main():
     outpost = get_embedded_outpost(api)
     if not outpost:
         log("WARNING: Embedded outpost not found")
+    else:
+        ensure_outpost_host(api, outpost)
 
     # 5. Create proxy providers + applications
     for name, host, slug in [
         ("whoami", f"https://whoami.{DOMAIN}", "whoami"),
-        ("landing", f"https://{DOMAIN}", "landing"),
+        ("landing", f"https://{LANDING_DOMAIN}", "landing"),
         ("traefik-dashboard", f"https://traefik.{DOMAIN}", "traefik-dashboard"),
     ]:
         pk = ensure_proxy_provider(api, name, host, auth_flow, inval_flow)
@@ -513,7 +517,8 @@ def main():
             log("WARNING: LDAP enabled but AUTHENTIK_LDAP_BIND_PASSWORD not set — skipping")
         else:
             ldap_slug = ensure_ldap_source(api, ldap_bind_pw)
-            trigger_ldap_sync(api, ldap_slug)
+            # No trigger endpoint in authentik 2026.8: saving the source starts the sync itself.
+            log(f"LDAP source '{ldap_slug}' saved — authentik starts the sync itself")
     elif LDAP_ENABLED:
         log("WARNING: LDAP enabled but no host configured — skipping")
 

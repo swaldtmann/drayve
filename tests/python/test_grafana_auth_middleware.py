@@ -28,7 +28,7 @@ _GRAFANA_ROUTER_SNIPPET = (
     '      - "traefik.http.routers.grafana.entrypoints=websecure"\n'
     '      - "traefik.http.routers.grafana.tls=true"\n'
     '      - "traefik.http.routers.grafana.tls.certresolver=letsencrypt"\n'
-    "{% if auth_provider != 'none' %}\n"
+    "{% if auth_provider != 'none' and auth_provider != 'authentik' %}\n"
     '      - "traefik.http.routers.grafana.middlewares=auth@file"\n'
     "{% endif %}\n"
     '      - "traefik.http.services.grafana.loadbalancer.server.port=3000"\n'
@@ -41,14 +41,16 @@ def _render(auth_provider: str) -> str:
     return template.render(drayve_domain="example.com", auth_provider=auth_provider)
 
 
-@pytest.mark.parametrize("auth_provider", ["basic", "authelia", "authentik"])
+@pytest.mark.parametrize("auth_provider", ["basic", "authelia"])
 def test_grafana_gets_middleware_when_auth_enabled(auth_provider: str):
     out = _render(auth_provider)
     assert 'traefik.http.routers.grafana.middlewares=auth@file' in out
 
 
-def test_grafana_has_no_middleware_when_auth_none():
-    out = _render("none")
+@pytest.mark.parametrize("auth_provider", ["none", "authentik"])
+def test_grafana_has_no_middleware_when_auth_none(auth_provider: str):
+    # authentik: Grafana logs in via OIDC only, forwardAuth in front would 404 (no proxy provider).
+    out = _render(auth_provider)
     assert "middlewares=auth@file" not in out
     # Router + service labels still present — only the middleware line is gated.
     assert "traefik.http.routers.grafana.rule=Host(`grafana.example.com`)" in out

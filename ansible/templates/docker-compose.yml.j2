@@ -413,7 +413,8 @@ services:
       - "traefik.http.routers.grafana.entrypoints=websecure"
       - "traefik.http.routers.grafana.tls=true"
       - "traefik.http.routers.grafana.tls.certresolver={{ traefik_certresolver }}"
-{% if auth_provider != 'none' %}
+{# authentik: Grafana logs in via OIDC only; forwardAuth in front would find no proxy provider for the host #}
+{% if auth_provider != 'none' and auth_provider != 'authentik' %}
       - "traefik.http.routers.grafana.middlewares=auth@file"
 {% endif %}
       - "traefik.http.services.grafana.loadbalancer.server.port=3000"

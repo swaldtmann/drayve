@@ -52,6 +52,7 @@ def bootstrap(ansible_jinja_env, tmp_path):
         authentik_ldap_user_mappings=["default-name"],
         authentik_ldap_group_name_attr="cn",
         authentik_ldap_tls_ca_name="",
+        authentik_landing_domain="example.test",
     )
     path = tmp_path / "bootstrap_rendered.py"
     path.write_text(rendered)

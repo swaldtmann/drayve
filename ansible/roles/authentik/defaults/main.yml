@@ -1,5 +1,8 @@
 ---
 authentik_config_dir: "{{ drayve_deploy_dir }}/authentik"
+# Landing host: services.landing.domain (stack.yaml), else the drayve domain. The deploy role's
+# landing_domain fact is not set yet when this role's config phase runs, hence the explicit chain.
+authentik_landing_domain: "{{ (landing_domain | default('', true)) or ((services | default({})).landing | default({})).domain | default(drayve_domain, true) }}"
 authentik_bootstrap_dir: "{{ drayve_deploy_dir }}/authentik/bootstrap"
 
 # LDAP Source (optional, from auth.ldap in stack.yaml)

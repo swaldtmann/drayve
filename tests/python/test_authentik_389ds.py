@@ -49,6 +49,7 @@ BASE_VARS = dict(
     authentik_ldap_user_mappings=["openldap-uid", "openldap-cn", "default-mail", "default-dn-path"],
     authentik_ldap_group_name_attr="cn",
     authentik_ldap_tls_ca_name="",
+    authentik_landing_domain="example.test",
 )
 
 MAPPINGS = [
