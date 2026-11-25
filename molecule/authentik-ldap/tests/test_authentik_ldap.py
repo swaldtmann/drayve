@@ -120,8 +120,8 @@ def test_ldap_source_sync_config(host):
     assert cmd.rc == 0
     output = cmd.stdout.strip()
     assert "users=True" in output
-    # sync_groups=False when no group property mappings available (LLDAP test)
-    assert "groups=False" in output
+    # Groups are always synced (the bootstrap creates the group mapping; the admin group arrives with it)
+    assert "groups=True" in output
     assert "pw=False" in output
 
 
