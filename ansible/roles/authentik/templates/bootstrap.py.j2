@@ -222,7 +222,11 @@ def ensure_proxy_provider(api, name, external_host, auth_flow, inval_flow):
     if exact:
         pk = exact[0]["pk"]
         if exact[0].get("external_host") != external_host:
-            api.patch(f"/providers/proxy/{pk}/", {"external_host": external_host})
+            # mode is required: a partial update is validated as proxy mode otherwise (HTTP 400)
+            api.patch(f"/providers/proxy/{pk}/", {
+                "external_host": external_host,
+                "mode": exact[0].get("mode", "forward_single"),
+            })
             log(f"Provider '{name}' (pk={pk}): external_host corrected")
         else:
             log(f"Provider '{name}' already exists (pk={pk})")

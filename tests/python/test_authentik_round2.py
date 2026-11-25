@@ -126,9 +126,13 @@ def test_landing_domain_default_falls_back_to_drayve_domain(ctx, expected):
 def test_existing_proxy_provider_with_wrong_host_is_corrected(load):
     b = load()
     api = Rec({"/providers/proxy/?name=": {"results": [
-        {"pk": 2, "name": "landing", "external_host": "https://example.test"}]}})
+        {"pk": 2, "name": "landing", "external_host": "https://example.test",
+         "mode": "forward_single"}]}})
     assert b.ensure_proxy_provider(api, "landing", "https://dash.example.test", "af", "if") == 2
-    assert api.patches == [("/providers/proxy/2/", {"external_host": "https://dash.example.test"})]
+    # mode must be sent too: authentik validates a partial update as proxy mode otherwise
+    # (400 "Internal host cannot be empty when forward auth is disabled", seen live on 2026.8.6).
+    assert api.patches == [("/providers/proxy/2/", {"external_host": "https://dash.example.test",
+                                                     "mode": "forward_single"})]
 
 
 def test_existing_proxy_provider_with_right_host_is_left_alone(load):
