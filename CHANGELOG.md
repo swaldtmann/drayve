@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-11-25
+
+### Fixed
+- Molecule `basic` scenario: the Traefik logrotate assertion still expected `docker kill --signal="USR1"`, which
+  0.12.0 replaced with `docker exec <container> sh -c 'kill -USR1 1'`. Test-only; no role change.
+
 ## [0.12.0] - 2026-11-25
 
 **BREAKING:** `auth.provider: authentik` now requires `auth.admin_group`; stacks without it fail validation

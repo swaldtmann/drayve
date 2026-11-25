@@ -142,5 +142,6 @@ def test_traefik_access_log_logrotate_rule(host):
     assert f.exists
     assert f.contains("rotate 13")
     assert f.contains("maxage 14")
-    assert f.contains("docker kill --signal=\"USR1\" traefik")
+    assert f.contains("kill -USR1 1")
+    assert not f.contains("docker kill")
     assert host.run("logrotate -d /etc/logrotate.d/drayve-traefik").rc == 0
