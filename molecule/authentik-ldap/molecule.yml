@@ -59,6 +59,9 @@ provisioner:
             bind_dn: "uid=admin,ou=people,DC=drayve,DC=local"
             readonly: true
             sync_interval: 60
+            # LLDAP's schema has no nsOrgPerson (the 389-DS default names it): the sync would abort
+            # before syncing groups ("invalid class in objectClass attribute").
+            user_filter: "(objectClass=inetOrgPerson)"
         authentik_secret_key: test-authentik-secret-key-min-32-chars
         authentik_pg_pass: test-authentik-pg-password
         authentik_bootstrap_password: test-authentik-admin-pw
