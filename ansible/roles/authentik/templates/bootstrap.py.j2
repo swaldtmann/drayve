@@ -260,16 +260,23 @@ def ensure_proxy_provider(api, name, external_host, auth_flow, inval_flow):
 OAUTH2_SCOPES = ("openid", "email", "profile")
 
 
-def get_oauth2_scope_mappings(api):
+def get_oauth2_scope_mappings(api, timeout=300, interval=5):
     """PKs of the built-in OAuth2 scope mappings openid, email, profile.
 
     Without them the userinfo carries no claims at all (no groups) — Grafana cannot derive a role.
+    authentik creates them asynchronously via blueprints after /-/health/ready/, so wait for them.
     """
-    resp = api.get("/propertymappings/provider/scope/?page_size=200")
-    by_managed = {m.get("managed"): m["pk"] for m in resp.get("results", []) if m.get("managed")}
-    missing = [s for s in OAUTH2_SCOPES if f"goauthentik.io/providers/oauth2/scope-{s}" not in by_managed]
-    if missing:
-        raise RuntimeError(f"Authentik OAuth2 scope mappings missing: {', '.join(missing)}")
+    deadline = time.time() + timeout
+    while True:
+        resp = api.get("/propertymappings/provider/scope/?page_size=200")
+        by_managed = {m.get("managed"): m["pk"] for m in resp.get("results", []) if m.get("managed")}
+        missing = [s for s in OAUTH2_SCOPES if f"goauthentik.io/providers/oauth2/scope-{s}" not in by_managed]
+        if not missing:
+            break
+        if time.time() >= deadline:
+            raise RuntimeError(
+                f"Authentik OAuth2 scope mappings missing after {timeout}s: {', '.join(missing)}")
+        time.sleep(interval)
     return [by_managed[f"goauthentik.io/providers/oauth2/scope-{s}"] for s in OAUTH2_SCOPES]
 
 

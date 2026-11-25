@@ -312,11 +312,23 @@ def test_oauth2_scope_mappings_are_openid_email_profile_only(load):
     assert sorted(b.get_oauth2_scope_mappings(api)) == ["s-email", "s-openid", "s-profile"]
 
 
-def test_oauth2_scope_mappings_missing_one_fails(load):
+def test_oauth2_scope_mappings_missing_one_fails_after_timeout(load, clock):
     b = load()
+    clock(b)
     api = Rec({"/propertymappings/provider/scope/": {"results": SCOPES[:2]}})
     with pytest.raises(RuntimeError, match="profile"):
         b.get_oauth2_scope_mappings(api)
+
+
+def test_oauth2_scope_mappings_are_awaited_like_the_flows(load, clock):
+    """Blueprints create the scope mappings asynchronously after /-/health/ready/ (release gate
+    authentik-ldap: 'OAuth2 scope mappings missing: openid, email, profile' 31s after ready)."""
+    b = load()
+    c = clock(b)
+    api = Rec({"/propertymappings/provider/scope/":
+               lambda n: {"results": [] if n < 3 else SCOPES}})
+    assert sorted(b.get_oauth2_scope_mappings(api)) == ["s-email", "s-openid", "s-profile"]
+    assert len(c.sleeps) == 2
 
 
 def test_new_oauth2_provider_gets_scope_mappings(load):
