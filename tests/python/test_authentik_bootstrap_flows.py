@@ -43,6 +43,15 @@ def bootstrap(ansible_jinja_env, tmp_path):
         authentik_ldap_bind_dn="cn=bind,dc=example,dc=test",
         authentik_ldap_sync_interval=60,
         authentik_ldap_start_tls=False,
+        authentik_ldap_user_dn="ou=people",
+        authentik_ldap_group_dn="ou=groups",
+        authentik_ldap_user_filter="(|(objectClass=inetOrgPerson)(objectClass=nsOrgPerson))",
+        authentik_ldap_group_filter="(objectClass=groupOfNames)",
+        authentik_ldap_uniqueness_field="entryUUID",
+        authentik_ldap_group_membership_field="member",
+        authentik_ldap_user_mappings=["default-name"],
+        authentik_ldap_group_name_attr="cn",
+        authentik_ldap_tls_ca_name="",
     )
     path = tmp_path / "bootstrap_rendered.py"
     path.write_text(rendered)

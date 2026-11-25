@@ -249,6 +249,52 @@ properties:
             type: integer
             description: Sync interval in minutes.
             default: 60
+          start_tls:
+            type: boolean
+            description: Use StartTLS on a plain port instead of LDAPS (port 636 always means LDAPS).
+            default: false
+          user_dn:
+            type: string
+            description: User subtree relative to base_dn (empty = whole base_dn).
+            default: ou=people
+          group_dn:
+            type: string
+            description: Group subtree relative to base_dn (empty = whole base_dn).
+            default: ou=groups
+          user_filter:
+            type: string
+            description: LDAP filter for user objects. Default matches inetOrgPerson and 389-DS nsOrgPerson.
+            default: "(|(objectClass=inetOrgPerson)(objectClass=nsOrgPerson))"
+          group_filter:
+            type: string
+            description: LDAP filter for group objects.
+            default: "(objectClass=groupOfNames)"
+          uniqueness_field:
+            type: string
+            description: Attribute that identifies an object across renames.
+            default: entryUUID
+          group_membership_field:
+            type: string
+            description: Group attribute listing the members.
+            default: member
+          user_mappings:
+            type: array
+            description: >
+              Built-in Authentik user property mappings to apply, by suffix of their managed id
+              (goauthentik.io/sources/ldap/<suffix>).
+            items:
+              type: string
+            default: [openldap-uid, openldap-cn, default-mail, default-dn-path]
+          group_name_attr:
+            type: string
+            description: LDAP attribute the bootstrap-created group mapping copies into the Authentik group name.
+            default: cn
+          tls_ca_name:
+            type: string
+            description: >
+              Name of a certificate keypair in Authentik holding the CA of the LDAP server. When set, the
+              server certificate is verified; empty = not verified.
+            default: ""
 
   monitoring:
     type: object

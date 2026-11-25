@@ -89,7 +89,7 @@ prometheus_image: prom/prometheus:v3.15.1
 lldap_image: lldap/lldap:v0.6.3
 
 # === Authentik (pinned) ===
-authentik_image: ghcr.io/goauthentik/server:2026.8.5
+authentik_image: ghcr.io/goauthentik/server:2026.8.6
 # Postgres and Redis belong to Authentik: stay inside the major line (16.x, 7.x).
 # A Postgres major change needs a data migration, it is not a plain bump.
 # Both = what `postgres:16-alpine` / `redis:7-alpine` pointed to on 2026-10-12
@@ -120,7 +120,9 @@ mem_node_exporter: 32m
 mem_cadvisor: 64m
 mem_loki: 1g
 mem_alloy: 128m
-mem_authentik_server: 512m
+# authentik-server: ~700 MiB resident, plus the bootstrap's `docker exec` Django shell in the same cgroup
+# (512m = OOM-kill, seen 2026-11-25). 1536m is a ceiling, not a reservation.
+mem_authentik_server: 1536m
 mem_authentik_worker: 512m
 mem_authentik_pg: 256m
 mem_authentik_redis: 64m

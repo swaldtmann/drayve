@@ -9,6 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- Authentik against a host-native 389-DS runs through without manual steps:
+  - `mem_authentik_server` 512m -> 1536m. The server needs ~700 MiB and the bootstrap's `docker exec` Django shell
+    shares its cgroup; at 512m it was OOM-killed (`503 authentik starting`, bootstrap aborted).
+  - The Traefik routers `authentik` and `authentik-outpost` now carry an explicit `.service=` label. Without it
+    Traefik refused both ("cannot be linked automatically with multiple Services").
+  - LDAP property mappings are chosen exactly (`authentik_ldap_user_mappings`, default `openldap-uid`, `openldap-cn`,
+    `default-mail`, `default-dn-path`) instead of "everything with ldap in `managed`" (`ms-samaccountname` yields
+    `username None` on 389-DS). The bootstrap creates the group mapping (`name` = `cn`) itself, because authentik
+    ships none and `sync_groups` needs one.
+
+### Added
+- LDAP source parameters as role variables / `auth.ldap.*` keys: `user_dn`, `group_dn`, `user_filter`,
+  `group_filter`, `uniqueness_field`, `group_membership_field`, `user_mappings`, `group_name_attr`, `tls_ca_name`
+  (and `start_tls` in the schema). Defaults fit a 389-DS: `ou=people` / `ou=groups`, user filter
+  `(|(objectClass=inetOrgPerson)(objectClass=nsOrgPerson))` (389-DS native nsPerson accounts were missed before),
+  `entryUUID`, `member`. `tls_ca_name` names a certificate keypair in Authentik; set = the LDAP server certificate is
+  verified, empty (default) = not verified.
+
+### Changed
+- Authentik pin 2026.8.5 -> 2026.8.6.
+
 ## [0.11.5] - 2026-11-24
 
 ### Fixed

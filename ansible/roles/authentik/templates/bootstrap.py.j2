@@ -10,6 +10,7 @@ import os
 import subprocess
 import sys
 import time
+import urllib.parse
 import urllib.request
 import urllib.error
 
@@ -24,6 +25,18 @@ LDAP_BASE_DN = "{{ authentik_ldap_base_dn }}"
 LDAP_BIND_DN = "{{ authentik_ldap_bind_dn }}"
 LDAP_SYNC_INTERVAL = {{ authentik_ldap_sync_interval }}
 LDAP_START_TLS = {{ authentik_ldap_start_tls | bool | ternary('True', 'False') }}
+LDAP_USER_DN = {{ authentik_ldap_user_dn | tojson }}
+LDAP_GROUP_DN = {{ authentik_ldap_group_dn | tojson }}
+LDAP_USER_FILTER = {{ authentik_ldap_user_filter | tojson }}
+LDAP_GROUP_FILTER = {{ authentik_ldap_group_filter | tojson }}
+LDAP_UNIQUENESS_FIELD = {{ authentik_ldap_uniqueness_field | tojson }}
+LDAP_GROUP_MEMBERSHIP_FIELD = {{ authentik_ldap_group_membership_field | tojson }}
+# Built-in user mappings, by suffix of goauthentik.io/sources/ldap/<suffix>
+LDAP_USER_MAPPINGS = {{ authentik_ldap_user_mappings | tojson }}
+LDAP_GROUP_NAME_ATTR = {{ authentik_ldap_group_name_attr | tojson }}
+LDAP_TLS_CA_NAME = {{ authentik_ldap_tls_ca_name | tojson }}
+LDAP_MANAGED_PREFIX = "goauthentik.io/sources/ldap/"
+LDAP_GROUP_MAPPING_NAME = "drayve LDAP Mapping: group name"
 
 MAX_RETRIES = 3
 RETRY_DELAY = 2
@@ -303,7 +316,12 @@ def assign_to_outpost(api, outpost_pk, provider_pk):
 
 
 def get_ldap_property_mappings(api):
-    """Get all built-in LDAP source property mapping PKs."""
+    """Return the PKs of the configured built-in LDAP user mappings that exist.
+
+    Selection is exact (managed == goauthentik.io/sources/ldap/<suffix> for each
+    suffix in LDAP_USER_MAPPINGS) — never "everything with ldap in its name":
+    ms-samaccountname yields username None on a 389-DS.
+    """
     # Try v3 API endpoint first, fall back to legacy
     for endpoint in ["/propertymappings/source/ldap/?page_size=200",
                      "/propertymappings/ldap/?page_size=200"]:
@@ -313,53 +331,58 @@ def get_ldap_property_mappings(api):
         except urllib.error.HTTPError:
             resp = {"results": []}
 
-    results = resp.get("results", [])
-    user_mappings = []
-    group_mappings = []
-    for m in results:
-        managed = m.get("managed", "") or ""
-        name = m.get("name", "").lower()
-        # Match built-in LDAP mappings by managed field or name
-        is_builtin = ("goauthentik.io/sources/ldap" in managed
-                      or "ldap" in managed.lower())
-        if is_builtin:
-            if "group" in managed.lower() or "group" in name:
-                group_mappings.append(m["pk"])
-            else:
-                user_mappings.append(m["pk"])
-
-    if not user_mappings and results:
-        # Fallback: use ALL available LDAP source mappings
-        log("No built-in mappings matched — using all available LDAP mappings")
-        for m in results:
-            name = m.get("name", "").lower()
-            if "group" in name:
-                group_mappings.append(m["pk"])
-            else:
-                user_mappings.append(m["pk"])
-
-    return user_mappings, group_mappings
+    by_managed = {m.get("managed"): m["pk"] for m in resp.get("results", []) if m.get("managed")}
+    return [by_managed[LDAP_MANAGED_PREFIX + s] for s in LDAP_USER_MAPPINGS
+            if LDAP_MANAGED_PREFIX + s in by_managed]
 
 
 def wait_for_ldap_property_mappings(api, timeout=300, interval=5):
-    """Wait until built-in LDAP user mappings exist; return (user_pks, group_pks).
+    """Wait until all configured built-in LDAP user mappings exist; return their PKs.
 
     authentik creates them asynchronously via blueprints after /-/health/ready/;
     POST /sources/ldap/ with sync_users and an empty list fails with HTTP 400.
-    Only the user list is mandatory; group_pks may be empty (authentik 2026.8.5
-    ships no mapping that get_ldap_property_mappings classifies as group).
     """
     deadline = time.time() + timeout
     while True:
-        user_mappings, group_mappings = get_ldap_property_mappings(api)
-        if user_mappings:
-            return user_mappings, group_mappings
+        user_mappings = get_ldap_property_mappings(api)
+        if len(user_mappings) == len(LDAP_USER_MAPPINGS):
+            return user_mappings
         if time.time() >= deadline:
             break
         time.sleep(interval)
     raise RuntimeError(
-        f"Authentik LDAP property mappings missing after {timeout}s: user"
+        f"Authentik LDAP property mappings missing after {timeout}s: user "
+        f"(found {len(user_mappings)} of {len(LDAP_USER_MAPPINGS)} configured)"
     )
+
+
+def ensure_group_name_mapping(api):
+    """Create (or find) the group mapping that sets the group name; return its PK.
+
+    authentik 2026.8 ships no group mapping, and sync_groups needs one that sets ``name``.
+    """
+    name = LDAP_GROUP_MAPPING_NAME
+    resp = api.get(f"/propertymappings/source/ldap/?name={urllib.parse.quote(name)}&page_size=50")
+    for r in resp.get("results", []):
+        if r.get("name") == name:
+            return r["pk"]
+    resp = api.post("/propertymappings/source/ldap/", {
+        "name": name,
+        "expression": 'return {"name": ldap.get(' + json.dumps(LDAP_GROUP_NAME_ATTR) + ')}',
+    })
+    log(f"Created LDAP group mapping '{name}' (pk={resp['pk']})")
+    return resp["pk"]
+
+
+def get_peer_certificate(api):
+    """PK of the CA keypair used to verify the LDAP server, or None (no verification)."""
+    if not LDAP_TLS_CA_NAME:
+        return None
+    resp = api.get(f"/crypto/certificatekeypairs/?name={urllib.parse.quote(LDAP_TLS_CA_NAME)}&page_size=50")
+    for r in resp.get("results", []):
+        if r.get("name") == LDAP_TLS_CA_NAME:
+            return r["pk"]
+    raise RuntimeError(f"LDAP TLS CA keypair '{LDAP_TLS_CA_NAME}' not found in Authentik")
 
 
 def ensure_ldap_source(api, bind_password):
@@ -377,9 +400,9 @@ def ensure_ldap_source(api, bind_password):
     server_uri = f"{protocol}://{LDAP_HOST}:{LDAP_PORT}"
 
     # Get property mappings
-    user_mappings, group_mappings = wait_for_ldap_property_mappings(api)
-    if not group_mappings:
-        log("WARNING: No built-in LDAP group property mappings found")
+    user_mappings = wait_for_ldap_property_mappings(api)
+    group_mappings = [ensure_group_name_mapping(api)]
+    peer_certificate = get_peer_certificate(api)
 
     source_data = {
         "name": name,
@@ -392,16 +415,17 @@ def ensure_ldap_source(api, bind_password):
         "sync_users": True,
         "sync_users_password": False,  # No writeback to read-only DS389
         "password_login_update_internal_password": True,  # Import on first login
-        "sync_groups": bool(group_mappings),  # Only sync groups if mappings available
+        "sync_groups": True,
         "user_property_mappings": user_mappings,
         "group_property_mappings": group_mappings,
         "start_tls": LDAP_START_TLS,
-        "additional_user_dn": "",
-        "additional_group_dn": "",
-        "user_object_filter": "(objectClass=inetOrgPerson)",
-        "group_object_filter": "(objectClass=groupOfNames)",
-        "object_uniqueness_field": "entryUUID",
-        "group_membership_field": "member",
+        "additional_user_dn": LDAP_USER_DN,
+        "additional_group_dn": LDAP_GROUP_DN,
+        "user_object_filter": LDAP_USER_FILTER,
+        "group_object_filter": LDAP_GROUP_FILTER,
+        "object_uniqueness_field": LDAP_UNIQUENESS_FIELD,
+        "group_membership_field": LDAP_GROUP_MEMBERSHIP_FIELD,
+        "peer_certificate": peer_certificate,  # None = server certificate not verified
     }
 
     if existing:

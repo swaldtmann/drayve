@@ -40,6 +40,7 @@ Everything else has sensible defaults. This gives you: basic auth, full monitori
 | `provider` | string | `basic` | `none` — no auth. `basic` — HTTP basic auth. `authelia` — full SSO with web portal. `authelia_remote` — no Authelia on this host, use the one of another drayve host (see below). `authentik` — enterprise SSO (planned) |
 | `lldap` | bool | `false` | Deploy LLDAP as user backend (authelia only) |
 | `lldap_base_dn` | string | `DC=drayve,DC=local` | LDAP base DN (authelia + lldap only) |
+| `ldap` | object | — | Authentik only: LDAP source. Keys: `host`, `port` (636 = LDAPS), `base_dn`, `bind_dn`, `start_tls`, `readonly`, `sync_interval`; layout (defaults for 389-DS): `user_dn` (`ou=people`), `group_dn` (`ou=groups`), `user_filter`, `group_filter`, `uniqueness_field` (`entryUUID`), `group_membership_field` (`member`), `user_mappings`, `group_name_attr` (`cn`), `tls_ca_name` (name of a CA keypair in Authentik; empty = server certificate not verified). The bind password comes from `ldap_bind_password` in `secrets.yml` |
 | `access_control.default_policy` | string | `one_factor` | Authelia policy for requests no rule matches: exactly `deny`, `one_factor`, `two_factor`, `bypass` (authelia only). **Required as soon as `rules` are set** (recommended: `deny`) |
 | `access_control.rules` | list | — | Authelia access rules, see below (authelia only) |
 | `users` | list | — | File-backend users: `name`, `email` (required), `displayname`, `groups`. Authelia with `lldap: false` only; hashes go in `secrets.yml` |
@@ -386,7 +387,7 @@ Every container image drayve deploys is pinned to exact versions, not to floatin
 | Landing page (nginx) | `nginx:1.31.6-alpine` | `landing_image` in `ansible/inventory/group_vars/all/vars.yml`; fallback in `ansible/templates/docker-compose.yml.j2` | `basic` |
 | Authelia | `authelia/authelia:4.39.28` | `authelia_image` in `ansible/roles/auth/defaults/main.yml` and `ansible/roles/authelia/defaults/main.yml`; fallback in `ansible/templates/docker-compose.yml.j2` | `authelia` |
 | lldap | `lldap/lldap:v0.6.3` | `lldap_image` in `ansible/inventory/group_vars/all/vars.yml`; fallback in `ansible/templates/docker-compose.yml.j2`; `molecule/authentik-ldap/molecule.yml` | `authentik-ldap` |
-| Authentik | `ghcr.io/goauthentik/server:2026.8.5` | `authentik_image` in `ansible/inventory/group_vars/all/vars.yml`; fallback in `ansible/templates/docker-compose.yml.j2`; `molecule/authentik*/molecule.yml` | `authentik` |
+| Authentik | `ghcr.io/goauthentik/server:2026.8.6` | `authentik_image` in `ansible/inventory/group_vars/all/vars.yml`; fallback in `ansible/templates/docker-compose.yml.j2`; `molecule/authentik*/molecule.yml` | `authentik` |
 | Authentik Postgres | `postgres:16.15-alpine` | `authentik_pg_image` in `ansible/inventory/group_vars/all/vars.yml`; fallback in `ansible/templates/docker-compose.yml.j2`; `molecule/authentik*/molecule.yml` | `authentik` |
 | Authentik Redis | `redis:7.4.11-alpine` | `authentik_redis_image` in `ansible/inventory/group_vars/all/vars.yml`; fallback in `ansible/templates/docker-compose.yml.j2`; `molecule/authentik*/molecule.yml` | `authentik` |
 | Grafana | `grafana/grafana:12.4.12` | `grafana_image` in `ansible/inventory/group_vars/all/vars.yml` and every `molecule/*/molecule.yml` | `authelia` (login) |
