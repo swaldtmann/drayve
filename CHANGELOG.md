@@ -35,6 +35,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   LDAP source). Before, every authenticated account got through. An empty value is rejected by `validate-stack.py`,
   the deploy preflight and the bootstrap (no default allow). Grafana: role Admin for members, no role = no access
   (`ROLE_ATTRIBUTE_STRICT`); it was Viewer for everybody and Admin for the non-existing group `authentik Admins`.
+- The Grafana OAuth2 provider gets the built-in scope mappings openid, email, profile (an existing provider is
+  corrected). Without them the userinfo carried no `groups` claim, so no role could be derived from group membership.
+- Application lookups in the bootstrap use `superuser_full_list=true`: once an application is bound to a group, the
+  plain list hides it from the API user and the POST failed with 400.
 - LDAP source parameters as role variables / `auth.ldap.*` keys: `user_dn`, `group_dn`, `user_filter`,
   `group_filter`, `uniqueness_field`, `group_membership_field`, `user_mappings`, `group_name_attr`, `tls_ca_name`
   (and `start_tls` in the schema). Defaults fit a 389-DS: `ou=people` / `ou=groups`, user filter

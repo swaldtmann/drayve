@@ -257,14 +257,34 @@ def ensure_proxy_provider(api, name, external_host, auth_flow, inval_flow):
         raise
 
 
+OAUTH2_SCOPES = ("openid", "email", "profile")
+
+
+def get_oauth2_scope_mappings(api):
+    """PKs of the built-in OAuth2 scope mappings openid, email, profile.
+
+    Without them the userinfo carries no claims at all (no groups) — Grafana cannot derive a role.
+    """
+    resp = api.get("/propertymappings/provider/scope/?page_size=200")
+    by_managed = {m.get("managed"): m["pk"] for m in resp.get("results", []) if m.get("managed")}
+    missing = [s for s in OAUTH2_SCOPES if f"goauthentik.io/providers/oauth2/scope-{s}" not in by_managed]
+    if missing:
+        raise RuntimeError(f"Authentik OAuth2 scope mappings missing: {', '.join(missing)}")
+    return [by_managed[f"goauthentik.io/providers/oauth2/scope-{s}"] for s in OAUTH2_SCOPES]
+
+
 def ensure_oauth2_provider(api, name, client_id, client_secret, redirect_url,
-                           auth_flow, inval_flow):
+                           auth_flow, inval_flow, scope_mappings=None):
     """Create OAuth2 provider if it doesn't exist. Returns PK."""
+    scope_mappings = list(scope_mappings or [])
     resp = api.get(f"/providers/oauth2/?name={name}&page_size=50")
     results = resp.get("results", [])
     exact = [r for r in results if r.get("name") == name]
     if exact:
         pk = exact[0]["pk"]
+        if scope_mappings and set(exact[0].get("property_mappings") or []) != set(scope_mappings):
+            api.patch(f"/providers/oauth2/{pk}/", {"property_mappings": scope_mappings})
+            log(f"OAuth2 provider '{name}' (pk={pk}): scope mappings set")
         log(f"OAuth2 provider '{name}' already exists (pk={pk})")
         return pk
 
@@ -278,7 +298,7 @@ def ensure_oauth2_provider(api, name, client_id, client_secret, redirect_url,
             "client_secret": client_secret,
             "redirect_uris": [{"matching_mode": "strict", "url": redirect_url}],
             "grant_types": ["authorization_code", "refresh_token"],
-            "property_mappings": [],
+            "property_mappings": scope_mappings,
             "signing_key": None,
         })
         pk = resp["pk"]
@@ -562,7 +582,7 @@ def main():
     gf_pk = ensure_oauth2_provider(
         api, "grafana", "grafana", GRAFANA_SECRET,
         f"https://grafana.{DOMAIN}/login/generic_oauth",
-        auth_flow, inval_flow,
+        auth_flow, inval_flow, scope_mappings=get_oauth2_scope_mappings(api),
     )
     app_pks.append(ensure_application(api, "Grafana", "grafana", gf_pk))
 

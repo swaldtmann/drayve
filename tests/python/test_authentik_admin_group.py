@@ -181,6 +181,7 @@ def _wire_main(b, monkeypatch, api):
     monkeypatch.setattr(b, "ensure_proxy_provider", lambda *a, **k: 1)
     monkeypatch.setattr(b, "assign_to_outpost", lambda *a, **k: None)
     monkeypatch.setattr(b, "ensure_oauth2_provider", lambda *a, **k: 1)
+    monkeypatch.setattr(b, "get_oauth2_scope_mappings", lambda a: ["s"])
     monkeypatch.setattr(b, "ensure_ldap_source", lambda a, pw: "drayve-ldap")
     monkeypatch.setenv("AUTHENTIK_LDAP_BIND_PASSWORD", "pw")
 
@@ -293,3 +294,53 @@ def test_application_lookup_asks_for_the_full_superuser_list(load):
     api = Rec({"/core/applications/?slug=": {"results": [{"pk": "a1", "slug": "landing"}]}})
     b.ensure_application(api, "Landing", "landing", 2)
     assert "superuser_full_list=true" in api.get_paths[0]
+
+
+# --- Grafana needs the groups claim: OAuth2 scope mappings -------------------------------
+
+SCOPES = [
+    {"pk": "s-openid", "managed": "goauthentik.io/providers/oauth2/scope-openid"},
+    {"pk": "s-email", "managed": "goauthentik.io/providers/oauth2/scope-email"},
+    {"pk": "s-profile", "managed": "goauthentik.io/providers/oauth2/scope-profile"},
+    {"pk": "s-api", "managed": "goauthentik.io/providers/oauth2/scope-authentik_api"},
+]
+
+
+def test_oauth2_scope_mappings_are_openid_email_profile_only(load):
+    b = load()
+    api = Rec({"/propertymappings/provider/scope/": {"results": SCOPES}})
+    assert sorted(b.get_oauth2_scope_mappings(api)) == ["s-email", "s-openid", "s-profile"]
+
+
+def test_oauth2_scope_mappings_missing_one_fails(load):
+    b = load()
+    api = Rec({"/propertymappings/provider/scope/": {"results": SCOPES[:2]}})
+    with pytest.raises(RuntimeError, match="profile"):
+        b.get_oauth2_scope_mappings(api)
+
+
+def test_new_oauth2_provider_gets_scope_mappings(load):
+    # Without them the userinfo has no groups claim: Grafana (role_attribute_strict) rejects every login.
+    b = load()
+    api = Rec()
+    b.ensure_oauth2_provider(api, "grafana", "grafana", "sec", "https://g/cb", "af", "if",
+                             scope_mappings=["s-openid", "s-profile"])
+    (path, data), = api.posts
+    assert path == "/providers/oauth2/" and data["property_mappings"] == ["s-openid", "s-profile"]
+
+
+def test_existing_oauth2_provider_without_scope_mappings_is_patched(load):
+    b = load()
+    api = Rec({"/providers/oauth2/?name=": {"results": [{"pk": 4, "name": "grafana", "property_mappings": []}]}})
+    assert b.ensure_oauth2_provider(api, "grafana", "grafana", "sec", "https://g/cb", "af", "if",
+                                    scope_mappings=["s-openid", "s-profile"]) == 4
+    assert api.patches == [("/providers/oauth2/4/", {"property_mappings": ["s-openid", "s-profile"]})]
+
+
+def test_existing_oauth2_provider_with_scope_mappings_is_left_alone(load):
+    b = load()
+    api = Rec({"/providers/oauth2/?name=": {"results": [
+        {"pk": 4, "name": "grafana", "property_mappings": ["s-profile", "s-openid"]}]}})
+    b.ensure_oauth2_provider(api, "grafana", "grafana", "sec", "https://g/cb", "af", "if",
+                             scope_mappings=["s-openid", "s-profile"])
+    assert api.patches == []
